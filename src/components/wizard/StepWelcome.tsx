@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { WizardData, StarterButton } from "./types";
 import { Plus, X, MessageSquare, Hand } from "lucide-react";
+import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
   data: WizardData;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function StepWelcome({ data, onChange }: Props) {
+  const { t } = useI18n();
   const [newButtonText, setNewButtonText] = useState("");
 
   const addButton = () => {
@@ -29,23 +31,23 @@ export function StepWelcome({ data, onChange }: Props) {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="text-center space-y-1">
-        <h2 className="text-xl font-bold text-foreground">Welcome Experience</h2>
-        <p className="text-sm text-muted-foreground">Configure the first impression when users start your bot.</p>
+        <h2 className="text-xl font-bold text-foreground">{t("wizard.welcome_title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("wizard.welcome_desc")}</p>
       </div>
 
       <div className="space-y-2">
-        <Label className="flex items-center gap-1.5 text-sm"><Hand className="h-3.5 w-3.5" /> Welcome Message *</Label>
+        <Label className="flex items-center gap-1.5 text-sm"><Hand className="h-3.5 w-3.5" /> {t("wizard.welcome_msg")} *</Label>
         <Textarea
           value={data.welcome_message}
           onChange={(e) => onChange({ welcome_message: e.target.value })}
-          placeholder="Write the first message the bot sends after /start."
+          placeholder={t("wizard.welcome_msg_placeholder")}
           rows={4}
           className="bg-background/50 resize-none"
         />
       </div>
 
       <div className="space-y-3">
-        <Label className="text-sm">Starter Buttons</Label>
+        <Label className="text-sm">{t("wizard.starter_buttons")}</Label>
         <div className="flex flex-wrap gap-2">
           {data.starter_buttons.map((btn, i) => (
             <div key={i} className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm">
@@ -60,22 +62,22 @@ export function StepWelcome({ data, onChange }: Props) {
           <Input
             value={newButtonText}
             onChange={(e) => setNewButtonText(e.target.value)}
-            placeholder="e.g., Place an order"
+            placeholder={t("wizard.starter_placeholder")}
             className="bg-background/50"
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addButton())}
           />
           <Button variant="outline" size="sm" onClick={addButton} className="shrink-0 gap-1">
-            <Plus className="h-3.5 w-3.5" /> Add
+            <Plus className="h-3.5 w-3.5" /> {t("wizard.add")}
           </Button>
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label className="flex items-center gap-1.5 text-sm"><MessageSquare className="h-3.5 w-3.5" /> Fallback Message</Label>
+        <Label className="flex items-center gap-1.5 text-sm"><MessageSquare className="h-3.5 w-3.5" /> {t("wizard.fallback_msg")}</Label>
         <Textarea
           value={data.fallback_message}
           onChange={(e) => onChange({ fallback_message: e.target.value })}
-          placeholder="What should the bot say when it cannot help?"
+          placeholder={t("wizard.fallback_placeholder")}
           rows={3}
           className="bg-background/50 resize-none"
         />

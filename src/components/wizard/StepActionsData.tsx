@@ -7,21 +7,52 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { WizardData, BOT_TYPES, BOT_ACTIONS, DataField } from "./types";
 import { Plus, X, GripVertical, Zap, Database } from "lucide-react";
+import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
   data: WizardData;
   onChange: (patch: Partial<WizardData>) => void;
 }
 
-const FIELD_TYPES = [
-  { value: "text", label: "Text" },
-  { value: "phone", label: "Phone" },
-  { value: "date", label: "Date" },
-  { value: "number", label: "Number" },
-  { value: "select", label: "Select" },
+const FIELD_TYPE_KEYS = [
+  { value: "text", key: "field.text" },
+  { value: "phone", key: "field.phone" },
+  { value: "date", key: "field.date" },
+  { value: "number", key: "field.number" },
+  { value: "select", key: "field.select" },
 ] as const;
 
+const BOT_TYPE_KEYS: Record<string, { label: string; desc: string }> = {
+  sales: { label: "bottype.sales", desc: "bottype.sales_desc" },
+  booking: { label: "bottype.booking", desc: "bottype.booking_desc" },
+  support: { label: "bottype.support", desc: "bottype.support_desc" },
+  lead: { label: "bottype.lead", desc: "bottype.lead_desc" },
+  faq: { label: "bottype.faq", desc: "bottype.faq_desc" },
+  order: { label: "bottype.order", desc: "bottype.order_desc" },
+  custom: { label: "bottype.custom", desc: "bottype.custom_desc" },
+};
+
+const ACTION_KEYS: Record<string, string> = {
+  "Answer questions": "action.answer_questions",
+  "Recommend products": "action.recommend_products",
+  "Collect customer details": "action.collect_details",
+  "Create booking": "action.create_booking",
+  "Reschedule booking": "action.reschedule",
+  "Cancel booking": "action.cancel_booking",
+  "Collect lead information": "action.collect_lead",
+  "Create support ticket": "action.create_ticket",
+  "Escalate to human": "action.escalate",
+  "Offer alternatives": "action.offer_alternatives",
+  "Ask clarifying questions": "action.clarifying_questions",
+  "Send confirmation message": "action.send_confirmation",
+  "Notify manager": "action.notify_manager",
+  "Save order": "action.save_order",
+  "Save lead": "action.save_lead",
+  "Send webhook": "action.send_webhook",
+};
+
 export function StepActionsData({ data, onChange }: Props) {
+  const { t } = useI18n();
   const [newFieldName, setNewFieldName] = useState("");
 
   const toggleAction = (action: string) => {
@@ -58,36 +89,39 @@ export function StepActionsData({ data, onChange }: Props) {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="text-center space-y-1">
-        <h2 className="text-xl font-bold text-foreground">What Your Bot Can Do</h2>
-        <p className="text-sm text-muted-foreground">Choose the bot type, actions, and data it should collect.</p>
+        <h2 className="text-xl font-bold text-foreground">{t("wizard.actions_title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("wizard.actions_desc")}</p>
       </div>
 
       {/* Bot Type */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium">Bot Type</Label>
+        <Label className="text-sm font-medium">{t("wizard.bot_type")}</Label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {BOT_TYPES.map((bt) => (
-            <button
-              key={bt.id}
-              onClick={() => onChange({ bot_type: bt.id })}
-              className={`flex flex-col items-center gap-1 rounded-xl border-2 p-3 text-center transition-all hover:border-primary/50 ${
-                data.bot_type === bt.id
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border bg-card/50"
-              }`}
-            >
-              <span className="text-2xl">{bt.icon}</span>
-              <span className="text-xs font-semibold text-foreground">{bt.label}</span>
-              <span className="text-[10px] text-muted-foreground leading-tight">{bt.desc}</span>
-            </button>
-          ))}
+          {BOT_TYPES.map((bt) => {
+            const keys = BOT_TYPE_KEYS[bt.id];
+            return (
+              <button
+                key={bt.id}
+                onClick={() => onChange({ bot_type: bt.id })}
+                className={`flex flex-col items-center gap-1 rounded-xl border-2 p-3 text-center transition-all hover:border-primary/50 ${
+                  data.bot_type === bt.id
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border bg-card/50"
+                }`}
+              >
+                <span className="text-2xl">{bt.icon}</span>
+                <span className="text-xs font-semibold text-foreground">{keys ? t(keys.label as any) : bt.label}</span>
+                <span className="text-[10px] text-muted-foreground leading-tight">{keys ? t(keys.desc as any) : bt.desc}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Bot Actions */}
       <div className="space-y-3">
         <Label className="flex items-center gap-1.5 text-sm font-medium">
-          <Zap className="h-3.5 w-3.5" /> Bot Actions
+          <Zap className="h-3.5 w-3.5" /> {t("wizard.bot_actions")}
         </Label>
         <div className="flex flex-wrap gap-2">
           {BOT_ACTIONS.map((action) => (
@@ -100,7 +134,7 @@ export function StepActionsData({ data, onChange }: Props) {
                   : "border-border bg-card/50 text-muted-foreground hover:border-primary/30"
               }`}
             >
-              {action}
+              {ACTION_KEYS[action] ? t(ACTION_KEYS[action] as any) : action}
             </button>
           ))}
         </div>
@@ -109,9 +143,9 @@ export function StepActionsData({ data, onChange }: Props) {
       {/* Data Collection Fields */}
       <div className="space-y-3">
         <Label className="flex items-center gap-1.5 text-sm font-medium">
-          <Database className="h-3.5 w-3.5" /> Data Collection Fields
+          <Database className="h-3.5 w-3.5" /> {t("wizard.data_fields")}
         </Label>
-        <p className="text-xs text-muted-foreground">Define what information the bot should collect from users.</p>
+        <p className="text-xs text-muted-foreground">{t("wizard.data_fields_desc")}</p>
 
         {data.data_fields.length > 0 && (
           <div className="space-y-2">
@@ -123,15 +157,15 @@ export function StepActionsData({ data, onChange }: Props) {
                     value={field.label}
                     onChange={(e) => updateField(field.id, { label: e.target.value, field_name: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
                     className="h-8 text-xs bg-background/50"
-                    placeholder="Field name"
+                    placeholder={t("field.name_placeholder")}
                   />
                   <Select value={field.type} onValueChange={(v) => updateField(field.id, { type: v as DataField["type"] })}>
                     <SelectTrigger className="h-8 text-xs bg-background/50">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {FIELD_TYPES.map((ft) => (
-                        <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
+                      {FIELD_TYPE_KEYS.map((ft) => (
+                        <SelectItem key={ft.value} value={ft.value}>{t(ft.key as any)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -140,7 +174,7 @@ export function StepActionsData({ data, onChange }: Props) {
                       checked={field.required}
                       onCheckedChange={(v) => updateField(field.id, { required: !!v })}
                     />
-                    <span className="text-xs text-muted-foreground">Required</span>
+                    <span className="text-xs text-muted-foreground">{t("wizard.required")}</span>
                   </div>
                 </div>
                 <button onClick={() => removeField(field.id)} className="text-muted-foreground hover:text-destructive">
@@ -155,12 +189,12 @@ export function StepActionsData({ data, onChange }: Props) {
           <Input
             value={newFieldName}
             onChange={(e) => setNewFieldName(e.target.value)}
-            placeholder="e.g., Phone Number, Delivery Address"
+            placeholder={t("wizard.field_placeholder")}
             className="bg-background/50"
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addField())}
           />
           <Button variant="outline" size="sm" onClick={addField} className="shrink-0 gap-1">
-            <Plus className="h-3.5 w-3.5" /> Add
+            <Plus className="h-3.5 w-3.5" /> {t("wizard.add")}
           </Button>
         </div>
       </div>
