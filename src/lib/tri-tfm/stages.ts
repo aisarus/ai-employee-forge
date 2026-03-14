@@ -65,6 +65,7 @@ The output MUST be a direct instruction that will be placed into the "system" ro
 - Add constraints: what the bot should NOT do, how to handle edge cases
 - Specify response format and style guidelines
 - Be complete and self-contained — no placeholders, no TODOs, no meta-commentary
+- ALWAYS include a rule that the bot must respond in the same language as the user's original business description (detect the language of the input and specify it explicitly, e.g. "Always respond in Russian" or "Always respond in English")
 
 CRITICAL: Do NOT output instructions about how to write a prompt. Output the actual chatbot system prompt itself.
 
