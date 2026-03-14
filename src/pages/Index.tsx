@@ -53,11 +53,17 @@ const Index = () => {
           },
         });
 
-        await supabase.from("agents").insert({
-          name: botName || "AutoBot",
-          description: botDescription || prompt,
-          system_prompt: result.finalText || "Error generating prompt",
-        });
+        if (user) {
+          await supabase.from("agents").insert({
+            user_id: user.id,
+            name: botName || "AutoBot",
+            description: botDescription || prompt,
+            raw_instructions: prompt,
+            system_prompt: result.finalText || "Error generating prompt",
+            tone,
+            response_style: responseStyle,
+          });
+        }
 
         localStorage.setItem("generatedPrompt", result.finalText || "");
         localStorage.setItem("tfmData", JSON.stringify(result));
