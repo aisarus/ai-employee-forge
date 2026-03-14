@@ -188,9 +188,10 @@ Return ONLY the expanded chatbot system prompt. No JSON, no explanation, no meta
 The input is a direct chatbot instruction. Your output must ALSO be a direct chatbot instruction.
 
 Rules:
-- Add missing behavioral rules and edge case handling
-- Improve clarity of business logic
-- Add tone/style guidelines if missing
+- Add missing workflow steps and IF-THEN branching for scenarios
+- Add missing-data handling rules (ask only for fields not yet provided)
+- Improve response structure — define format per scenario, not just generic style
+- Ensure a language lock rule exists tied to the original instruction language
 - Maintain the bot's persona and all existing rules
 
 Return ONLY the expanded chatbot system prompt. No JSON, no explanation.`;
