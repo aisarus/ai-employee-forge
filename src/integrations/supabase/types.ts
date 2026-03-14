@@ -16,8 +16,13 @@ export type Database = {
     Tables: {
       agents: {
         Row: {
+          about_text: string | null
+          bot_avatar_url: string | null
+          bot_username_hint: string | null
           created_at: string
+          default_language: string | null
           description: string
+          fallback_message: string | null
           id: string
           is_active: boolean | null
           messages_count: number | null
@@ -27,16 +32,26 @@ export type Database = {
           response_style: string | null
           structured_prompt: Json | null
           system_prompt: string
+          telegram_about_text: string | null
+          telegram_commands: Json | null
+          telegram_display_name: string | null
+          telegram_short_description: string | null
           telegram_token: string | null
           tone: string | null
           updated_at: string
           user_id: string
+          welcome_message: string | null
           whatsapp_phone_id: string | null
           whatsapp_token: string | null
         }
         Insert: {
+          about_text?: string | null
+          bot_avatar_url?: string | null
+          bot_username_hint?: string | null
           created_at?: string
+          default_language?: string | null
           description?: string
+          fallback_message?: string | null
           id?: string
           is_active?: boolean | null
           messages_count?: number | null
@@ -46,16 +61,26 @@ export type Database = {
           response_style?: string | null
           structured_prompt?: Json | null
           system_prompt?: string
+          telegram_about_text?: string | null
+          telegram_commands?: Json | null
+          telegram_display_name?: string | null
+          telegram_short_description?: string | null
           telegram_token?: string | null
           tone?: string | null
           updated_at?: string
           user_id: string
+          welcome_message?: string | null
           whatsapp_phone_id?: string | null
           whatsapp_token?: string | null
         }
         Update: {
+          about_text?: string | null
+          bot_avatar_url?: string | null
+          bot_username_hint?: string | null
           created_at?: string
+          default_language?: string | null
           description?: string
+          fallback_message?: string | null
           id?: string
           is_active?: boolean | null
           messages_count?: number | null
@@ -65,10 +90,15 @@ export type Database = {
           response_style?: string | null
           structured_prompt?: Json | null
           system_prompt?: string
+          telegram_about_text?: string | null
+          telegram_commands?: Json | null
+          telegram_display_name?: string | null
+          telegram_short_description?: string | null
           telegram_token?: string | null
           tone?: string | null
           updated_at?: string
           user_id?: string
+          welcome_message?: string | null
           whatsapp_phone_id?: string | null
           whatsapp_token?: string | null
         }
