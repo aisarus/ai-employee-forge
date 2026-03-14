@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeployModal } from "./DeployModal";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Workspace() {
   const [copied, setCopied] = useState(false);
