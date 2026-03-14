@@ -227,7 +227,16 @@ export function Workspace() {
         </Button>
       </div>
 
-      <DeployModal open={deployOpen} onOpenChange={setDeployOpen} agentId={agentId} />
+      <DeployWizard
+        open={deployOpen}
+        onOpenChange={setDeployOpen}
+        agentId={agentId}
+        systemPrompt={systemPrompt}
+        initialData={{
+          bot_name: localStorage.getItem("botName") || "",
+          short_description: localStorage.getItem("botDescription") || "",
+        }}
+      />
     </div>
   );
 }

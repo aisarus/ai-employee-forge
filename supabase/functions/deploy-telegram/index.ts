@@ -8,6 +8,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function callTelegram(method: string, body: Record<string, any>, lovableKey: string, telegramKey: string) {
+  const res = await fetch(`${GATEWAY_URL}/${method}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${lovableKey}`,
+      "X-Connection-Api-Key": telegramKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    console.error(`Telegram ${method} failed:`, data);
+  }
+  return { ok: res.ok, data };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,7 +41,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { agentId, telegramToken } = await req.json();
+    const { agentId, telegramToken, displayName, shortDescription, aboutText, commands } = await req.json();
 
     if (!agentId) {
       return new Response(JSON.stringify({ error: "agentId is required" }), {
@@ -47,26 +64,38 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Test the bot token by calling getMe
-    const meResponse = await fetch(`${GATEWAY_URL}/getMe`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": TELEGRAM_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({}),
-    });
-
-    const meData = await meResponse.json();
-    if (!meResponse.ok) {
-      return new Response(JSON.stringify({ error: `Telegram API error: ${JSON.stringify(meData)}` }), {
+    // 1. Validate token via getMe
+    const meResult = await callTelegram("getMe", {}, LOVABLE_API_KEY, TELEGRAM_API_KEY);
+    if (!meResult.ok) {
+      return new Response(JSON.stringify({ error: `Telegram API error: ${JSON.stringify(meResult.data)}` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Update agent with telegram info and activate
+    const botInfo = meResult.data.result;
+
+    // 2. Set bot name if provided
+    if (displayName) {
+      await callTelegram("setMyName", { name: displayName }, LOVABLE_API_KEY, TELEGRAM_API_KEY);
+    }
+
+    // 3. Set bot short description
+    if (shortDescription) {
+      await callTelegram("setMyShortDescription", { short_description: shortDescription }, LOVABLE_API_KEY, TELEGRAM_API_KEY);
+    }
+
+    // 4. Set bot description (about text)
+    if (aboutText) {
+      await callTelegram("setMyDescription", { description: aboutText }, LOVABLE_API_KEY, TELEGRAM_API_KEY);
+    }
+
+    // 5. Set bot commands
+    if (commands && Array.isArray(commands) && commands.length > 0) {
+      await callTelegram("setMyCommands", { commands }, LOVABLE_API_KEY, TELEGRAM_API_KEY);
+    }
+
+    // 6. Update agent with telegram info and activate
     const { error: updateError } = await supabase
       .from("agents")
       .update({
@@ -85,8 +114,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      botInfo: meData.result,
-      message: `Bot @${meData.result.username} is now connected!`,
+      botInfo,
+      message: `Bot @${botInfo.username} is now connected!`,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
