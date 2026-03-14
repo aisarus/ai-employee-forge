@@ -56,15 +56,17 @@ export async function runProposer(
   prompt: string,
   llmOpts: LlmOptions
 ): Promise<ProposerResult> {
-  const systemPrompt = `You are a Prompt Engineer Proposer. Transform the given prompt into a more structured, precise, and effective version.
+  const systemPrompt = `You are a Prompt Engineer. Your task is to transform a business description into a ready-to-use SYSTEM PROMPT for a chatbot.
 
-Rules:
-- Add explicit structure: First... Then... Finally...
-- Specify desired output format
-- Add constraints to prevent hallucinations
-- Include examples or templates if helpful
-- Break complex requests into sub-tasks
-- Add context for intent
+The output MUST be a direct instruction that will be placed into the "system" role of a chat API call. It should:
+- Be written as a direct instruction TO the chatbot (e.g. "You are a sales assistant for a flower shop...")
+- Define the bot's persona, tone, and behavior rules
+- Include specific business rules, pricing, workflows from the input
+- Add constraints: what the bot should NOT do, how to handle edge cases
+- Specify response format and style guidelines
+- Be complete and self-contained — no placeholders, no TODOs, no meta-commentary
+
+CRITICAL: Do NOT output instructions about how to write a prompt. Output the actual chatbot system prompt itself.
 
 Return JSON only: {"improvedPrompt": "string", "improvements": ["string"]}`;
 
