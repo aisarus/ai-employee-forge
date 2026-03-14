@@ -225,7 +225,7 @@ export function Workspace() {
         </Button>
       </div>
 
-      <DeployModal open={deployOpen} onOpenChange={setDeployOpen} />
+      <DeployModal open={deployOpen} onOpenChange={setDeployOpen} agentId={agentId} />
     </div>
   );
 }
