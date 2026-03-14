@@ -1,3 +1,4 @@
+import { supabase } from "../lib/supabase";
 import { useState, useEffect, useCallback } from "react";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,49 @@ const Index = () => {
 
   useEffect(() => {
     if (state !== "loading") return;
-    const timer = setTimeout(() => setState("workspace"), 4000);
+    
+
+// // Mock logic removed
+
+  // Fetch real API
+  const callApi = async () => {
+    try {
+      const response = await fetch("https://bbhypbkanbquuoptbugo.supabase.co/functions/v1/tri-tfm-controller", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer tri_test_master_123",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          apiProvider: "openai",
+          customApiKey: "sk-proj-FAKE_FOR_NOW",
+          config: {
+            maxIterations: 5,
+            useProposerCriticVerifier: true,
+            proposerCriticOnly: true
+          }
+        })
+      });
+
+      const data = await response.json();
+      
+      // Save to Supabase DB
+      await supabase.from("agents").insert({
+        name: "AutoBot",
+        description: prompt,
+        system_prompt: data.finalText || "Error generating prompt"
+      });
+
+      // Pass to workspace (we will use localStorage for quick hack, or global state)
+      localStorage.setItem("generatedPrompt", data.finalText || "");
+      setState("workspace");
+    } catch (e) {
+      console.error(e);
+      setState("workspace"); // fallback
+    }
+  };
+  callApi();
     return () => clearTimeout(timer);
   }, [state]);
 
