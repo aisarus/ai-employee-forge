@@ -1,23 +1,13 @@
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { WizardData } from "./types";
-import { Bot, Globe, Palette, MessageCircle, Send, Terminal, CheckCircle2, AlertCircle } from "lucide-react";
+import { WizardData, BOT_TYPES } from "./types";
+import { Bot, Send, CheckCircle2, AlertCircle, Zap, Workflow } from "lucide-react";
 
 interface Props {
   data: WizardData;
   confirmed: boolean;
   onConfirmChange: (v: boolean) => void;
 }
-
-const CHECKLIST = [
-  "Bot name reviewed",
-  "Bot avatar uploaded or confirmed optional",
-  "Welcome message reviewed",
-  "Telegram description reviewed",
-  "Telegram commands reviewed",
-  "Bot token provided",
-  "Telegram preview reviewed",
-];
 
 export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
   const checks = [
@@ -29,9 +19,10 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
   ];
 
   const allOk = checks.every((c) => c.ok);
+  const botType = BOT_TYPES.find((t) => t.id === data.bot_type);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       <div className="text-center space-y-1">
         <h2 className="text-xl font-bold text-foreground">Review & Deploy</h2>
         <p className="text-sm text-muted-foreground">Review everything before deploying your bot.</p>
@@ -47,6 +38,30 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
           <span className="text-muted-foreground">Style</span><span className="text-foreground">{data.response_style}</span>
         </div>
       </Card>
+
+      {/* Actions Summary */}
+      {(data.bot_type || data.bot_actions.length > 0 || data.data_fields.length > 0) && (
+        <Card className="p-4 space-y-2 bg-muted/30">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Zap className="h-4 w-4 text-primary" /> Actions & Data</h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            {botType && (<><span className="text-muted-foreground">Type</span><span className="text-foreground">{botType.icon} {botType.label}</span></>)}
+            {data.bot_actions.length > 0 && (<><span className="text-muted-foreground">Actions</span><span className="text-foreground">{data.bot_actions.length} configured</span></>)}
+            {data.data_fields.length > 0 && (<><span className="text-muted-foreground">Data fields</span><span className="text-foreground">{data.data_fields.length} fields</span></>)}
+          </div>
+        </Card>
+      )}
+
+      {/* Workflow Summary */}
+      {(data.workflow_steps.length > 0 || data.logic_rules.length > 0 || data.external_actions.length > 0) && (
+        <Card className="p-4 space-y-2 bg-muted/30">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" /> Logic & Workflow</h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            {data.workflow_steps.length > 0 && (<><span className="text-muted-foreground">Steps</span><span className="text-foreground">{data.workflow_steps.length} steps</span></>)}
+            {data.logic_rules.length > 0 && (<><span className="text-muted-foreground">Rules</span><span className="text-foreground">{data.logic_rules.length} rules</span></>)}
+            {data.external_actions.length > 0 && (<><span className="text-muted-foreground">Integrations</span><span className="text-foreground">{data.external_actions.length} actions</span></>)}
+          </div>
+        </Card>
+      )}
 
       {/* Telegram Summary */}
       <Card className="p-4 space-y-2 bg-muted/30">
@@ -84,7 +99,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
           disabled={!allOk}
         />
         <label htmlFor="confirm" className="text-sm leading-relaxed cursor-pointer text-foreground">
-          I reviewed the bot identity, Telegram settings, and preview before deployment.
+          I reviewed the bot identity, actions, Telegram settings, and preview before deployment.
         </label>
       </div>
 

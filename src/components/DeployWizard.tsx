@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { WizardData, DEFAULT_WIZARD_DATA, WIZARD_STEPS } from "./wizard/types";
 import { StepIdentity } from "./wizard/StepIdentity";
 import { StepWelcome } from "./wizard/StepWelcome";
+import { StepActionsData } from "./wizard/StepActionsData";
+import { StepWorkflowLogic } from "./wizard/StepWorkflowLogic";
 import { StepBehaviorPreview } from "./wizard/StepBehaviorPreview";
 import { StepTelegramConfig } from "./wizard/StepTelegramConfig";
 import { StepTelegramPreview } from "./wizard/StepTelegramPreview";
@@ -11,6 +13,7 @@ import { StepReviewDeploy } from "./wizard/StepReviewDeploy";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Rocket, Loader2, CheckCircle } from "lucide-react";
+import { buildActionsPromptBlock } from "./wizard/promptBuilder";
 
 interface DeployWizardProps {
   open: boolean;
@@ -36,7 +39,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       setData((prev) => ({
         ...DEFAULT_WIZARD_DATA,
         ...initialData,
-        // Bind telegram fields from identity by default
         telegram_display_name: initialData?.bot_name || prev.bot_name || "",
         telegram_short_description: initialData?.short_description || prev.short_description || "",
         telegram_about_text: initialData?.about_text || prev.about_text || "",
@@ -47,7 +49,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const onChange = (patch: Partial<WizardData>) => {
     setData((prev) => {
       const next = { ...prev, ...patch };
-      // Auto-bind telegram fields from identity if they were empty
       if (patch.bot_name !== undefined && !prev.telegram_display_name) {
         next.telegram_display_name = patch.bot_name;
       }
@@ -63,7 +64,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
   const handleAvatarUpload = async (file: File) => {
     if (!agentId) {
-      // Temporary local preview
       const url = URL.createObjectURL(file);
       setData((prev) => ({ ...prev, bot_avatar_url: url, bot_avatar_file: file }));
       return;
@@ -84,6 +84,12 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     setData((prev) => ({ ...prev, bot_avatar_url: "", bot_avatar_file: null }));
   };
 
+  const getEnrichedPrompt = () => {
+    const actionsBlock = buildActionsPromptBlock(data);
+    if (!actionsBlock) return systemPrompt;
+    return systemPrompt + "\n\n" + actionsBlock;
+  };
+
   const handleDeploy = async () => {
     if (!agentId) {
       toast.error("No agent selected");
@@ -91,7 +97,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     }
     setDeploying(true);
     try {
-      // Upload avatar if pending
       if (data.bot_avatar_file) {
         const path = `${agentId}/avatar.png`;
         await supabase.storage.from("bot-avatars").upload(path, data.bot_avatar_file, { upsert: true });
@@ -99,7 +104,8 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         data.bot_avatar_url = urlData.publicUrl;
       }
 
-      // Update agent record with all identity fields
+      const enrichedPrompt = getEnrichedPrompt();
+
       await supabase.from("agents").update({
         name: data.bot_name,
         description: data.short_description,
@@ -115,9 +121,17 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         telegram_short_description: data.telegram_short_description || data.short_description,
         telegram_about_text: data.telegram_about_text || data.about_text,
         telegram_commands: data.telegram_commands as any,
+        system_prompt: enrichedPrompt,
+        structured_prompt: {
+          bot_type: data.bot_type,
+          bot_actions: data.bot_actions,
+          data_fields: data.data_fields,
+          workflow_steps: data.workflow_steps,
+          logic_rules: data.logic_rules,
+          external_actions: data.external_actions,
+        } as any,
       }).eq("id", agentId);
 
-      // Deploy via edge function
       const { data: deployRes, error } = await supabase.functions.invoke("deploy-telegram", {
         body: {
           agentId,
@@ -146,10 +160,12 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     switch (step) {
       case 0: return !!data.bot_name.trim() && !!data.short_description.trim();
       case 1: return !!data.welcome_message.trim();
-      case 2: return true;
-      case 3: return !!data.telegram_bot_token.trim();
-      case 4: return true;
-      case 5: return confirmed;
+      case 2: return true; // actions & data - optional
+      case 3: return true; // workflow & logic - optional
+      case 4: return true; // behavior preview
+      case 5: return !!data.telegram_bot_token.trim();
+      case 6: return true; // telegram preview
+      case 7: return confirmed;
       default: return true;
     }
   };
@@ -190,7 +206,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
               <div key={s.id} className="flex items-center flex-1">
                 <button
                   onClick={() => i <= step && setStep(i)}
-                  className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold transition-colors ${
+                  className={`flex items-center justify-center h-6 w-6 rounded-full text-[10px] font-bold transition-colors ${
                     i === step
                       ? "bg-primary text-primary-foreground"
                       : i < step
@@ -201,7 +217,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
                   {i + 1}
                 </button>
                 {i < WIZARD_STEPS.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-1 rounded ${i < step ? "bg-primary/30" : "bg-border"}`} />
+                  <div className={`flex-1 h-0.5 mx-0.5 rounded ${i < step ? "bg-primary/30" : "bg-border"}`} />
                 )}
               </div>
             ))}
@@ -213,10 +229,12 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         <div className="flex-1 overflow-auto px-6 py-5">
           {step === 0 && <StepIdentity data={data} onChange={onChange} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} />}
           {step === 1 && <StepWelcome data={data} onChange={onChange} />}
-          {step === 2 && <StepBehaviorPreview data={data} systemPrompt={systemPrompt} />}
-          {step === 3 && <StepTelegramConfig data={data} onChange={onChange} />}
-          {step === 4 && <StepTelegramPreview data={data} />}
-          {step === 5 && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
+          {step === 2 && <StepActionsData data={data} onChange={onChange} />}
+          {step === 3 && <StepWorkflowLogic data={data} onChange={onChange} />}
+          {step === 4 && <StepBehaviorPreview data={data} systemPrompt={getEnrichedPrompt()} />}
+          {step === 5 && <StepTelegramConfig data={data} onChange={onChange} />}
+          {step === 6 && <StepTelegramPreview data={data} />}
+          {step === 7 && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
         </div>
 
         {/* Footer */}
