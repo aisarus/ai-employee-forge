@@ -60,6 +60,7 @@ const Index = () => {
 
       // Pass to workspace (we will use localStorage for quick hack, or global state)
       localStorage.setItem("generatedPrompt", data.finalText || "");
+      localStorage.setItem("tfmData", JSON.stringify(data));
       setState("workspace");
     } catch (e) {
       console.error(e);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Copy, Pencil, Send, Check, Rocket, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Copy, Pencil, Send, Check, Rocket, Loader2, BarChart2, ShieldCheck, Zap } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeployModal } from "./DeployModal";
@@ -10,36 +10,38 @@ export function Workspace() {
   const [chatInput, setChatInput] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [metrics, setMetrics] = useState<any>(null);
+  const [explain, setExplain] = useState<any>(null);
   
-  // Real chat state
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
-    // Read the generated prompt from API
+    // Read the generated prompt and metrics from API
     let savedPrompt = localStorage.getItem("generatedPrompt") || "Промпт не загрузился.";
+    let rawData = localStorage.getItem("tfmData");
     
-    // Sometimes the API returns JSON string, let's try to extract the text if so
     try {
+      if (rawData) {
+        const parsedData = JSON.parse(rawData);
+        if (parsedData.modeFreeMetrics) setMetrics(parsedData.modeFreeMetrics);
+        if (parsedData.explanations && parsedData.explanations.length > 0) {
+          setExplain(parsedData.explanations[0]);
+        }
+      }
+      
       if (savedPrompt.trim().startsWith('{')) {
         const parsed = JSON.parse(savedPrompt);
-        // If it's our Proposer JSON format
         if (parsed.improvedPrompt) {
           savedPrompt = typeof parsed.improvedPrompt === 'string' 
             ? parsed.improvedPrompt 
             : JSON.stringify(parsed.improvedPrompt, null, 2);
         }
       }
-    } catch(e) {
-      // Not JSON, keep as is
-    }
+    } catch(e) {}
     
     setSystemPrompt(savedPrompt);
-    
-    // Initialize chat with a welcome message based on the prompt type (mocked logic)
-    setMessages([
-      { role: "assistant", content: "Привет! Я твой новый ИИ-сотрудник, работаю по инструкции слева. Напиши мне что-нибудь!" }
-    ]);
+    setMessages([{ role: "assistant", content: "Привет! Я твой новый ИИ-сотрудник, работаю по инструкции слева. Напиши мне что-нибудь!" }]);
   }, []);
 
   const handleCopy = () => {
@@ -50,32 +52,24 @@ export function Workspace() {
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isTyping) return;
-
     const userMessage = chatInput;
     setChatInput("");
     
-    // Add user message to UI
     const newMessages = [...messages, { role: "user", content: userMessage }];
     setMessages(newMessages);
     setIsTyping(true);
 
     try {
-      // NOTE: Replace this with your actual OpenAI Key for testing!
-      // In production, this should go through your backend, not frontend directly.
       const OPENAI_API_KEY = localStorage.getItem("userOpenAiKey") || ""; 
       
-      if (OPENAI_API_KEY.includes("ТВОЙ_КЛЮЧ")) {
-        setTimeout(() => {
-          setMessages([...newMessages, { role: "assistant", content: "⚠️ Вставь свой настоящий OpenAI ключ в файл Workspace.tsx (строка 45), чтобы чат ожил!" }]);
-          setIsTyping(false);
-        }, 1000);
+      if (!OPENAI_API_KEY.startsWith("sk-")) {
+        setMessages([...newMessages, { role: "assistant", content: "⚠️ Введи свой OpenAI ключ на главной странице, чтобы чат ожил!" }]);
+        setIsTyping(false);
         return;
       }
 
-      // Build the message history for OpenAI
       const apiMessages = [
         { role: "system", content: systemPrompt },
-        // Map frontend messages to OpenAI format (ignoring the first welcome message if it's not relevant, but let's keep it simple)
         ...newMessages.filter(m => m.content !== "Привет! Я твой новый ИИ-сотрудник, работаю по инструкции слева. Напиши мне что-нибудь!").map(m => ({
           role: m.role,
           content: m.content
@@ -84,77 +78,91 @@ export function Workspace() {
 
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: apiMessages,
-          temperature: 0.7
-        })
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}` },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages: apiMessages, temperature: 0.7 })
       });
 
       const data = await response.json();
-      
       if (data.choices && data.choices[0]) {
         setMessages([...newMessages, { role: "assistant", content: data.choices[0].message.content }]);
       } else {
         setMessages([...newMessages, { role: "assistant", content: `❌ Ошибка API: ${data.error?.message || "Unknown error"}` }]);
       }
     } catch (error) {
-      console.error("Chat error:", error);
       setMessages([...newMessages, { role: "assistant", content: "❌ Ошибка сети при вызове OpenAI." }]);
     } finally {
       setIsTyping(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   return (
-    <div className="flex flex-1 flex-col animate-fade-in">
-      <div className="grid flex-1 gap-4 p-4 md:p-6 lg:grid-cols-2">
+    <div className="flex flex-1 flex-col animate-fade-in h-full w-full bg-background overflow-hidden">
+      
+      {/* Metrics Dashboard */}
+      {metrics && (
+        <div className="grid grid-cols-3 gap-4 p-4 md:p-6 pb-0 shrink-0">
+          <Card className="glass-strong p-4 flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-lg"><BarChart2 className="text-primary w-5 h-5" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Reasoning Gain (RGI)</p>
+              <h4 className="text-2xl font-bold text-primary">+{metrics.rgiPercent}%</h4>
+            </div>
+          </Card>
+          <Card className="glass-strong p-4 flex items-center gap-4">
+            <div className="p-3 bg-success/10 rounded-lg"><ShieldCheck className="text-success w-5 h-5" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Quality Gain (QG)</p>
+              <h4 className="text-2xl font-bold text-success">+{metrics.qualityGainPercent}%</h4>
+            </div>
+          </Card>
+          <Card className="glass-strong p-4 flex items-center gap-4">
+            <div className="p-3 bg-accent/50 rounded-lg"><Zap className="text-accent-foreground w-5 h-5" /></div>
+            <div className="overflow-hidden">
+              <p className="text-xs text-muted-foreground font-medium">Issues Fixed</p>
+              <p className="text-xs font-semibold truncate w-full" title={explain?.mainIssues?.join(", ")}>
+                {explain?.mainIssues?.[0] || "Structure enhanced"}
+              </p>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid flex-1 gap-4 p-4 md:p-6 lg:grid-cols-2 min-h-0">
         
         {/* Left: System Prompt */}
-        <Card className="flex flex-col glass-strong h-[calc(100vh-10rem)]">
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-base font-semibold">System Prompt (Optimized)</CardTitle>
+        <Card className="flex flex-col glass-strong overflow-hidden h-full border-primary/20">
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-3 bg-muted/20 border-b border-border/50">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+              Agent Persona (Optimized)
+            </CardTitle>
             <div className="flex gap-1.5">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCopy}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20" onClick={handleCopy}>
                 {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Pencil className="h-3.5 w-3.5" />
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 overflow-hidden">
-            <pre className="h-full overflow-auto rounded-lg bg-background/50 p-4 font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
+          <CardContent className="flex-1 overflow-hidden p-0">
+            <pre className="h-full overflow-auto bg-background/30 p-5 font-mono text-[13px] leading-relaxed text-foreground whitespace-pre-wrap selection:bg-primary/30">
               {systemPrompt}
             </pre>
           </CardContent>
         </Card>
 
         {/* Right: Test Chat */}
-        <Card className="flex flex-col glass-strong h-[calc(100vh-10rem)]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Test your Agent</CardTitle>
+        <Card className="flex flex-col glass-strong overflow-hidden h-full">
+          <CardHeader className="pb-3 bg-muted/20 border-b border-border/50">
+            <CardTitle className="text-sm font-semibold">Live Sandbox</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col overflow-hidden">
-            <div className="flex-1 space-y-4 overflow-auto rounded-lg bg-background/50 p-4 mb-3">
+          <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
+            <div className="flex-1 space-y-4 overflow-auto p-4 bg-dot-pattern">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
                       msg.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-accent text-accent-foreground rounded-bl-md"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-card border border-border text-card-foreground rounded-bl-sm"
                     }`}
                   >
                     {msg.content}
@@ -163,40 +171,37 @@ export function Workspace() {
               ))}
               {isTyping && (
                 <div className="flex justify-start">
-                  <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-accent text-accent-foreground rounded-bl-md">
-                    <Loader2 className="h-4 w-4 animate-spin opacity-50" />
+                  <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-card border border-border rounded-bl-sm">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   </div>
                 </div>
               )}
             </div>
-            <div className="flex gap-2 shrink-0">
-              <Input
-                placeholder="Type a message... (Press Enter to send)"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={handleKeyPress}
-                className="bg-background/50"
-                disabled={isTyping}
-              />
-              <Button size="icon" className="shrink-0" onClick={handleSendMessage} disabled={isTyping || !chatInput.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
+            <div className="p-4 border-t border-border/50 bg-background/50">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Test your bot... (Press Enter)"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  className="bg-card shadow-sm border-border/50"
+                  disabled={isTyping}
+                />
+                <Button className="shrink-0 shadow-sm" onClick={handleSendMessage} disabled={isTyping || !chatInput.trim()}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Bottom action bar */}
-      <div className="sticky bottom-0 border-t border-border/50 bg-background/80 backdrop-blur-xl p-4">
-        <div className="flex justify-end">
-          <Button
-            onClick={() => setDeployOpen(true)}
-            className="bg-success text-success-foreground hover:bg-success/90 gap-2"
-          >
-            <Rocket className="h-4 w-4" />
-            Deploy to Telegram
-          </Button>
-        </div>
+      <div className="p-4 md:px-6 border-t border-border/50 bg-background/80 backdrop-blur-xl flex justify-end shrink-0 z-10">
+        <Button size="lg" className="gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform" onClick={() => setDeployOpen(true)}>
+          <Rocket className="h-4 w-4" />
+          Deploy to Telegram
+        </Button>
       </div>
 
       <DeployModal open={deployOpen} onOpenChange={setDeployOpen} />
