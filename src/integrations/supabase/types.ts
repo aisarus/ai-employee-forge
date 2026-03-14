@@ -14,7 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agents: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean | null
+          messages_count: number | null
+          name: string
+          platform: string | null
+          raw_instructions: string
+          response_style: string | null
+          structured_prompt: Json | null
+          system_prompt: string
+          telegram_token: string | null
+          tone: string | null
+          updated_at: string
+          user_id: string
+          whatsapp_phone_id: string | null
+          whatsapp_token: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean | null
+          messages_count?: number | null
+          name: string
+          platform?: string | null
+          raw_instructions?: string
+          response_style?: string | null
+          structured_prompt?: Json | null
+          system_prompt?: string
+          telegram_token?: string | null
+          tone?: string | null
+          updated_at?: string
+          user_id: string
+          whatsapp_phone_id?: string | null
+          whatsapp_token?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean | null
+          messages_count?: number | null
+          name?: string
+          platform?: string | null
+          raw_instructions?: string
+          response_style?: string | null
+          structured_prompt?: Json | null
+          system_prompt?: string
+          telegram_token?: string | null
+          tone?: string | null
+          updated_at?: string
+          user_id?: string
+          whatsapp_phone_id?: string | null
+          whatsapp_token?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
