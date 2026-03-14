@@ -10,6 +10,7 @@ export function Workspace() {
   const [copied, setCopied] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
+  const [agentId, setAgentId] = useState<string | undefined>();
   const [systemPrompt, setSystemPrompt] = useState("");
   const [metrics, setMetrics] = useState<any>(null);
   const [explain, setExplain] = useState<any>(null);
@@ -21,7 +22,9 @@ export function Workspace() {
 
   useEffect(() => {
     // Read the generated prompt and metrics from API
-    let savedPrompt = localStorage.getItem("generatedPrompt") || "Промпт не загрузился.";
+    let savedPrompt = localStorage.getItem("generatedPrompt") || "Prompt not loaded.";
+    const savedAgentId = localStorage.getItem("currentAgentId");
+    if (savedAgentId) setAgentId(savedAgentId);
     let rawData = localStorage.getItem("tfmData");
     
     try {
@@ -224,7 +227,7 @@ export function Workspace() {
         </Button>
       </div>
 
-      <DeployModal open={deployOpen} onOpenChange={setDeployOpen} />
+      <DeployModal open={deployOpen} onOpenChange={setDeployOpen} agentId={agentId} />
     </div>
   );
 }
