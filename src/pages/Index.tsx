@@ -14,6 +14,7 @@ import { runTriTfmPipeline } from "@/lib/tri-tfm";
 type WorkflowState = "input" | "loading" | "workspace";
 
 const Index = () => {
+  const { user } = useAuth();
   const [state, setState] = useState<WorkflowState>("input");
   const [botName, setBotName] = useState("");
   const [botDescription, setBotDescription] = useState("");
