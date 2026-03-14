@@ -62,7 +62,6 @@ const Index = () => {
     }
   };
   callApi();
-    return () => clearTimeout(timer);
   }, [state]);
 
   if (state === "loading") {
