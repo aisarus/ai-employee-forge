@@ -63,6 +63,19 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
         </Card>
       )}
 
+      {/* Integrations Summary */}
+      {(data.connectors.length > 0 || data.action_triggers.length > 0) && (
+        <Card className="p-4 space-y-2 bg-muted/30">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Plug className="h-4 w-4 text-primary" /> {t("wizard.connections")}</h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            {data.connectors.length > 0 && (<><span className="text-muted-foreground">{t("wizard.trig_sum_conn")}</span><span className="text-foreground">{data.connectors.map((c) => c.display_name).join(", ")}</span></>)}
+            {data.data_sources.length > 0 && (<><span className="text-muted-foreground">{t("wizard.trig_sum_reads")}</span><span className="text-foreground">{data.data_sources.length}</span></>)}
+            {data.field_mappings.length > 0 && (<><span className="text-muted-foreground">{t("wizard.trig_sum_mappings")}</span><span className="text-foreground">{data.field_mappings.length} {t("wizard.fields_count")}</span></>)}
+            {data.action_triggers.length > 0 && (<><span className="text-muted-foreground">{t("wizard.trig_sum_triggers")}</span><span className="text-foreground">{data.action_triggers.length} {t("wizard.configured")}</span></>)}
+          </div>
+        </Card>
+      )}
+
       <Card className="p-4 space-y-2 bg-muted/30">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Send className="h-4 w-4 text-primary" /> {t("wizard.telegram_section")}</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
