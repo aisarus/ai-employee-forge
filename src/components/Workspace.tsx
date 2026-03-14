@@ -3,7 +3,7 @@ import { Copy, Pencil, Send, Check, Rocket, Loader2, BarChart2, ShieldCheck, Zap
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DeployModal } from "./DeployModal";
+import { DeployWizard } from "./DeployWizard";
 import { supabase } from "@/integrations/supabase/client";
 
 export function Workspace() {
@@ -227,7 +227,16 @@ export function Workspace() {
         </Button>
       </div>
 
-      <DeployModal open={deployOpen} onOpenChange={setDeployOpen} agentId={agentId} />
+      <DeployWizard
+        open={deployOpen}
+        onOpenChange={setDeployOpen}
+        agentId={agentId}
+        systemPrompt={systemPrompt}
+        initialData={{
+          bot_name: localStorage.getItem("botName") || "",
+          short_description: localStorage.getItem("botDescription") || "",
+        }}
+      />
     </div>
   );
 }
