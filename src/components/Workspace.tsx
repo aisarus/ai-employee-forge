@@ -91,7 +91,7 @@ export function Workspace() {
         setMessages([...newMessages, { role: "assistant", content: `❌ API Error: ${data.error}` }]);
       }
     } catch (error) {
-      setMessages([...newMessages, { role: "assistant", content: "❌ Ошибка сети при вызове OpenAI." }]);
+      setMessages([...newMessages, { role: "assistant", content: "❌ Network error." }]);
     } finally {
       setIsTyping(false);
     }
