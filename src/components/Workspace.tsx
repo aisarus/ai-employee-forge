@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Copy, Pencil, Send, Check, Rocket, Loader2, BarChart2, ShieldCheck, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ export function Workspace() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [metrics, setMetrics] = useState<any>(null);
   const [explain, setExplain] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -137,15 +139,33 @@ export function Workspace() {
               Agent Persona (Optimized)
             </CardTitle>
             <div className="flex gap-1.5">
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20" onClick={() => {
+                if (isEditing) {
+                  localStorage.setItem("generatedPrompt", systemPrompt);
+                }
+                setIsEditing(!isEditing);
+                if (!isEditing) setTimeout(() => textareaRef.current?.focus(), 50);
+              }}>
+                {isEditing ? <Check className="h-3.5 w-3.5 text-success" /> : <Pencil className="h-3.5 w-3.5" />}
+              </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20" onClick={handleCopy}>
                 {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
               </Button>
             </div>
           </CardHeader>
           <CardContent className="flex-1 overflow-hidden p-0">
-            <pre className="h-full overflow-auto bg-background/30 p-5 font-mono text-[13px] leading-relaxed text-foreground whitespace-pre-wrap selection:bg-primary/30">
-              {systemPrompt}
-            </pre>
+            {isEditing ? (
+              <textarea
+                ref={textareaRef}
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                className="h-full w-full resize-none bg-background/30 p-5 font-mono text-[13px] leading-relaxed text-foreground focus:outline-none selection:bg-primary/30"
+              />
+            ) : (
+              <pre className="h-full overflow-auto bg-background/30 p-5 font-mono text-[13px] leading-relaxed text-foreground whitespace-pre-wrap selection:bg-primary/30">
+                {systemPrompt}
+              </pre>
+            )}
           </CardContent>
         </Card>
 
