@@ -220,7 +220,7 @@ export function Workspace() {
       <div className="p-4 md:px-6 border-t border-border/50 bg-background/80 backdrop-blur-xl flex justify-end shrink-0 z-10">
         <Button size="lg" className="gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform" onClick={() => setDeployOpen(true)}>
           <Rocket className="h-4 w-4" />
-          Deploy to Telegram
+          Deploy Bot
         </Button>
       </div>
 
