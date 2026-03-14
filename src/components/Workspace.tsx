@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeployModal } from "./DeployModal";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Workspace() {
   const [copied, setCopied] = useState(false);
@@ -43,7 +44,7 @@ export function Workspace() {
     } catch(e) {}
     
     setSystemPrompt(savedPrompt);
-    setMessages([{ role: "assistant", content: "Привет! Я твой новый ИИ-сотрудник, работаю по инструкции слева. Напиши мне что-нибудь!" }]);
+    setMessages([{ role: "assistant", content: "Hi! I'm your new AI employee, working by the instruction on the left. Send me a message!" }]);
   }, []);
 
   const handleCopy = () => {
@@ -65,33 +66,32 @@ export function Workspace() {
       const OPENAI_API_KEY = localStorage.getItem("userOpenAiKey") || ""; 
       
       if (!OPENAI_API_KEY.startsWith("sk-")) {
-        setMessages([...newMessages, { role: "assistant", content: "⚠️ Введи свой OpenAI ключ на главной странице, чтобы чат ожил!" }]);
+        setMessages([...newMessages, { role: "assistant", content: "⚠️ Enter your OpenAI key on the main page to enable chat!" }]);
         setIsTyping(false);
         return;
       }
 
-      const apiMessages = [
-        { role: "system", content: systemPrompt },
-        ...newMessages.filter(m => m.content !== "Привет! Я твой новый ИИ-сотрудник, работаю по инструкции слева. Напиши мне что-нибудь!").map(m => ({
-          role: m.role,
-          content: m.content
-        }))
-      ];
+      const chatHistory = newMessages
+        .filter(m => m.content !== "Hi! I'm your new AI employee, working by the instruction on the left. Send me a message!")
+        .map(m => ({ role: m.role, content: m.content }));
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}` },
-        body: JSON.stringify({ model: "gpt-4o-mini", messages: apiMessages, temperature: 0.7 })
+      const { data, error } = await supabase.functions.invoke("test-bot", {
+        body: {
+          messages: chatHistory,
+          systemPrompt,
+          openaiKey: OPENAI_API_KEY,
+        },
       });
 
-      const data = await response.json();
-      if (data.choices && data.choices[0]) {
-        setMessages([...newMessages, { role: "assistant", content: data.choices[0].message.content }]);
-      } else {
-        setMessages([...newMessages, { role: "assistant", content: `❌ Ошибка API: ${data.error?.message || "Unknown error"}` }]);
+      if (error) {
+        setMessages([...newMessages, { role: "assistant", content: `❌ Error: ${error.message}` }]);
+      } else if (data?.content) {
+        setMessages([...newMessages, { role: "assistant", content: data.content }]);
+      } else if (data?.error) {
+        setMessages([...newMessages, { role: "assistant", content: `❌ API Error: ${data.error}` }]);
       }
     } catch (error) {
-      setMessages([...newMessages, { role: "assistant", content: "❌ Ошибка сети при вызове OpenAI." }]);
+      setMessages([...newMessages, { role: "assistant", content: "❌ Network error." }]);
     } finally {
       setIsTyping(false);
     }
