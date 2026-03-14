@@ -54,7 +54,7 @@ const Index = () => {
         });
 
         if (user) {
-          await supabase.from("agents").insert({
+          const { data: insertedAgent } = await supabase.from("agents").insert({
             user_id: user.id,
             name: botName || "AutoBot",
             description: botDescription || prompt,
@@ -62,7 +62,11 @@ const Index = () => {
             system_prompt: result.finalText || "Error generating prompt",
             tone,
             response_style: responseStyle,
-          });
+          }).select("id").single();
+
+          if (insertedAgent) {
+            localStorage.setItem("currentAgentId", insertedAgent.id);
+          }
         }
 
         localStorage.setItem("generatedPrompt", result.finalText || "");
