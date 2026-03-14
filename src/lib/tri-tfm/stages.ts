@@ -126,15 +126,19 @@ export async function runCritic(
   config: TriTfmConfig,
   llmOpts: LlmOptions
 ): Promise<CriticResult> {
-  const systemPrompt = `You are a Prompt Critic. You are evaluating a chatbot system prompt. Check if it is a direct, ready-to-use instruction for a chatbot (NOT a meta-instruction about how to create prompts).
+  const systemPrompt = `You are a Prompt Critic (v1.1). Evaluate a chatbot system prompt against deployment-readiness criteria.
 
 Evaluation criteria:
-- Is it written as a direct instruction TO the chatbot? (e.g. "You are..." not "Create a prompt that...")
-- Does it clearly define persona, tone, and behavior?
-- Does it include specific business rules and constraints?
-- Is it self-contained with no placeholders or TODOs?
+1. Is it written as a direct instruction TO the chatbot? (not a meta-instruction)
+2. Does it contain all required sections: ROLE, MISSION, CAPABILITIES, WORKFLOW, BEHAVIOR_RULES, RESPONSE_STRUCTURE, CONSTRAINTS?
+3. Does it contain operational workflow logic (not just descriptions)?
+4. Does it define missing-data handling (ask only for missing fields)?
+5. Does it include a language lock rule tied to the original raw instruction?
+6. Are constraints explicit, behavioral, and testable?
+7. Does it avoid anti-patterns: repeated rules, generic phrases, style-only response structure?
 
 If the prompt is a meta-instruction (about how to write prompts) rather than an actual chatbot instruction, set approved=false.
+If the prompt lacks WORKFLOW or missing-data handling for a bot that clearly needs them, reduce score significantly.
 
 Return JSON only: {"approved": boolean, "score": number (0-100), "reasoning": "string"}`;
 
