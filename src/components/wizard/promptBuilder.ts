@@ -57,5 +57,57 @@ export function buildActionsPromptBlock(data: WizardData): string {
     );
   }
 
+  // --- Integration sections ---
+
+  // Data Sources
+  const readSources = data.data_sources.filter((ds) => ds.mode === "read");
+  const writeSources = data.data_sources.filter((ds) => ds.mode === "write");
+
+  if (readSources.length > 0) {
+    const list = readSources
+      .map((ds) => `- ${ds.name} (via ${ds.connector_id}, resource: ${ds.resource_name}): ${ds.purpose}`)
+      .join("\n");
+    sections.push(`### DATA_SOURCES\nYou can read information from the following sources:\n${list}`);
+  }
+
+  if (writeSources.length > 0) {
+    const list = writeSources
+      .map((ds) => `- ${ds.name} (via ${ds.connector_id}, resource: ${ds.resource_name}): ${ds.purpose}`)
+      .join("\n");
+    sections.push(`### WRITE_DESTINATIONS\nYou can save or send data to the following destinations:\n${list}`);
+  }
+
+  // Field Mappings
+  if (data.field_mappings.length > 0) {
+    const maps = data.field_mappings
+      .map((fm) => {
+        const ds = data.data_sources.find((d) => d.id === fm.data_source_id);
+        const transform = fm.transform !== "none" ? ` [transform: ${fm.transform}]` : "";
+        return `- bot.${fm.bot_field} → ${ds?.name || "unknown"}.${fm.external_field}${fm.required ? " (required)" : ""}${transform}`;
+      })
+      .join("\n");
+    sections.push(`### FIELD_MAPPINGS\nWhen sending data to external systems, use these field mappings:\n${maps}`);
+  }
+
+  // Action Triggers
+  if (data.action_triggers.length > 0) {
+    const triggers = data.action_triggers
+      .map((tr) => {
+        const dest = tr.target_destination ? ` → ${tr.target_destination}` : "";
+        const policy = tr.confirmation_policy === "ask_before_send" ? " (ask user first)" : tr.confirmation_policy === "draft_only" ? " (draft only)" : "";
+        return `- ${tr.name}: WHEN ${tr.when.replace(/_/g, " ")} → ${tr.action_type}${dest}${policy}`;
+      })
+      .join("\n");
+    sections.push(`### ACTION_TRIGGERS\nExecute these actions at the specified times:\n${triggers}`);
+  }
+
+  // Integration Rules
+  if (data.integration_rules.length > 0) {
+    const rules = data.integration_rules
+      .map((r) => `- IF: ${r.if_condition} → THEN: ${r.then_action}`)
+      .join("\n");
+    sections.push(`### INTEGRATION_RULES\nApply these integration-specific conditional rules:\n${rules}`);
+  }
+
   return sections.join("\n\n");
 }

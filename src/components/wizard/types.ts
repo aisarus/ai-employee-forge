@@ -31,6 +31,50 @@ export interface LogicRule {
   then_action: string;
 }
 
+// --- Integration types ---
+
+export interface ConnectorConfig {
+  id: string;
+  type: string;
+  display_name: string;
+  status: "connected" | "disconnected" | "error" | "pending";
+  auth_value: string;
+  capabilities: ("read" | "write")[];
+}
+
+export interface DataSource {
+  id: string;
+  connector_id: string;
+  name: string;
+  resource_name: string;
+  mode: "read" | "write";
+  purpose: string;
+}
+
+export interface FieldMapping {
+  id: string;
+  bot_field: string;
+  data_source_id: string;
+  external_field: string;
+  required: boolean;
+  transform: "none" | "lowercase" | "uppercase" | "date_format" | "phone_normalize";
+}
+
+export interface ActionTrigger {
+  id: string;
+  name: string;
+  when: string;
+  action_type: string;
+  target_destination: string;
+  confirmation_policy: "ask_before_send" | "automatic" | "draft_only";
+}
+
+export interface IntegrationRule {
+  id: string;
+  if_condition: string;
+  then_action: string;
+}
+
 export interface WizardData {
   // Identity
   bot_name: string;
@@ -56,6 +100,13 @@ export interface WizardData {
   logic_rules: LogicRule[];
   external_actions: string[];
 
+  // Integrations
+  connectors: ConnectorConfig[];
+  data_sources: DataSource[];
+  field_mappings: FieldMapping[];
+  action_triggers: ActionTrigger[];
+  integration_rules: IntegrationRule[];
+
   // Telegram Config
   telegram_bot_token: string;
   telegram_display_name: string;
@@ -71,10 +122,60 @@ export const WIZARD_STEPS = [
   { id: "welcome", title: "Welcome Experience" },
   { id: "actions", title: "Actions & Data" },
   { id: "workflow", title: "Logic & Workflow" },
+  { id: "connections", title: "Connections" },
+  { id: "data_mapping", title: "Data & Mapping" },
+  { id: "triggers", title: "Triggers" },
   { id: "preview", title: "Behavior Preview" },
   { id: "telegram_config", title: "Telegram Config" },
   { id: "telegram_preview", title: "Telegram Preview" },
   { id: "deploy", title: "Review & Deploy" },
+] as const;
+
+export const AVAILABLE_CONNECTORS = [
+  { id: "google_sheets", name: "Google Sheets", icon: "📊", category: "Spreadsheet", auth_hint: "API Key", caps: ["read", "write"] as const },
+  { id: "airtable", name: "Airtable", icon: "🗄️", category: "Database", auth_hint: "API Key", caps: ["read", "write"] as const },
+  { id: "google_calendar", name: "Google Calendar", icon: "📅", category: "Calendar", auth_hint: "API Key", caps: ["read", "write"] as const },
+  { id: "telegram_admin", name: "Telegram Admin", icon: "📢", category: "Messaging", auth_hint: "Chat ID", caps: ["write"] as const },
+  { id: "email", name: "Email (SMTP)", icon: "📧", category: "Notifications", auth_hint: "SMTP / API Key", caps: ["write"] as const },
+  { id: "webhook", name: "Custom Webhook", icon: "🔗", category: "Automation", auth_hint: "URL", caps: ["read", "write"] as const },
+  { id: "shopify", name: "Shopify", icon: "🛍️", category: "Store", auth_hint: "API Key", caps: ["read", "write"] as const },
+  { id: "woocommerce", name: "WooCommerce", icon: "🛒", category: "Store", auth_hint: "API Key", caps: ["read", "write"] as const },
+  { id: "custom_api", name: "Custom REST API", icon: "⚡", category: "Advanced", auth_hint: "Base URL + Key", caps: ["read", "write"] as const },
+] as const;
+
+export const TRIGGER_WHEN_OPTIONS = [
+  "after_required_fields_collected",
+  "after_user_confirmation",
+  "on_urgent_issue",
+  "on_new_lead",
+  "on_booking_confirmed",
+  "on_manual_review",
+  "on_every_message",
+  "custom_condition",
+] as const;
+
+export const TRIGGER_ACTIONS = [
+  "Check availability",
+  "Create order",
+  "Update order",
+  "Create booking",
+  "Reschedule booking",
+  "Cancel booking",
+  "Create support ticket",
+  "Create lead",
+  "Save to Google Sheets",
+  "Send email notification",
+  "Send Telegram notification",
+  "Call webhook",
+  "Call custom API",
+] as const;
+
+export const TRANSFORM_OPTIONS = [
+  "none",
+  "lowercase",
+  "uppercase",
+  "date_format",
+  "phone_normalize",
 ] as const;
 
 export const BOT_TYPES = [
@@ -145,6 +246,11 @@ export const DEFAULT_WIZARD_DATA: WizardData = {
   workflow_steps: [],
   logic_rules: [],
   external_actions: [],
+  connectors: [],
+  data_sources: [],
+  field_mappings: [],
+  action_triggers: [],
+  integration_rules: [],
   telegram_bot_token: "",
   telegram_display_name: "",
   telegram_short_description: "",

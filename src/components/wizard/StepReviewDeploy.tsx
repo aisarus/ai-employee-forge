@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WizardData, BOT_TYPES } from "./types";
-import { Bot, Send, CheckCircle2, AlertCircle, Zap, Workflow } from "lucide-react";
+import { Bot, Send, CheckCircle2, AlertCircle, Zap, Workflow, Plug } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
@@ -59,6 +59,19 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
             {data.workflow_steps.length > 0 && (<><span className="text-muted-foreground">{t("wizard.workflow_steps")}</span><span className="text-foreground">{data.workflow_steps.length} {t("wizard.steps_count")}</span></>)}
             {data.logic_rules.length > 0 && (<><span className="text-muted-foreground">{t("wizard.logic_rules")}</span><span className="text-foreground">{data.logic_rules.length} {t("wizard.rules_count")}</span></>)}
             {data.external_actions.length > 0 && (<><span className="text-muted-foreground">{t("wizard.summary_integrations")}</span><span className="text-foreground">{data.external_actions.length} {t("wizard.actions_count")}</span></>)}
+          </div>
+        </Card>
+      )}
+
+      {/* Integrations Summary */}
+      {(data.connectors.length > 0 || data.action_triggers.length > 0) && (
+        <Card className="p-4 space-y-2 bg-muted/30">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Plug className="h-4 w-4 text-primary" /> {t("wizard.connections")}</h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            {data.connectors.length > 0 && (<><span className="text-muted-foreground">{t("wizard.trig_sum_conn")}</span><span className="text-foreground">{data.connectors.map((c) => c.display_name).join(", ")}</span></>)}
+            {data.data_sources.length > 0 && (<><span className="text-muted-foreground">{t("wizard.trig_sum_reads")}</span><span className="text-foreground">{data.data_sources.length}</span></>)}
+            {data.field_mappings.length > 0 && (<><span className="text-muted-foreground">{t("wizard.trig_sum_mappings")}</span><span className="text-foreground">{data.field_mappings.length} {t("wizard.fields_count")}</span></>)}
+            {data.action_triggers.length > 0 && (<><span className="text-muted-foreground">{t("wizard.trig_sum_triggers")}</span><span className="text-foreground">{data.action_triggers.length} {t("wizard.configured")}</span></>)}
           </div>
         </Card>
       )}
