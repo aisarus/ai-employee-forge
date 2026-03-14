@@ -1,4 +1,5 @@
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect, useCallback } from "react";
 import { Sparkles, Key, Bot, FileText, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
