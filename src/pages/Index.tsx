@@ -33,7 +33,7 @@ const Index = () => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          prompt: prompt,
+          prompt: `Convert the following business description into a strict, production-ready System Prompt for an AI support agent. Use clear headings like "Role", "Core Tasks", "Constraints", and "Output Format".\n\nBusiness description: ${prompt}`,
           apiProvider: "openai",
           customApiKey: "sk-proj-FAKE_FOR_NOW",
           config: {
