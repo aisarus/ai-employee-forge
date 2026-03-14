@@ -62,7 +62,7 @@ export function Workspace() {
     try {
       // NOTE: Replace this with your actual OpenAI Key for testing!
       // In production, this should go through your backend, not frontend directly.
-      const OPENAI_API_KEY = "sk-proj-ТВОЙ_КЛЮЧ_ОТ_OPENAI_СЮДА"; 
+      const OPENAI_API_KEY = localStorage.getItem("userOpenAiKey") || ""; 
       
       if (OPENAI_API_KEY.includes("ТВОЙ_КЛЮЧ")) {
         setTimeout(() => {

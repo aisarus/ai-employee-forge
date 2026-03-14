@@ -1,6 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { useState, useEffect, useCallback } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { GnomeAssembly } from "@/components/GnomeAssembly";
@@ -11,6 +11,11 @@ type WorkflowState = "input" | "loading" | "workspace";
 const Index = () => {
   const [state, setState] = useState<WorkflowState>("input");
   const [prompt, setPrompt] = useState("");
+  const [apiKey, setApiKey] = useState(localStorage.getItem("userOpenAiKey") || "");
+
+  useEffect(() => {
+    localStorage.setItem("userOpenAiKey", apiKey);
+  }, [apiKey]);
 
   const handleGenerate = useCallback(() => {
     if (!prompt.trim()) return;
@@ -35,7 +40,7 @@ const Index = () => {
         body: JSON.stringify({
           prompt: `Convert the following business description into a strict, production-ready System Prompt for an AI support agent. Use clear headings like "Role", "Core Tasks", "Constraints", and "Output Format".\n\nBusiness description: ${prompt}`,
           apiProvider: "openai",
-          customApiKey: "sk-proj-FAKE_FOR_NOW",
+          customApiKey: apiKey,
           config: {
             maxIterations: 5,
             useProposerCriticVerifier: true,
@@ -88,7 +93,17 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="space-y-4">
+                <div className="space-y-4">
+          <div className="relative">
+            <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Paste your OpenAI API Key (sk-...)"
+              className="flex h-10 w-full rounded-md border border-input bg-background/50 pl-10 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
           <Textarea
             rows={6}
             value={prompt}
@@ -98,7 +113,7 @@ const Index = () => {
           />
           <Button
             onClick={handleGenerate}
-            disabled={!prompt.trim()}
+            disabled={!prompt.trim() || !apiKey.startsWith("sk-")}
             size="lg"
             className="w-full gap-2"
           >
