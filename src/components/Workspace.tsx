@@ -10,6 +10,7 @@ export function Workspace() {
   const [copied, setCopied] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
+  const [agentId, setAgentId] = useState<string | undefined>();
   const [systemPrompt, setSystemPrompt] = useState("");
   const [metrics, setMetrics] = useState<any>(null);
   const [explain, setExplain] = useState<any>(null);
