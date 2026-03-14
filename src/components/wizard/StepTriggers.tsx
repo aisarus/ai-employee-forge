@@ -49,7 +49,7 @@ const POLICY_KEYS: Record<string, string> = {
 export function StepTriggers({ data, onChange }: Props) {
   const { t } = useI18n();
   const [newTrigName, setNewTrigName] = useState("");
-  const [newTrigWhen, setNewTrigWhen] = useState(TRIGGER_WHEN_OPTIONS[0]);
+  const [newTrigWhen, setNewTrigWhen] = useState<string>(TRIGGER_WHEN_OPTIONS[0]);
   const [newTrigAction, setNewTrigAction] = useState("");
   const [newTrigDest, setNewTrigDest] = useState("");
   const [newTrigPolicy, setNewTrigPolicy] = useState<ActionTrigger["confirmation_policy"]>("automatic");
