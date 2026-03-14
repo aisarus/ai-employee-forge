@@ -89,13 +89,15 @@ export async function runCritic(
   config: TriTfmConfig,
   llmOpts: LlmOptions
 ): Promise<CriticResult> {
-  const systemPrompt = `You are a Prompt Critic. Evaluate if the improved prompt is genuinely better than the original.
+  const systemPrompt = `You are a Prompt Critic. You are evaluating a chatbot system prompt. Check if it is a direct, ready-to-use instruction for a chatbot (NOT a meta-instruction about how to create prompts).
 
 Evaluation criteria:
-- Is the improved prompt clearer and more structured?
-- Does it reduce ambiguity?
-- Does it add helpful constraints?
-- Is it significantly better than the original?
+- Is it written as a direct instruction TO the chatbot? (e.g. "You are..." not "Create a prompt that...")
+- Does it clearly define persona, tone, and behavior?
+- Does it include specific business rules and constraints?
+- Is it self-contained with no placeholders or TODOs?
+
+If the prompt is a meta-instruction (about how to write prompts) rather than an actual chatbot instruction, set approved=false.
 
 Return JSON only: {"approved": boolean, "score": number (0-100), "reasoning": "string"}`;
 
