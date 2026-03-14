@@ -174,27 +174,30 @@ export async function runSBlock(
       8: { conflict: 'Integrity vs. Despair', virtue: 'Wisdom', focus: 'Life reflection and acceptance' },
     };
     const stage = stages[config.eriksonStage] || stages[4];
-    systemPrompt = `You are a Prompt Stabilizer with Erikson filter (Stage ${config.eriksonStage}: ${stage.conflict}, Virtue: ${stage.virtue}).
+    systemPrompt = `You are compressing a chatbot system prompt with Erikson filter (Stage ${config.eriksonStage}: ${stage.conflict}, Virtue: ${stage.virtue}).
 
-Compress the prompt by 30-40%. Remove content not aligned with "${stage.focus}". Preserve insights related to "${stage.virtue}".
+Compress by 30-40%. The output must remain a direct chatbot instruction.
+Remove behavioral rules not aligned with "${stage.focus}". Preserve rules related to "${stage.virtue}".
 
 Rules:
-- Remove redundancy and excessive details
-- Normalize and condense
-- Keep only essential information
-- Maintain clarity and coherence
+- Remove redundancy
+- Condense similar rules
+- Keep all critical business logic
+- Output must be a ready-to-use chatbot system prompt
 
-Return ONLY the compressed prompt text.`;
+Return ONLY the compressed chatbot system prompt.`;
   } else {
-    systemPrompt = `You are a Prompt Stabilizer. Compress the prompt by 30-40%.
+    systemPrompt = `You are compressing a chatbot system prompt by 30-40%.
+
+The output must remain a direct, ready-to-use chatbot instruction.
 
 Rules:
-- Remove redundancy and excessive details
-- Normalize and condense
-- Keep only essential information
-- Maintain clarity and coherence
+- Remove redundancy and verbose phrasing
+- Merge similar behavioral rules
+- Keep all critical business logic and constraints
+- Maintain the bot's persona
 
-Return ONLY the compressed prompt text.`;
+Return ONLY the compressed chatbot system prompt.`;
   }
 
   const raw = await callLlm(systemPrompt, prompt, llmOpts);
