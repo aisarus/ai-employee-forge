@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { Copy, Pencil, Send, Check, Rocket, Loader2, BarChart2, ShieldCheck, Zap } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeployWizard } from "./DeployWizard";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/hooks/useI18n";
 
 export function Workspace() {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [deployOpen, setDeployOpen] = useState(false);
@@ -21,7 +23,6 @@ export function Workspace() {
   const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
-    // Read the generated prompt and metrics from API
     let savedPrompt = localStorage.getItem("generatedPrompt") || "Prompt not loaded.";
     const savedAgentId = localStorage.getItem("currentAgentId");
     if (savedAgentId) setAgentId(savedAgentId);
@@ -47,7 +48,7 @@ export function Workspace() {
     } catch(e) {}
     
     setSystemPrompt(savedPrompt);
-    setMessages([{ role: "assistant", content: "Hi! I'm your new AI employee, working by the instruction on the left. Send me a message!" }]);
+    setMessages([{ role: "assistant", content: t("workspace.chat_intro") }]);
   }, []);
 
   const handleCopy = () => {
@@ -69,13 +70,13 @@ export function Workspace() {
       const OPENAI_API_KEY = localStorage.getItem("userOpenAiKey") || ""; 
       
       if (!OPENAI_API_KEY.startsWith("sk-")) {
-        setMessages([...newMessages, { role: "assistant", content: "⚠️ Enter your OpenAI key on the main page to enable chat!" }]);
+        setMessages([...newMessages, { role: "assistant", content: t("workspace.no_key") }]);
         setIsTyping(false);
         return;
       }
 
       const chatHistory = newMessages
-        .filter(m => m.content !== "Hi! I'm your new AI employee, working by the instruction on the left. Send me a message!")
+        .filter(m => m.content !== t("workspace.chat_intro"))
         .map(m => ({ role: m.role, content: m.content }));
 
       const { data, error } = await supabase.functions.invoke("test-bot", {
@@ -94,7 +95,7 @@ export function Workspace() {
         setMessages([...newMessages, { role: "assistant", content: `❌ API Error: ${data.error}` }]);
       }
     } catch (error) {
-      setMessages([...newMessages, { role: "assistant", content: "❌ Network error." }]);
+      setMessages([...newMessages, { role: "assistant", content: t("workspace.network_error") }]);
     } finally {
       setIsTyping(false);
     }
@@ -103,29 +104,28 @@ export function Workspace() {
   return (
     <div className="flex flex-1 flex-col animate-fade-in h-full w-full bg-background overflow-hidden">
       
-      {/* Metrics Dashboard */}
       {metrics && (
         <div className="grid grid-cols-3 gap-4 p-4 md:p-6 pb-0 shrink-0">
           <Card className="glass-strong p-4 flex items-center gap-4">
             <div className="p-3 bg-primary/10 rounded-lg"><BarChart2 className="text-primary w-5 h-5" /></div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">Reasoning Gain (RGI)</p>
+              <p className="text-xs text-muted-foreground font-medium">{t("workspace.rgi")}</p>
               <h4 className="text-2xl font-bold text-primary">+{metrics.rgiPercent}%</h4>
             </div>
           </Card>
           <Card className="glass-strong p-4 flex items-center gap-4">
             <div className="p-3 bg-success/10 rounded-lg"><ShieldCheck className="text-success w-5 h-5" /></div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">Quality Gain (QG)</p>
+              <p className="text-xs text-muted-foreground font-medium">{t("workspace.qg")}</p>
               <h4 className="text-2xl font-bold text-success">+{metrics.qualityGainPercent}%</h4>
             </div>
           </Card>
           <Card className="glass-strong p-4 flex items-center gap-4">
             <div className="p-3 bg-accent/50 rounded-lg"><Zap className="text-accent-foreground w-5 h-5" /></div>
             <div className="overflow-hidden">
-              <p className="text-xs text-muted-foreground font-medium">Issues Fixed</p>
+              <p className="text-xs text-muted-foreground font-medium">{t("workspace.issues_fixed")}</p>
               <p className="text-xs font-semibold truncate w-full" title={explain?.mainIssues?.join(", ")}>
-                {explain?.mainIssues?.[0] || "Structure enhanced"}
+                {explain?.mainIssues?.[0] || t("workspace.structure_enhanced")}
               </p>
             </div>
           </Card>
@@ -133,13 +133,11 @@ export function Workspace() {
       )}
 
       <div className="grid flex-1 gap-4 p-4 md:p-6 lg:grid-cols-2 min-h-0">
-        
-        {/* Left: System Prompt */}
         <Card className="flex flex-col glass-strong overflow-hidden h-full border-primary/20">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-3 bg-muted/20 border-b border-border/50">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-              Agent Persona (Optimized)
+              {t("workspace.agent_persona")}
             </CardTitle>
             <div className="flex gap-1.5">
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20" onClick={() => {
@@ -172,10 +170,9 @@ export function Workspace() {
           </CardContent>
         </Card>
 
-        {/* Right: Test Chat */}
         <Card className="flex flex-col glass-strong overflow-hidden h-full">
           <CardHeader className="pb-3 bg-muted/20 border-b border-border/50">
-            <CardTitle className="text-sm font-semibold">Live Sandbox</CardTitle>
+            <CardTitle className="text-sm font-semibold">{t("workspace.live_sandbox")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
             <div className="flex-1 space-y-4 overflow-auto p-4 bg-dot-pattern">
@@ -203,7 +200,7 @@ export function Workspace() {
             <div className="p-4 border-t border-border/50 bg-background/50">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Test your bot... (Press Enter)"
+                  placeholder={t("workspace.test_placeholder")}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
@@ -219,11 +216,10 @@ export function Workspace() {
         </Card>
       </div>
 
-      {/* Bottom action bar */}
       <div className="p-4 md:px-6 border-t border-border/50 bg-background/80 backdrop-blur-xl flex justify-end shrink-0 z-10">
         <Button size="lg" className="gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform" onClick={() => setDeployOpen(true)}>
           <Rocket className="h-4 w-4" />
-          Deploy Bot
+          {t("workspace.deploy_bot")}
         </Button>
       </div>
 

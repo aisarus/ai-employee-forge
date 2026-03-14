@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { Bot, Hammer, Wrench, Settings, Flower, Leaf, TreePine } from "lucide-react";
-
-const loadingTexts = [
-  "Our gnomes are forging your AI employee...",
-  "Equipping flower-selling modules...",
-  "Tightening constraint bolts...",
-  "Calibrating personality matrix...",
-];
+import { useI18n } from "@/hooks/useI18n";
 
 export function GnomeAssembly() {
+  const { t } = useI18n();
   const [textIndex, setTextIndex] = useState(0);
+
+  const loadingTexts = [
+    t("loading.gnome1"),
+    t("loading.gnome2"),
+    t("loading.gnome3"),
+    t("loading.gnome4"),
+  ];
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -20,9 +22,7 @@ export function GnomeAssembly() {
 
   return (
     <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
-      {/* Central assembly area */}
       <div className="relative h-48 w-48 mb-8">
-        {/* Bot centerpiece */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl animate-pulse" style={{ width: 120, height: 120, left: -20, top: -20 }} />
@@ -30,7 +30,6 @@ export function GnomeAssembly() {
           </div>
         </div>
 
-        {/* Orbiting gnomes */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="animate-orbit-1">
             <div className="flex flex-col items-center gap-0.5">
@@ -49,7 +48,6 @@ export function GnomeAssembly() {
           </div>
         </div>
 
-        {/* Context-aware floating elements */}
         {[0, 1, 2, 3, 4].map((i) => (
           <div
             key={i}
@@ -71,14 +69,12 @@ export function GnomeAssembly() {
         ))}
       </div>
 
-      {/* Loading text */}
       <div className="h-6 text-center">
         <p className="text-sm text-muted-foreground transition-opacity duration-300">
           {loadingTexts[textIndex]}
         </p>
       </div>
 
-      {/* Progress dots */}
       <div className="mt-6 flex gap-1.5">
         {[0, 1, 2].map((i) => (
           <div

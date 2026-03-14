@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { useI18n } from "@/hooks/useI18n";
 
 const statusColor: Record<string, string> = {
   active: "bg-success/15 text-success border-success/20",
@@ -27,6 +28,7 @@ const MyAgents = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useI18n();
 
   const fetchAgents = async () => {
     const { data, error } = await supabase
@@ -59,7 +61,7 @@ const MyAgents = () => {
     const { error } = await supabase.from("agents").delete().eq("id", id);
     if (error) toast.error("Failed to delete agent");
     else {
-      toast.success("Agent deleted");
+      toast.success(t("agents.deleted"));
       fetchAgents();
     }
   };
@@ -70,18 +72,18 @@ const MyAgents = () => {
     <div className="flex-1 p-6 space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">My Agents</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage and monitor your deployed AI agents.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("agents.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("agents.subtitle")}</p>
         </div>
         <Button className="gap-2 shrink-0" onClick={() => navigate("/")}>
-          <Plus className="h-4 w-4" /> Create New Agent
+          <Plus className="h-4 w-4" /> {t("agents.create_new")}
         </Button>
       </div>
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search agents..."
+          placeholder={t("agents.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9 bg-card/50"
@@ -116,13 +118,13 @@ const MyAgents = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
-                    <DropdownMenuItem><Zap className="mr-2 h-4 w-4" />Test</DropdownMenuItem>
+                    <DropdownMenuItem><Pencil className="mr-2 h-4 w-4" />{t("agents.edit")}</DropdownMenuItem>
+                    <DropdownMenuItem><Zap className="mr-2 h-4 w-4" />{t("agents.test")}</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => toggleAgent(agent.id, agent.is_active)}>
-                      <Power className="mr-2 h-4 w-4" />{agent.is_active ? "Pause" : "Activate"}
+                      <Power className="mr-2 h-4 w-4" />{agent.is_active ? t("agents.pause") : t("agents.activate")}
                     </DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive" onClick={() => deleteAgent(agent.id)}>
-                      <Trash2 className="mr-2 h-4 w-4" />Delete
+                      <Trash2 className="mr-2 h-4 w-4" />{t("agents.delete")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -135,10 +137,10 @@ const MyAgents = () => {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent mb-4">
               <Bot className="h-7 w-7 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-foreground">No agents yet</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs">Create your first AI agent to get started.</p>
+            <p className="text-sm font-medium text-foreground">{t("agents.no_agents")}</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs">{t("agents.no_agents_desc")}</p>
             <Button className="mt-4 gap-2" size="sm" onClick={() => navigate("/")}>
-              <Plus className="h-4 w-4" /> Create Agent
+              <Plus className="h-4 w-4" /> {t("agents.create")}
             </Button>
           </div>
         )}

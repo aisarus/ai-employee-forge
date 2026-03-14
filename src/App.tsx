@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppHeader } from "@/components/AppHeader";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { I18nProvider } from "@/hooks/useI18n";
 import Index from "./pages/Index";
 import MyAgents from "./pages/MyAgents";
 import Integrations from "./pages/Integrations";
@@ -16,13 +17,6 @@ import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) return <div className="flex flex-1 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
-  if (!user) return <Navigate to="/auth" replace />;
-  return <>{children}</>;
-}
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -68,9 +62,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </I18nProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { MessageSquare, Send, Instagram, Globe, Webhook, Settings, ExternalLink } from "lucide-react";
-
-const INITIAL_INTEGRATIONS = [
-  { id: "telegram", name: "Telegram", desc: "Deploy bots via BotFather", icon: Send, connected: false, agents: 0 },
-  { id: "whatsapp", name: "WhatsApp", desc: "Connect via WhatsApp Business API", icon: MessageSquare, connected: false, agents: 0 },
-  { id: "instagram", name: "Instagram DMs", desc: "Auto-reply to Instagram messages", icon: Instagram, connected: false, agents: 0 },
-  { id: "web", name: "Web Widget", desc: "Embed a chat widget on your site", icon: Globe, connected: false, agents: 0 },
-  { id: "webhook", name: "Custom Webhook", desc: "Connect to any platform via webhooks", icon: Webhook, connected: false, agents: 0 },
-];
+import { useI18n } from "@/hooks/useI18n";
 
 const Integrations = () => {
+  const { t } = useI18n();
+
+  const INITIAL_INTEGRATIONS = [
+    { id: "telegram", name: "Telegram", descKey: "integrations.telegram_desc" as const, icon: Send, connected: false, agents: 0 },
+    { id: "whatsapp", name: "WhatsApp", descKey: "integrations.whatsapp_desc" as const, icon: MessageSquare, connected: false, agents: 0 },
+    { id: "instagram", name: "Instagram DMs", descKey: "integrations.instagram_desc" as const, icon: Instagram, connected: false, agents: 0 },
+    { id: "web", name: "Web Widget", descKey: "integrations.web_desc" as const, icon: Globe, connected: false, agents: 0 },
+    { id: "webhook", name: "Custom Webhook", descKey: "integrations.webhook_desc" as const, icon: Webhook, connected: false, agents: 0 },
+  ];
+
   const [integrations, setIntegrations] = useState(INITIAL_INTEGRATIONS);
 
   const toggle = (id: string) => {
@@ -25,8 +28,8 @@ const Integrations = () => {
   return (
     <div className="flex-1 p-6 space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Integrations</h1>
-        <p className="text-sm text-muted-foreground mt-1">Connect your agents to messaging platforms.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("integrations.title")}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t("integrations.subtitle")}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -40,20 +43,20 @@ const Integrations = () => {
                 <Switch checked={int.connected} onCheckedChange={() => toggle(int.id)} />
               </div>
               <CardTitle className="text-sm font-semibold mt-3">{int.name}</CardTitle>
-              <CardDescription className="text-xs">{int.desc}</CardDescription>
+              <CardDescription className="text-xs">{t(int.descKey)}</CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className={`text-xs ${int.connected ? "bg-success/15 text-success border-success/20" : ""}`}>
-                  {int.connected ? "Connected" : "Disconnected"}
+                  {int.connected ? t("integrations.connected") : t("integrations.disconnected")}
                 </Badge>
                 {int.connected ? (
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5">
-                    <Settings className="h-3 w-3" /> Configure
+                    <Settings className="h-3 w-3" /> {t("integrations.configure")}
                   </Button>
                 ) : (
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5">
-                    <ExternalLink className="h-3 w-3" /> Setup
+                    <ExternalLink className="h-3 w-3" /> {t("integrations.setup")}
                   </Button>
                 )}
               </div>
