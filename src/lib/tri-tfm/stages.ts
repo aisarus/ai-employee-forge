@@ -166,14 +166,20 @@ export async function runDBlock(
   if (config.useEFMNB) {
     systemPrompt = `You are enriching a chatbot system prompt using EFMNB taxonomy. Expand it by 20-30%.
 
-The input is a direct chatbot instruction. Your output must ALSO be a direct chatbot instruction — not a meta-description.
+The input is a direct chatbot instruction. Your output must ALSO be a direct chatbot instruction.
 
 Apply these stages:
-E: Identify core behavioral rules and business logic
-F: Assess relationships between rules (edge cases, dependencies)
-M: Compare possible user scenarios and bot responses
-N: Synthesize into a richer, more complete chatbot instruction
+E: Identify core behavioral rules, workflows, and business logic
+F: Assess relationships between rules (edge cases, dependencies, branching scenarios)
+M: Compare possible user scenarios and bot responses — add missing IF-THEN branches
+N: Synthesize into a richer, more complete chatbot instruction with explicit workflow steps
 B: Keep expansion within 20-30%
+
+Quality checks during expansion:
+- If WORKFLOW section exists but lacks branching logic, add IF-THEN branches for key scenarios
+- If missing-data handling is absent, add rules for asking only missing fields
+- If response structure is generic, make it scenario-specific
+- Ensure language lock rule is present
 
 Return ONLY the expanded chatbot system prompt. No JSON, no explanation, no meta-commentary.`;
   } else {
