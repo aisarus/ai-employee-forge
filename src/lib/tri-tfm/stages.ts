@@ -56,15 +56,17 @@ export async function runProposer(
   prompt: string,
   llmOpts: LlmOptions
 ): Promise<ProposerResult> {
-  const systemPrompt = `You are a Prompt Engineer Proposer. Transform the given prompt into a more structured, precise, and effective version.
+  const systemPrompt = `You are a Prompt Engineer. Your task is to transform a business description into a ready-to-use SYSTEM PROMPT for a chatbot.
 
-Rules:
-- Add explicit structure: First... Then... Finally...
-- Specify desired output format
-- Add constraints to prevent hallucinations
-- Include examples or templates if helpful
-- Break complex requests into sub-tasks
-- Add context for intent
+The output MUST be a direct instruction that will be placed into the "system" role of a chat API call. It should:
+- Be written as a direct instruction TO the chatbot (e.g. "You are a sales assistant for a flower shop...")
+- Define the bot's persona, tone, and behavior rules
+- Include specific business rules, pricing, workflows from the input
+- Add constraints: what the bot should NOT do, how to handle edge cases
+- Specify response format and style guidelines
+- Be complete and self-contained — no placeholders, no TODOs, no meta-commentary
+
+CRITICAL: Do NOT output instructions about how to write a prompt. Output the actual chatbot system prompt itself.
 
 Return JSON only: {"improvedPrompt": "string", "improvements": ["string"]}`;
 
@@ -87,13 +89,15 @@ export async function runCritic(
   config: TriTfmConfig,
   llmOpts: LlmOptions
 ): Promise<CriticResult> {
-  const systemPrompt = `You are a Prompt Critic. Evaluate if the improved prompt is genuinely better than the original.
+  const systemPrompt = `You are a Prompt Critic. You are evaluating a chatbot system prompt. Check if it is a direct, ready-to-use instruction for a chatbot (NOT a meta-instruction about how to create prompts).
 
 Evaluation criteria:
-- Is the improved prompt clearer and more structured?
-- Does it reduce ambiguity?
-- Does it add helpful constraints?
-- Is it significantly better than the original?
+- Is it written as a direct instruction TO the chatbot? (e.g. "You are..." not "Create a prompt that...")
+- Does it clearly define persona, tone, and behavior?
+- Does it include specific business rules and constraints?
+- Is it self-contained with no placeholders or TODOs?
+
+If the prompt is a meta-instruction (about how to write prompts) rather than an actual chatbot instruction, set approved=false.
 
 Return JSON only: {"approved": boolean, "score": number (0-100), "reasoning": "string"}`;
 
@@ -119,27 +123,30 @@ export async function runDBlock(
   let systemPrompt: string;
 
   if (config.useEFMNB) {
-    systemPrompt = `You are a Prompt Detailer using EFMNB taxonomy. Expand the prompt by 20-30%.
+    systemPrompt = `You are enriching a chatbot system prompt using EFMNB taxonomy. Expand it by 20-30%.
 
-Apply these stages in order:
-E (EVALUATION_1): Identify and evaluate core elements/concepts in the prompt
-F (EVALUATION_2): Assess relationships and context between elements
-M (COMPARISON): Compare aspects, perspectives, and interpretations
-N (CONCLUSION): Synthesize into a coherent expanded narrative
-B (Brevity): Keep expansion within 20-30% — do not over-expand
+The input is a direct chatbot instruction. Your output must ALSO be a direct chatbot instruction — not a meta-description.
 
-Return ONLY the expanded prompt text, no JSON, no explanation.`;
+Apply these stages:
+E: Identify core behavioral rules and business logic
+F: Assess relationships between rules (edge cases, dependencies)
+M: Compare possible user scenarios and bot responses
+N: Synthesize into a richer, more complete chatbot instruction
+B: Keep expansion within 20-30%
+
+Return ONLY the expanded chatbot system prompt. No JSON, no explanation, no meta-commentary.`;
   } else {
-    systemPrompt = `You are a Prompt Detailer. Expand and enrich the prompt by 20-30%.
+    systemPrompt = `You are enriching a chatbot system prompt. Expand it by 20-30%.
+
+The input is a direct chatbot instruction. Your output must ALSO be a direct chatbot instruction.
 
 Rules:
-- Expand and structure the input
-- Add missing details and context
-- Improve clarity and completeness
-- Maintain core message and intent
-- Target 20-30% expansion in length
+- Add missing behavioral rules and edge case handling
+- Improve clarity of business logic
+- Add tone/style guidelines if missing
+- Maintain the bot's persona and all existing rules
 
-Return ONLY the expanded prompt text, no JSON, no explanation.`;
+Return ONLY the expanded chatbot system prompt. No JSON, no explanation.`;
   }
 
   const raw = await callLlm(systemPrompt, prompt, llmOpts);
@@ -167,27 +174,30 @@ export async function runSBlock(
       8: { conflict: 'Integrity vs. Despair', virtue: 'Wisdom', focus: 'Life reflection and acceptance' },
     };
     const stage = stages[config.eriksonStage] || stages[4];
-    systemPrompt = `You are a Prompt Stabilizer with Erikson filter (Stage ${config.eriksonStage}: ${stage.conflict}, Virtue: ${stage.virtue}).
+    systemPrompt = `You are compressing a chatbot system prompt with Erikson filter (Stage ${config.eriksonStage}: ${stage.conflict}, Virtue: ${stage.virtue}).
 
-Compress the prompt by 30-40%. Remove content not aligned with "${stage.focus}". Preserve insights related to "${stage.virtue}".
+Compress by 30-40%. The output must remain a direct chatbot instruction.
+Remove behavioral rules not aligned with "${stage.focus}". Preserve rules related to "${stage.virtue}".
 
 Rules:
-- Remove redundancy and excessive details
-- Normalize and condense
-- Keep only essential information
-- Maintain clarity and coherence
+- Remove redundancy
+- Condense similar rules
+- Keep all critical business logic
+- Output must be a ready-to-use chatbot system prompt
 
-Return ONLY the compressed prompt text.`;
+Return ONLY the compressed chatbot system prompt.`;
   } else {
-    systemPrompt = `You are a Prompt Stabilizer. Compress the prompt by 30-40%.
+    systemPrompt = `You are compressing a chatbot system prompt by 30-40%.
+
+The output must remain a direct, ready-to-use chatbot instruction.
 
 Rules:
-- Remove redundancy and excessive details
-- Normalize and condense
-- Keep only essential information
-- Maintain clarity and coherence
+- Remove redundancy and verbose phrasing
+- Merge similar behavioral rules
+- Keep all critical business logic and constraints
+- Maintain the bot's persona
 
-Return ONLY the compressed prompt text.`;
+Return ONLY the compressed chatbot system prompt.`;
   }
 
   const raw = await callLlm(systemPrompt, prompt, llmOpts);
