@@ -135,8 +135,14 @@ Deno.serve(async () => {
         }
 
         // Call OpenAI
+        // Check if system prompt explicitly specifies a language
+        const hasExplicitLanguage = /always respond in |всегда отвечай на |язык ответ|response language|LANGUAGE[:\s]/i.test(agent.system_prompt);
+        const languageRule = hasExplicitLanguage
+          ? ""
+          : "\n\nIMPORTANT: Always respond in the same language the user writes to you. Match the user's language exactly.";
+
         const chatMessages = [
-          { role: "system", content: agent.system_prompt },
+          { role: "system", content: agent.system_prompt + languageRule },
           ...(history || []).slice(-8).map((m: any) => ({
             role: m.raw_update?.message?.from?.is_bot ? "assistant" : "user",
             content: m.text || "",
