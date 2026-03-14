@@ -81,7 +81,7 @@ const Index = () => {
             Hire your next AI Employee
           </h1>
           <p className="text-muted-foreground text-base max-w-lg mx-auto leading-relaxed">
-            Describe your business in plain English, we do the prompt engineering.
+            Describe your business in plain text, we do the prompt engineering.
           </p>
         </div>
 
