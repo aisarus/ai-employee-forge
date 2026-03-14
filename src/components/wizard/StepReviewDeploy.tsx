@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WizardData, BOT_TYPES } from "./types";
-import { Bot, Send, CheckCircle2, AlertCircle, Zap, Workflow } from "lucide-react";
+import { Bot, Send, CheckCircle2, AlertCircle, Zap, Workflow, Plug } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
