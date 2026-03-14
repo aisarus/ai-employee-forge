@@ -84,7 +84,7 @@ Define ordered actions for the bot in key scenarios. If a task involves multi-st
 ### BEHAVIOR_RULES
 Operational rules: greeting, handling questions, escalation, missing-data behavior, language policy.
 - If the bot needs user data, instruct it to ask only for missing fields — never re-ask for already provided info.
-- CRITICAL: Detect the language of the original raw instruction and add a rule: "Always respond in [detected language] unless the user explicitly requests another language."
+- CRITICAL: If the raw instruction explicitly specifies a response language, add a rule enforcing that language. If no language is explicitly specified, add a rule: "Always respond in the same language the user writes in. Match the user's language exactly."
 
 ### RESPONSE_STRUCTURE
 How the bot formats responses. Define different response structures for different situations if applicable. Do NOT use generic wording like "be concise" — define concrete format per scenario.
