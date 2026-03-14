@@ -6,6 +6,9 @@ import { StepIdentity } from "./wizard/StepIdentity";
 import { StepWelcome } from "./wizard/StepWelcome";
 import { StepActionsData } from "./wizard/StepActionsData";
 import { StepWorkflowLogic } from "./wizard/StepWorkflowLogic";
+import { StepConnections } from "./wizard/StepConnections";
+import { StepDataMapping } from "./wizard/StepDataMapping";
+import { StepTriggers } from "./wizard/StepTriggers";
 import { StepBehaviorPreview } from "./wizard/StepBehaviorPreview";
 import { StepTelegramConfig } from "./wizard/StepTelegramConfig";
 import { StepTelegramPreview } from "./wizard/StepTelegramPreview";
@@ -29,6 +32,9 @@ const STEP_TITLE_KEYS = [
   "wizard.welcome",
   "wizard.actions",
   "wizard.workflow",
+  "wizard.connections",
+  "wizard.data_mapping",
+  "wizard.triggers",
   "wizard.preview",
   "wizard.telegram_config",
   "wizard.telegram_preview",
@@ -142,6 +148,11 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
           workflow_steps: data.workflow_steps,
           logic_rules: data.logic_rules,
           external_actions: data.external_actions,
+          connectors: data.connectors.map(({ auth_value, ...c }) => c),
+          data_sources: data.data_sources,
+          field_mappings: data.field_mappings,
+          action_triggers: data.action_triggers,
+          integration_rules: data.integration_rules,
         } as any,
       }).eq("id", agentId);
 
@@ -175,10 +186,13 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       case 1: return !!data.welcome_message.trim();
       case 2: return true;
       case 3: return true;
-      case 4: return true;
-      case 5: return !!data.telegram_bot_token.trim();
-      case 6: return true;
-      case 7: return confirmed;
+      case 4: return true; // connections - optional
+      case 5: return true; // data mapping - optional
+      case 6: return true; // triggers - optional
+      case 7: return true; // behavior preview
+      case 8: return !!data.telegram_bot_token.trim();
+      case 9: return true; // telegram preview
+      case 10: return confirmed;
       default: return true;
     }
   };
@@ -213,12 +227,12 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         <div className="px-6 pt-5 pb-3 border-b border-border/50 bg-muted/20 shrink-0">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {WIZARD_STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center flex-1">
                 <button
                   onClick={() => i <= step && setStep(i)}
-                  className={`flex items-center justify-center h-6 w-6 rounded-full text-[10px] font-bold transition-colors ${
+                  className={`flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold transition-colors ${
                     i === step
                       ? "bg-primary text-primary-foreground"
                       : i < step
@@ -242,10 +256,13 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
           {step === 1 && <StepWelcome data={data} onChange={onChange} />}
           {step === 2 && <StepActionsData data={data} onChange={onChange} />}
           {step === 3 && <StepWorkflowLogic data={data} onChange={onChange} />}
-          {step === 4 && <StepBehaviorPreview data={data} systemPrompt={getEnrichedPrompt()} />}
-          {step === 5 && <StepTelegramConfig data={data} onChange={onChange} />}
-          {step === 6 && <StepTelegramPreview data={data} />}
-          {step === 7 && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
+          {step === 4 && <StepConnections data={data} onChange={onChange} />}
+          {step === 5 && <StepDataMapping data={data} onChange={onChange} />}
+          {step === 6 && <StepTriggers data={data} onChange={onChange} />}
+          {step === 7 && <StepBehaviorPreview data={data} systemPrompt={getEnrichedPrompt()} />}
+          {step === 8 && <StepTelegramConfig data={data} onChange={onChange} />}
+          {step === 9 && <StepTelegramPreview data={data} />}
+          {step === 10 && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
         </div>
 
         <div className="px-6 py-4 border-t border-border/50 bg-muted/20 flex items-center justify-between shrink-0">
