@@ -12,6 +12,8 @@ export function Workspace() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [metrics, setMetrics] = useState<any>(null);
   const [explain, setExplain] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [isTyping, setIsTyping] = useState(false);
