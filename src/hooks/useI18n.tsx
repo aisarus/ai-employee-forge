@@ -274,6 +274,63 @@ const translations = {
   "wf.escalate": { en: "Escalate", ru: "Эскалация" },
   "wf.notify": { en: "Notify", ru: "Уведомить" },
   "wf.custom": { en: "Custom Action", ru: "Своё действие" },
+
+  // Telegram Config Step
+  "wizard.tg_config_title": { en: "Telegram Configuration", ru: "Настройка Telegram" },
+  "wizard.tg_config_desc": { en: "Connect your bot to Telegram and configure its settings.", ru: "Подключите бота к Telegram и настройте параметры." },
+  "wizard.get_token": { en: "Get your bot token", ru: "Получите токен бота" },
+  "wizard.tg_step1": { en: "Open Telegram and search for", ru: "Откройте Telegram и найдите" },
+  "wizard.tg_step2_send": { en: "Send", ru: "Отправьте" },
+  "wizard.tg_step2_follow": { en: "and follow the instructions", ru: "и следуйте инструкциям" },
+  "wizard.tg_step3": { en: "Copy the API token and paste it below", ru: "Скопируйте API токен и вставьте ниже" },
+  "wizard.bot_token": { en: "Bot Token", ru: "Токен бота" },
+  "wizard.webhook_mode": { en: "Webhook Mode", ru: "Режим вебхука" },
+  "wizard.webhook_auto": { en: "Auto-generate", ru: "Автоматически" },
+  "wizard.webhook_custom": { en: "Custom URL", ru: "Свой URL" },
+  "wizard.custom_webhook_url": { en: "Custom Webhook URL", ru: "URL вебхука" },
+  "wizard.tg_description": { en: "Telegram Description", ru: "Описание в Telegram" },
+  "wizard.tg_about": { en: "Telegram About Text", ru: "Текст «О боте» в Telegram" },
+  "wizard.bot_commands": { en: "Bot Commands", ru: "Команды бота" },
+  "wizard.command_placeholder": { en: "/command", ru: "/команда" },
+  "wizard.command_desc_placeholder": { en: "Description", ru: "Описание" },
+
+  // Telegram Preview Step
+  "wizard.tg_preview_title": { en: "Telegram Preview", ru: "Превью Telegram" },
+  "wizard.tg_preview_desc": { en: "See how your bot will look and feel in Telegram.", ru: "Посмотрите, как бот будет выглядеть в Telegram." },
+  "wizard.tab_profile": { en: "Profile", ru: "Профиль" },
+  "wizard.tab_chat": { en: "Chat", ru: "Чат" },
+  "wizard.tab_start": { en: "Start", ru: "Старт" },
+  "wizard.info": { en: "Info", ru: "Инфо" },
+  "wizard.bio": { en: "Bio", ru: "Био" },
+  "wizard.description_label": { en: "Description", ru: "Описание" },
+  "wizard.username_label": { en: "Username", ru: "Юзернейм" },
+  "wizard.message_placeholder": { en: "Message", ru: "Сообщение" },
+
+  // Behavior Preview Step
+  "wizard.behavior_title": { en: "Behavior Preview", ru: "Превью поведения" },
+  "wizard.behavior_desc": { en: "Review your bot's personality and see example replies.", ru: "Проверьте личность бота и посмотрите примеры ответов." },
+  "wizard.personality_summary": { en: "Personality Summary", ru: "Сводка личности" },
+  "wizard.example_replies": { en: "Example Replies", ru: "Примеры ответов" },
+  "wizard.generate_previews": { en: "Generate Previews", ru: "Сгенерировать" },
+  "wizard.generating": { en: "Generating...", ru: "Генерация..." },
+  "wizard.click_generate": { en: "Click \"Generate Previews\" to see how your bot responds.", ru: "Нажмите «Сгенерировать», чтобы увидеть ответы бота." },
+  "wizard.user_says": { en: "User:", ru: "Пользователь:" },
+
+  // Field types
+  "field.text": { en: "Text", ru: "Текст" },
+  "field.phone": { en: "Phone", ru: "Телефон" },
+  "field.date": { en: "Date", ru: "Дата" },
+  "field.number": { en: "Number", ru: "Число" },
+  "field.select": { en: "Select", ru: "Выбор" },
+  "field.name_placeholder": { en: "Field name", ru: "Название поля" },
+  "field.step_title": { en: "Step title", ru: "Название шага" },
+
+  // Deploy wizard misc
+  "wizard.avatar_uploaded": { en: "Avatar uploaded!", ru: "Аватар загружен!" },
+  "wizard.upload_failed": { en: "Upload failed:", ru: "Ошибка загрузки:" },
+  "wizard.no_agent": { en: "No agent selected", ru: "Агент не выбран" },
+  "wizard.deploy_failed": { en: "Deployment failed", ru: "Ошибка деплоя" },
+  "wizard.step_indicator": { en: "Step", ru: "Шаг" },
 } as const;
 
 type TranslationKey = keyof typeof translations;

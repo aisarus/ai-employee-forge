@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Rocket, Loader2, CheckCircle } from "lucide-react";
 import { buildActionsPromptBlock } from "./wizard/promptBuilder";
+import { useI18n } from "@/hooks/useI18n";
 
 interface DeployWizardProps {
   open: boolean;
@@ -23,7 +24,19 @@ interface DeployWizardProps {
   initialData?: Partial<WizardData>;
 }
 
+const STEP_TITLE_KEYS = [
+  "wizard.identity",
+  "wizard.welcome",
+  "wizard.actions",
+  "wizard.workflow",
+  "wizard.preview",
+  "wizard.telegram_config",
+  "wizard.telegram_preview",
+  "wizard.deploy",
+] as const;
+
 export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", initialData }: DeployWizardProps) {
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const [data, setData] = useState<WizardData>({ ...DEFAULT_WIZARD_DATA, ...initialData });
   const [confirmed, setConfirmed] = useState(false);
@@ -74,9 +87,9 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       if (error) throw error;
       const { data: urlData } = supabase.storage.from("bot-avatars").getPublicUrl(path);
       setData((prev) => ({ ...prev, bot_avatar_url: urlData.publicUrl + "?t=" + Date.now(), bot_avatar_file: null }));
-      toast.success("Avatar uploaded!");
+      toast.success(t("wizard.avatar_uploaded"));
     } catch (err: any) {
-      toast.error("Upload failed: " + err.message);
+      toast.error(t("wizard.upload_failed") + " " + err.message);
     }
   };
 
@@ -92,7 +105,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
   const handleDeploy = async () => {
     if (!agentId) {
-      toast.error("No agent selected");
+      toast.error(t("wizard.no_agent"));
       return;
     }
     setDeploying(true);
@@ -148,9 +161,9 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
       setBotUsername(deployRes?.botInfo?.username || "");
       setDeployed(true);
-      toast.success(deployRes?.message || "Bot deployed!");
+      toast.success(deployRes?.message || t("wizard.deployed"));
     } catch (err: any) {
-      toast.error(err.message || "Deployment failed");
+      toast.error(err.message || t("wizard.deploy_failed"));
     } finally {
       setDeploying(false);
     }
@@ -160,11 +173,11 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     switch (step) {
       case 0: return !!data.bot_name.trim() && !!data.short_description.trim();
       case 1: return !!data.welcome_message.trim();
-      case 2: return true; // actions & data - optional
-      case 3: return true; // workflow & logic - optional
-      case 4: return true; // behavior preview
+      case 2: return true;
+      case 3: return true;
+      case 4: return true;
       case 5: return !!data.telegram_bot_token.trim();
-      case 6: return true; // telegram preview
+      case 6: return true;
       case 7: return confirmed;
       default: return true;
     }
@@ -179,17 +192,17 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <CheckCircle className="h-14 w-14 text-success" />
             <div>
-              <p className="text-xl font-bold text-foreground">Bot Deployed! 🎉</p>
+              <p className="text-xl font-bold text-foreground">{t("wizard.deployed")}</p>
               {botUsername && (
                 <p className="text-sm text-muted-foreground mt-2">
-                  Your bot is live at{" "}
+                  {t("wizard.bot_live")}{" "}
                   <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener" className="text-primary underline font-medium">
                     @{botUsername}
                   </a>
                 </p>
               )}
             </div>
-            <Button onClick={() => { setDeployed(false); onOpenChange(false); }} size="lg">Done</Button>
+            <Button onClick={() => { setDeployed(false); onOpenChange(false); }} size="lg">{t("wizard.done")}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -199,7 +212,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-        {/* Step indicator */}
         <div className="px-6 pt-5 pb-3 border-b border-border/50 bg-muted/20 shrink-0">
           <div className="flex items-center gap-1">
             {WIZARD_STEPS.map((s, i) => (
@@ -222,10 +234,9 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">{WIZARD_STEPS[step].title}</p>
+          <p className="text-xs text-muted-foreground mt-2">{t(STEP_TITLE_KEYS[step] as any)}</p>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-auto px-6 py-5">
           {step === 0 && <StepIdentity data={data} onChange={onChange} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} />}
           {step === 1 && <StepWelcome data={data} onChange={onChange} />}
@@ -237,19 +248,18 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
           {step === 7 && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-border/50 bg-muted/20 flex items-center justify-between shrink-0">
           <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0} className="gap-1">
-            <ChevronLeft className="h-4 w-4" /> Back
+            <ChevronLeft className="h-4 w-4" /> {t("wizard.back")}
           </Button>
           {isLastStep ? (
             <Button onClick={handleDeploy} disabled={!confirmed || deploying} className="gap-2" size="lg">
               {deploying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-              {deploying ? "Deploying..." : "Deploy to Telegram"}
+              {deploying ? t("wizard.deploying") : t("wizard.deploy_telegram")}
             </Button>
           ) : (
             <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext()} className="gap-1">
-              Next <ChevronRight className="h-4 w-4" />
+              {t("wizard.next")} <ChevronRight className="h-4 w-4" />
             </Button>
           )}
         </div>
