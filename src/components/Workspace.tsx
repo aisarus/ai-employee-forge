@@ -22,7 +22,9 @@ export function Workspace() {
 
   useEffect(() => {
     // Read the generated prompt and metrics from API
-    let savedPrompt = localStorage.getItem("generatedPrompt") || "Промпт не загрузился.";
+    let savedPrompt = localStorage.getItem("generatedPrompt") || "Prompt not loaded.";
+    const savedAgentId = localStorage.getItem("currentAgentId");
+    if (savedAgentId) setAgentId(savedAgentId);
     let rawData = localStorage.getItem("tfmData");
     
     try {
