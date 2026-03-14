@@ -1,4 +1,4 @@
-import { Bot, Sparkles, Users, Plug, CreditCard } from "lucide-react";
+import { Hammer, Sparkles, Users, Plug, CreditCard } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -28,11 +28,11 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-            <Bot className="h-4 w-4 text-primary-foreground" />
+            <Hammer className="h-4 w-4 text-primary-foreground" />
           </div>
           {!collapsed && (
             <span className="text-lg font-semibold tracking-tight text-foreground">
-              MyBotAI
+              BotForge
             </span>
           )}
         </div>
