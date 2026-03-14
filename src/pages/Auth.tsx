@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Hammer, Mail, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n } from "@/hooks/useI18n";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,6 +15,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Welcome back!");
+        toast.success(t("auth.welcome_back"));
         navigate("/");
       } else {
         const { error } = await supabase.auth.signUp({
@@ -32,7 +34,7 @@ const Auth = () => {
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
-        toast.success("Check your email to confirm your account!");
+        toast.success(t("auth.check_email"));
       }
     } catch (error: any) {
       toast.error(error.message);
@@ -51,16 +53,16 @@ const Auth = () => {
             </div>
           </div>
           <CardTitle className="text-2xl font-bold">
-            {isLogin ? "Welcome to BotForge" : "Create Account"}
+            {isLogin ? t("auth.welcome") : t("auth.create_account")}
           </CardTitle>
           <CardDescription>
-            {isLogin ? "Sign in to manage your AI bots" : "Get started building AI bots"}
+            {isLogin ? t("auth.sign_in_desc") : t("auth.sign_up_desc")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.email")}</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -75,7 +77,7 @@ const Auth = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -92,7 +94,7 @@ const Auth = () => {
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLogin ? "Sign In" : "Create Account"}
+              {isLogin ? t("auth.sign_in") : t("auth.create_account")}
             </Button>
           </form>
           <div className="mt-4 text-center">
@@ -101,7 +103,7 @@ const Auth = () => {
               onClick={() => setIsLogin(!isLogin)}
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
             >
-              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+              {isLogin ? t("auth.sign_up_link") : t("auth.sign_in_link")}
             </button>
           </div>
         </CardContent>

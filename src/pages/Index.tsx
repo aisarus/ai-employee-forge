@@ -10,11 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { GnomeAssembly } from "@/components/GnomeAssembly";
 import { Workspace } from "@/components/Workspace";
 import { runTriTfmPipeline } from "@/lib/tri-tfm";
+import { useI18n } from "@/hooks/useI18n";
 
 type WorkflowState = "input" | "loading" | "workspace";
 
 const Index = () => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [state, setState] = useState<WorkflowState>("input");
   const [botName, setBotName] = useState("");
   const [botDescription, setBotDescription] = useState("");
@@ -99,10 +101,10 @@ const Index = () => {
       <div className="w-full max-w-2xl space-y-8 animate-fade-in">
         <div className="space-y-3 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Build your AI Bot
+            {t("create.title")}
           </h1>
           <p className="text-muted-foreground text-base max-w-lg mx-auto leading-relaxed">
-            Describe your business in plain text, we do the prompt engineering.
+            {t("create.subtitle")}
           </p>
         </div>
 
@@ -114,7 +116,7 @@ const Index = () => {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Paste your OpenAI API Key (sk-...)"
+              placeholder={t("create.api_key_placeholder")}
               className="flex h-10 w-full rounded-md border border-input bg-background/50 pl-10 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
@@ -123,25 +125,25 @@ const Index = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="botName" className="flex items-center gap-1.5 text-sm">
-                <Bot className="h-3.5 w-3.5" /> Bot Name
+                <Bot className="h-3.5 w-3.5" /> {t("create.bot_name")}
               </Label>
               <Input
                 id="botName"
                 value={botName}
                 onChange={(e) => setBotName(e.target.value)}
-                placeholder="e.g., Flora Assistant"
+                placeholder={t("create.bot_name_placeholder")}
                 className="bg-card/50"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="botDesc" className="flex items-center gap-1.5 text-sm">
-                <FileText className="h-3.5 w-3.5" /> Description
+                <FileText className="h-3.5 w-3.5" /> {t("create.description")}
               </Label>
               <Input
                 id="botDesc"
                 value={botDescription}
                 onChange={(e) => setBotDescription(e.target.value)}
-                placeholder="e.g., Flower shop sales bot"
+                placeholder={t("create.description_placeholder")}
                 className="bg-card/50"
               />
             </div>
@@ -151,34 +153,34 @@ const Index = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5 text-sm">
-                <Settings2 className="h-3.5 w-3.5" /> Tone
+                <Settings2 className="h-3.5 w-3.5" /> {t("create.tone")}
               </Label>
               <Select value={tone} onValueChange={setTone}>
                 <SelectTrigger className="bg-card/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="professional">Professional</SelectItem>
-                  <SelectItem value="friendly">Friendly</SelectItem>
-                  <SelectItem value="formal">Formal</SelectItem>
-                  <SelectItem value="casual">Casual</SelectItem>
-                  <SelectItem value="humorous">Humorous</SelectItem>
+                  <SelectItem value="professional">{t("create.tone.professional")}</SelectItem>
+                  <SelectItem value="friendly">{t("create.tone.friendly")}</SelectItem>
+                  <SelectItem value="formal">{t("create.tone.formal")}</SelectItem>
+                  <SelectItem value="casual">{t("create.tone.casual")}</SelectItem>
+                  <SelectItem value="humorous">{t("create.tone.humorous")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5 text-sm">
-                Response Style
+                {t("create.response_style")}
               </Label>
               <Select value={responseStyle} onValueChange={setResponseStyle}>
                 <SelectTrigger className="bg-card/50">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="concise">Concise</SelectItem>
-                  <SelectItem value="detailed">Detailed</SelectItem>
-                  <SelectItem value="step-by-step">Step-by-step</SelectItem>
-                  <SelectItem value="conversational">Conversational</SelectItem>
+                  <SelectItem value="concise">{t("create.style.concise")}</SelectItem>
+                  <SelectItem value="detailed">{t("create.style.detailed")}</SelectItem>
+                  <SelectItem value="step-by-step">{t("create.style.step_by_step")}</SelectItem>
+                  <SelectItem value="conversational">{t("create.style.conversational")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -189,7 +191,7 @@ const Index = () => {
             rows={6}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g., I sell flowers. Delivery is $5. If roses are out of stock, offer tulips. Ask for address and phone number."
+            placeholder={t("create.instructions_placeholder")}
             className="resize-none bg-card/50 backdrop-blur-sm text-sm leading-relaxed"
           />
 
@@ -200,7 +202,7 @@ const Index = () => {
             className="w-full gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Generate AI Brain
+            {t("create.generate")}
           </Button>
         </div>
       </div>

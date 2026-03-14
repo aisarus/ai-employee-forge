@@ -1,5 +1,6 @@
 import { Hammer, Sparkles, Users, Plug, CreditCard } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useI18n } from "@/hooks/useI18n";
 import {
   Sidebar,
   SidebarContent,
@@ -12,16 +13,17 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const navItems = [
-  { title: "Create New Agent", url: "/", icon: Sparkles },
-  { title: "My Agents", url: "/agents", icon: Users },
-  { title: "Integrations", url: "/integrations", icon: Plug },
-  { title: "Billing", url: "/billing", icon: CreditCard },
-];
-
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { t } = useI18n();
   const collapsed = state === "collapsed";
+
+  const navItems = [
+    { titleKey: "nav.create_agent" as const, url: "/", icon: Sparkles },
+    { titleKey: "nav.my_agents" as const, url: "/agents", icon: Users },
+    { titleKey: "nav.integrations" as const, url: "/integrations", icon: Plug },
+    { titleKey: "nav.billing" as const, url: "/billing", icon: CreditCard },
+  ];
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50 bg-sidebar">
@@ -42,7 +44,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.titleKey}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
@@ -51,7 +53,7 @@ export function AppSidebar() {
                       activeClassName="bg-accent text-foreground font-medium"
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && <span>{t(item.titleKey)}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
