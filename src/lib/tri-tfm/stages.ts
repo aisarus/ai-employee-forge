@@ -123,27 +123,30 @@ export async function runDBlock(
   let systemPrompt: string;
 
   if (config.useEFMNB) {
-    systemPrompt = `You are a Prompt Detailer using EFMNB taxonomy. Expand the prompt by 20-30%.
+    systemPrompt = `You are enriching a chatbot system prompt using EFMNB taxonomy. Expand it by 20-30%.
 
-Apply these stages in order:
-E (EVALUATION_1): Identify and evaluate core elements/concepts in the prompt
-F (EVALUATION_2): Assess relationships and context between elements
-M (COMPARISON): Compare aspects, perspectives, and interpretations
-N (CONCLUSION): Synthesize into a coherent expanded narrative
-B (Brevity): Keep expansion within 20-30% — do not over-expand
+The input is a direct chatbot instruction. Your output must ALSO be a direct chatbot instruction — not a meta-description.
 
-Return ONLY the expanded prompt text, no JSON, no explanation.`;
+Apply these stages:
+E: Identify core behavioral rules and business logic
+F: Assess relationships between rules (edge cases, dependencies)
+M: Compare possible user scenarios and bot responses
+N: Synthesize into a richer, more complete chatbot instruction
+B: Keep expansion within 20-30%
+
+Return ONLY the expanded chatbot system prompt. No JSON, no explanation, no meta-commentary.`;
   } else {
-    systemPrompt = `You are a Prompt Detailer. Expand and enrich the prompt by 20-30%.
+    systemPrompt = `You are enriching a chatbot system prompt. Expand it by 20-30%.
+
+The input is a direct chatbot instruction. Your output must ALSO be a direct chatbot instruction.
 
 Rules:
-- Expand and structure the input
-- Add missing details and context
-- Improve clarity and completeness
-- Maintain core message and intent
-- Target 20-30% expansion in length
+- Add missing behavioral rules and edge case handling
+- Improve clarity of business logic
+- Add tone/style guidelines if missing
+- Maintain the bot's persona and all existing rules
 
-Return ONLY the expanded prompt text, no JSON, no explanation.`;
+Return ONLY the expanded chatbot system prompt. No JSON, no explanation.`;
   }
 
   const raw = await callLlm(systemPrompt, prompt, llmOpts);
