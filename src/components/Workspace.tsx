@@ -44,7 +44,7 @@ export function Workspace() {
     } catch(e) {}
     
     setSystemPrompt(savedPrompt);
-    setMessages([{ role: "assistant", content: "Привет! Я твой новый ИИ-сотрудник, работаю по инструкции слева. Напиши мне что-нибудь!" }]);
+    setMessages([{ role: "assistant", content: "Hi! I'm your new AI employee, working by the instruction on the left. Send me a message!" }]);
   }, []);
 
   const handleCopy = () => {
