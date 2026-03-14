@@ -12,24 +12,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 
-const MOCK_AGENTS = [
-  { id: 1, name: "Bloom & Petal Assistant", status: "active", platform: "Telegram", messages: 1243, created: "Mar 2, 2026" },
-  { id: 2, name: "TechSupport Bot", status: "active", platform: "WhatsApp", messages: 876, created: "Feb 18, 2026" },
-  { id: 3, name: "Pizza Order Agent", status: "paused", platform: "Telegram", messages: 2301, created: "Jan 30, 2026" },
-  { id: 4, name: "Appointment Scheduler", status: "draft", platform: "—", messages: 0, created: "Mar 10, 2026" },
-  { id: 5, name: "Real Estate Lead Bot", status: "active", platform: "Instagram", messages: 412, created: "Mar 8, 2026" },
-];
-
 const statusColor: Record<string, string> = {
   active: "bg-success/15 text-success border-success/20",
   paused: "bg-amber-500/15 text-amber-400 border-amber-500/20",
   draft: "bg-muted text-muted-foreground border-border",
 };
 
+interface Agent {
+  id: number;
+  name: string;
+  status: string;
+  platform: string;
+  messages: number;
+  created: string;
+}
+
 const MyAgents = () => {
   const [search, setSearch] = useState("");
+  const [agents] = useState<Agent[]>([]);
   const navigate = useNavigate();
-  const filtered = MOCK_AGENTS.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = agents.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="flex-1 p-6 space-y-6 animate-fade-in">
@@ -89,7 +91,16 @@ const MyAgents = () => {
           </Card>
         ))}
         {filtered.length === 0 && (
-          <div className="py-16 text-center text-sm text-muted-foreground">No agents found.</div>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent mb-4">
+              <Bot className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium text-foreground">No agents yet</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs">Create your first AI agent to get started.</p>
+            <Button className="mt-4 gap-2" size="sm" onClick={() => navigate("/")}>
+              <Plus className="h-4 w-4" /> Create Agent
+            </Button>
+          </div>
         )}
       </div>
     </div>

@@ -32,14 +32,8 @@ const PLANS = [
   },
 ];
 
-const INVOICES = [
-  { id: "INV-0042", date: "Mar 1, 2026", amount: "$29.00", status: "Paid" },
-  { id: "INV-0041", date: "Feb 1, 2026", amount: "$29.00", status: "Paid" },
-  { id: "INV-0040", date: "Jan 1, 2026", amount: "$29.00", status: "Paid" },
-];
-
 const Billing = () => {
-  const [usage] = useState({ messages: 4827, limit: 10000 });
+  const [usage] = useState({ messages: 0, limit: 10000 });
 
   return (
     <div className="flex-1 p-6 space-y-8 animate-fade-in">
@@ -60,7 +54,7 @@ const Billing = () => {
             <span className="font-medium text-foreground">{usage.messages.toLocaleString()} / {usage.limit.toLocaleString()}</span>
           </div>
           <Progress value={(usage.messages / usage.limit) * 100} className="h-2" />
-          <p className="text-xs text-muted-foreground">{Math.round((usage.messages / usage.limit) * 100)}% of your monthly quota used</p>
+          <p className="text-xs text-muted-foreground">{usage.messages === 0 ? "No messages sent yet" : `${Math.round((usage.messages / usage.limit) * 100)}% of your monthly quota used`}</p>
         </CardContent>
       </Card>
 
@@ -109,19 +103,11 @@ const Billing = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold">Payment Method</CardTitle>
-            <Button variant="ghost" size="sm" className="h-7 text-xs">Update</Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs">Add Card</Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-14 items-center justify-center rounded-md bg-accent">
-              <CreditCard className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">•••• •••• •••• 4242</p>
-              <p className="text-xs text-muted-foreground">Expires 12/2027</p>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground">No payment method added yet.</p>
         </CardContent>
       </Card>
 
@@ -131,23 +117,7 @@ const Billing = () => {
           <CardTitle className="text-sm font-semibold">Invoice History</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {INVOICES.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-border/50 px-4 py-3">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-mono text-foreground">{inv.id}</span>
-                  <span className="text-xs text-muted-foreground hidden sm:inline">{inv.date}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium text-foreground">{inv.amount}</span>
-                  <Badge variant="outline" className="bg-success/15 text-success border-success/20 text-xs">{inv.status}</Badge>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <Download className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-sm text-muted-foreground">No invoices yet.</p>
         </CardContent>
       </Card>
     </div>
