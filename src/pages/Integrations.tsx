@@ -5,16 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { MessageSquare, Send, Instagram, Globe, Webhook, Settings, ExternalLink } from "lucide-react";
 
-const INTEGRATIONS = [
-  { id: "telegram", name: "Telegram", desc: "Deploy bots via BotFather", icon: Send, connected: true, agents: 2 },
-  { id: "whatsapp", name: "WhatsApp", desc: "Connect via WhatsApp Business API", icon: MessageSquare, connected: true, agents: 1 },
+const INITIAL_INTEGRATIONS = [
+  { id: "telegram", name: "Telegram", desc: "Deploy bots via BotFather", icon: Send, connected: false, agents: 0 },
+  { id: "whatsapp", name: "WhatsApp", desc: "Connect via WhatsApp Business API", icon: MessageSquare, connected: false, agents: 0 },
   { id: "instagram", name: "Instagram DMs", desc: "Auto-reply to Instagram messages", icon: Instagram, connected: false, agents: 0 },
   { id: "web", name: "Web Widget", desc: "Embed a chat widget on your site", icon: Globe, connected: false, agents: 0 },
   { id: "webhook", name: "Custom Webhook", desc: "Connect to any platform via webhooks", icon: Webhook, connected: false, agents: 0 },
 ];
 
 const Integrations = () => {
-  const [integrations, setIntegrations] = useState(INTEGRATIONS);
+  const [integrations, setIntegrations] = useState(INITIAL_INTEGRATIONS);
 
   const toggle = (id: string) => {
     setIntegrations((prev) =>
@@ -47,20 +47,16 @@ const Integrations = () => {
                 <Badge variant="outline" className={`text-xs ${int.connected ? "bg-success/15 text-success border-success/20" : ""}`}>
                   {int.connected ? "Connected" : "Disconnected"}
                 </Badge>
-                {int.connected && (
+                {int.connected ? (
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5">
                     <Settings className="h-3 w-3" /> Configure
                   </Button>
-                )}
-                {!int.connected && (
+                ) : (
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5">
                     <ExternalLink className="h-3 w-3" /> Setup
                   </Button>
                 )}
               </div>
-              {int.connected && int.agents > 0 && (
-                <p className="text-xs text-muted-foreground mt-2">{int.agents} agent{int.agents > 1 ? "s" : ""} connected</p>
-              )}
             </CardContent>
           </Card>
         ))}
