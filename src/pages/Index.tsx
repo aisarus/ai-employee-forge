@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { GnomeAssembly } from "@/components/GnomeAssembly";
 import { Workspace } from "@/components/Workspace";
+import { runTriTfmPipeline } from "@/lib/tri-tfm";
 
 type WorkflowState = "input" | "loading" | "workspace";
 
@@ -12,6 +13,7 @@ const Index = () => {
   const [state, setState] = useState<WorkflowState>("input");
   const [prompt, setPrompt] = useState("");
   const [apiKey, setApiKey] = useState(localStorage.getItem("userOpenAiKey") || "");
+  const [progressMsg, setProgressMsg] = useState("");
 
   useEffect(() => {
     localStorage.setItem("userOpenAiKey", apiKey);
@@ -24,50 +26,39 @@ const Index = () => {
 
   useEffect(() => {
     if (state !== "loading") return;
-    
 
-// // Mock logic removed
-
-  // Fetch real API
-  const callApi = async () => {
-    try {
-      const response = await fetch("https://bbhypbkanbquuoptbugo.supabase.co/functions/v1/tri-tfm-controller", {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer tri_test_master_123",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+    const runPipeline = async () => {
+      try {
+        const result = await runTriTfmPipeline({
           prompt: `You are an AI support agent. Follow these business rules:\n\n${prompt}`,
-          apiProvider: "openai",
-          customApiKey: apiKey,
+          apiKey,
           config: {
             maxIterations: 5,
             useProposerCriticVerifier: true,
-            proposerCriticOnly: true
-          }
-        })
-      });
+            proposerCriticOnly: true,
+          },
+          onProgress: (stage, detail) => {
+            setProgressMsg(detail || stage);
+          },
+        });
 
-      const data = await response.json();
-      
-      // Save to Supabase DB
-      await supabase.from("agents").insert({
-        name: "AutoBot",
-        description: prompt,
-        system_prompt: data.finalText || "Error generating prompt"
-      });
+        // Save to Supabase DB
+        await supabase.from("agents").insert({
+          name: "AutoBot",
+          description: prompt,
+          system_prompt: result.finalText || "Error generating prompt",
+        });
 
-      // Pass to workspace (we will use localStorage for quick hack, or global state)
-      localStorage.setItem("generatedPrompt", data.finalText || "");
-      localStorage.setItem("tfmData", JSON.stringify(data));
-      setState("workspace");
-    } catch (e) {
-      console.error(e);
-      setState("workspace"); // fallback
-    }
-  };
-  callApi();
+        // Pass to workspace via localStorage (existing pattern)
+        localStorage.setItem("generatedPrompt", result.finalText || "");
+        localStorage.setItem("tfmData", JSON.stringify(result));
+        setState("workspace");
+      } catch (e) {
+        console.error("TRI-TFM pipeline error:", e);
+        setState("workspace"); // fallback
+      }
+    };
+    runPipeline();
   }, [state]);
 
   if (state === "loading") {
