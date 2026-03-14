@@ -38,7 +38,7 @@ const Index = () => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          prompt: `Convert the following business description into a strict, production-ready System Prompt for an AI support agent. Use clear headings like "Role", "Core Tasks", "Constraints", and "Output Format".\n\nBusiness description: ${prompt}`,
+          prompt: `You are an AI support agent. Follow these business rules:\n\n${prompt}`,
           apiProvider: "openai",
           customApiKey: apiKey,
           config: {
