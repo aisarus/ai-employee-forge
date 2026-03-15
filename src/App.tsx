@@ -9,6 +9,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { I18nProvider } from "@/hooks/useI18n";
 import Index from "./pages/Index";
+import WorkspacePage from "./pages/WorkspacePage";
 import MyAgents from "./pages/MyAgents";
 import Integrations from "./pages/Integrations";
 import Billing from "./pages/Billing";
@@ -43,6 +44,7 @@ function AppRoutes() {
           <main className="flex-1 flex flex-col">
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/workspace" element={<WorkspacePage />} />
               <Route path="/agents" element={<MyAgents />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/billing" element={<Billing />} />

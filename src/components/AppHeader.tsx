@@ -19,6 +19,7 @@ export function AppHeader() {
 
   const pageTitleKeys: Record<string, string> = {
     "/": "nav.create_agent",
+    "/workspace": "nav.workspace",
     "/agents": "nav.my_agents",
     "/integrations": "nav.integrations",
     "/billing": "nav.billing",
@@ -32,11 +33,14 @@ export function AppHeader() {
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/50 bg-background/60 px-4 backdrop-blur-xl">
       <div className="flex items-center gap-3">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        {/* Breadcrumb — hidden on xs screens */}
+        <nav className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground">
           <span>{t("nav.dashboard")}</span>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="text-foreground font-medium">{pageTitle}</span>
         </nav>
+        {/* Page title only on mobile */}
+        <span className="sm:hidden text-sm font-semibold text-foreground">{pageTitle}</span>
       </div>
       <div className="flex items-center gap-2">
         <Button

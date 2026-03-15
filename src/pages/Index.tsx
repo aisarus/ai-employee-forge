@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sparkles, Key, Bot, ChevronDown, ChevronUp, Settings2, ArrowRight, MessageSquare, Zap, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,11 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GnomeAssembly } from "@/components/GnomeAssembly";
-import { Workspace } from "@/components/Workspace";
 import { runTriTfmPipeline } from "@/lib/tri-tfm";
 import { useI18n } from "@/hooks/useI18n";
 
-type WorkflowState = "input" | "loading" | "workspace";
+type WorkflowState = "input" | "loading";
 
 const HOW_STEPS = [
   { icon: MessageSquare, key: "how.step1_title", descKey: "how.step1_desc" },
@@ -23,6 +23,7 @@ const HOW_STEPS = [
 const Index = () => {
   const { user } = useAuth();
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [state, setState] = useState<WorkflowState>("input");
   const [botName, setBotName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -72,10 +73,10 @@ const Index = () => {
         localStorage.setItem("generatedPrompt", result.finalText || "");
         localStorage.setItem("tfmData", JSON.stringify(result));
         localStorage.setItem("botName", botName || "AI Assistant");
-        setState("workspace");
+        navigate("/workspace");
       } catch (e) {
         console.error("TRI-TFM pipeline error:", e);
-        setState("workspace");
+        navigate("/workspace");
       }
     };
     runPipeline();
@@ -83,10 +84,6 @@ const Index = () => {
 
   if (state === "loading") {
     return <div className="flex flex-1 items-center justify-center"><GnomeAssembly /></div>;
-  }
-
-  if (state === "workspace") {
-    return <Workspace />;
   }
 
   const canGenerate = prompt.trim().length > 0 && apiKey.startsWith("sk-");

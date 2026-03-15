@@ -65,18 +65,39 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       setStep(0);
       setDeployed(false);
       setConfirmed(false);
-      // Pre-fill OpenAI key from localStorage (entered on Index page) if not already in initialData
+      // Restore from sessionStorage draft first, then apply initialData + localStorage key
       const storedKey = localStorage.getItem("userOpenAiKey") || "";
-      setData((prev) => ({
+      let draft: Partial<WizardData> = {};
+      if (agentId) {
+        try {
+          const raw = sessionStorage.getItem(`wizard_draft_${agentId}`);
+          if (raw) draft = JSON.parse(raw) as Partial<WizardData>;
+        } catch {}
+      }
+      const merged: WizardData = {
         ...DEFAULT_WIZARD_DATA,
+        ...draft,
         ...initialData,
-        openai_api_key: initialData?.openai_api_key || storedKey,
-        telegram_display_name: initialData?.bot_name || prev.bot_name || "",
-        telegram_short_description: initialData?.short_description || prev.short_description || "",
-        telegram_about_text: initialData?.about_text || prev.about_text || "",
-      }));
+        openai_api_key: initialData?.openai_api_key || draft.openai_api_key || storedKey,
+        telegram_display_name: initialData?.bot_name || draft.telegram_display_name || "",
+        telegram_short_description: initialData?.short_description || draft.telegram_short_description || "",
+        telegram_about_text: initialData?.about_text || draft.telegram_about_text || "",
+      };
+      setData(merged);
+      // Resume at saved step if draft exists
+      if (draft.bot_type && !initialData) {
+        const savedStep = Number(sessionStorage.getItem(`wizard_step_${agentId}`) || 0);
+        setStep(Math.max(0, savedStep));
+      }
     }
   }, [open, initialData]);
+
+  // Persist wizard data to sessionStorage so accidental close doesn't lose work
+  const persistData = (d: WizardData) => {
+    if (agentId) {
+      try { sessionStorage.setItem(`wizard_draft_${agentId}`, JSON.stringify(d)); } catch {}
+    }
+  };
 
   const onChange = (patch: Partial<WizardData>) => {
     setData((prev) => {
@@ -98,6 +119,9 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       return next;
     });
 
+    // Persist to sessionStorage
+    setTimeout(() => setData((d) => { persistData(d); return d; }), 0);
+
     // When bot_type is freshly chosen: apply presets (empty fields only) + advance to step 1
     if (patch.bot_type !== undefined && patch.bot_type !== data.bot_type && patch.bot_type !== "") {
       const preset = BOT_TYPE_PRESETS[patch.bot_type];
@@ -115,9 +139,11 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
             : preset.telegram_commands,
         }));
         setStep(1);
+        if (agentId) sessionStorage.setItem(`wizard_step_${agentId}`, "1");
         return;
       }
       setStep(1);
+      if (agentId) sessionStorage.setItem(`wizard_step_${agentId}`, "1");
     }
   };
 
@@ -222,6 +248,11 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         throw new Error(msg + hint);
       }
 
+      // Clear session draft after successful deploy
+      if (agentId) {
+        sessionStorage.removeItem(`wizard_draft_${agentId}`);
+        sessionStorage.removeItem(`wizard_step_${agentId}`);
+      }
       setBotUsername(deployRes?.botInfo?.username || "");
       setDeployed(true);
       toast.success(deployRes?.message || t("wizard.deployed"));
@@ -342,7 +373,15 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
               {deploying ? t("wizard.deploying") : t("wizard.deploy_telegram")}
             </Button>
           ) : (
-            <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext()} className="gap-1">
+            <Button
+              onClick={() => {
+                const next = step + 1;
+                setStep(next);
+                if (agentId) sessionStorage.setItem(`wizard_step_${agentId}`, String(next));
+              }}
+              disabled={!canNext()}
+              className="gap-1"
+            >
               {t("wizard.next")} <ChevronRight className="h-4 w-4" />
             </Button>
           )}

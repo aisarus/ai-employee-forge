@@ -10,7 +10,8 @@ const translations = {
   "nav.integrations": { en: "Integrations", ru: "Интеграции" },
   "nav.billing": { en: "Billing", ru: "Оплата" },
   "nav.settings": { en: "Settings", ru: "Настройки" },
-  "nav.logout": { en: "Log out", ru: "Выйти" },
+  "nav.logout":     { en: "Log out",  ru: "Выйти" },
+  "nav.workspace":  { en: "Workspace", ru: "Рабочее пространство" },
 
   // Auth
   "auth.welcome": { en: "Welcome to BotForge", ru: "Добро пожаловать в BotForge" },
