@@ -112,12 +112,13 @@ Deno.serve(async (req) => {
     // ── 3. Persist token + activate agent (schema-compatible) ────────────────
     let updateError: { message: string } | null = null;
 
-    // Update agent with telegram token and activate
+    // Update agent with telegram token, openai key, and activate
     {
       const { error } = await supabase
         .from("agents")
         .update({
           telegram_token: telegramToken,
+          openai_api_key: openaiApiKey,
           platform: "telegram",
           is_active: true,
           telegram_display_name: displayName || null,
