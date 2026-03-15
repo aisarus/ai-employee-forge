@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ExternalLink, Zap, MessageCircle, Send, Loader2, CheckCircle } from "lucide-react";
+import { ExternalLink, Zap, MessageCircle, Send, Loader2, CheckCircle, ChevronDown, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/hooks/useI18n";
@@ -18,6 +19,8 @@ interface DeployModalProps {
 export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
   const { t } = useI18n();
   const [tgToken, setTgToken] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [deployed, setDeployed] = useState(false);
   const [botUsername, setBotUsername] = useState("");
@@ -42,9 +45,9 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
     setDeploying(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("deploy-telegram", {
-        body: { agentId, telegramToken: tgToken },
-      });
+      const body: any = { agentId, telegramToken: tgToken };
+      if (openaiKey.trim()) body.openaiApiKey = openaiKey.trim();
+      const { data, error } = await supabase.functions.invoke("deploy-telegram", { body });
 
       if (error) throw new Error(error.message || "Deploy failed");
       if (data?.error) throw new Error(data.error);
@@ -116,6 +119,25 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                     className="bg-background/50 font-mono text-xs"
                   />
                 </div>
+                <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <Settings className="h-3.5 w-3.5" />
+                    <span>Advanced Settings</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3 space-y-2">
+                    <Label htmlFor="openai-key" className="text-sm">OpenAI API Key <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Input
+                      id="openai-key"
+                      value={openaiKey}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
+                      placeholder="sk-..."
+                      type="password"
+                      className="bg-background/50 font-mono text-xs"
+                    />
+                    <p className="text-xs text-muted-foreground">Leave empty to use built-in AI. Provide your key for GPT-4o.</p>
+                  </CollapsibleContent>
+                </Collapsible>
                 <Button
                   className="w-full gap-2"
                   size="lg"

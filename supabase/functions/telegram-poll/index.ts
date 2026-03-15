@@ -125,8 +125,13 @@ Deno.serve(async () => {
                   temperature: 0.7,
                 }),
               });
-              const aiData = await aiRes.json().catch(() => ({}));
-              reply = aiData?.choices?.[0]?.message?.content || reply;
+              if (!aiRes.ok) {
+                const errBody = await aiRes.text().catch(() => "");
+                console.error("Lovable AI error for agent", agent.id, "status:", aiRes.status, "body:", errBody);
+              } else {
+                const aiData = await aiRes.json().catch(() => ({}));
+                reply = aiData?.choices?.[0]?.message?.content || reply;
+              }
             } else {
               // Use agent's own OpenAI key (BYOK)
               const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -141,8 +146,13 @@ Deno.serve(async () => {
                   temperature: 0.7,
                 }),
               });
-              const openaiData = await openaiRes.json().catch(() => ({}));
-              reply = openaiData?.choices?.[0]?.message?.content || reply;
+              if (!openaiRes.ok) {
+                const errBody = await openaiRes.text().catch(() => "");
+                console.error("OpenAI error for agent", agent.id, "status:", openaiRes.status, "body:", errBody);
+              } else {
+                const openaiData = await openaiRes.json().catch(() => ({}));
+                reply = openaiData?.choices?.[0]?.message?.content || reply;
+              }
             }
           } catch (err) {
             console.error("AI error for agent", agent.id, err);
