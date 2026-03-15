@@ -6,9 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Zap, MessageCircle, Send, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-
-const EXTERNAL_SUPABASE_URL = "https://bbhypbkanbquuoptbugo.supabase.co/functions/v1";
-const EXTERNAL_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaHlwYmthbmJxdXVvcHRidWdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Nzc2NTUsImV4cCI6MjA4OTA1MzY1NX0.KaSAUFkrydmTntXJ_tXRgocc544MBtnFhs721I9niQc";
+import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/hooks/useI18n";
 
 interface DeployModalProps {
@@ -44,18 +42,12 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
     setDeploying(true);
 
     try {
-      const res = await fetch(`${EXTERNAL_SUPABASE_URL}/deploy-telegram`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${EXTERNAL_ANON_KEY}`,
-          "apikey": EXTERNAL_ANON_KEY,
-        },
-        body: JSON.stringify({ agentId, telegramToken: tgToken }),
+      const { data, error } = await supabase.functions.invoke("deploy-telegram", {
+        body: { agentId, telegramToken: tgToken },
       });
 
-      const data = await res.json();
-      if (!res.ok || data?.error) throw new Error(data?.error || "Deploy failed");
+      if (error) throw new Error(error.message || "Deploy failed");
+      if (data?.error) throw new Error(data.error);
 
       setDeployed(true);
       setBotUsername(data.botInfo?.username || "");

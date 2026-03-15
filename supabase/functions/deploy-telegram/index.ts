@@ -38,12 +38,14 @@ Deno.serve(async (req) => {
     const {
       agentId,
       telegramToken,
-      openaiApiKey,
       displayName,
       shortDescription,
       aboutText,
       commands,
     } = await req.json();
+
+    // Use project-level OpenAI key from secrets
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     // ── Validate inputs ──────────────────────────────────────────────────────
     if (!agentId) {
@@ -54,27 +56,6 @@ Deno.serve(async (req) => {
     }
     if (!telegramToken) {
       return new Response(JSON.stringify({ error: "telegramToken is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!openaiApiKey || !openaiApiKey.startsWith("sk-")) {
-      return new Response(JSON.stringify({ error: "deploy_error.openai_key_invalid" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Validate OpenAI key early by calling models list (lightweight)
-    const openaiCheck = await fetch("https://api.openai.com/v1/models", {
-      headers: { Authorization: `Bearer ${openaiApiKey}` },
-    });
-    if (!openaiCheck.ok) {
-      const oc = await openaiCheck.json().catch(() => ({})) as any;
-      const errKey = openaiCheck.status === 401 ? "deploy_error.openai_unauthorized"
-                   : openaiCheck.status === 429 ? "deploy_error.openai_rate_limit"
-                   : "deploy_error.openai_unknown";
-      return new Response(JSON.stringify({ error: errKey, details: oc?.error?.message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -127,27 +108,8 @@ Deno.serve(async (req) => {
     // ── 3. Persist token + activate agent (schema-compatible) ────────────────
     let updateError: { message: string } | null = null;
 
-    // Try extended schema first (projects with per-agent OpenAI key + offset)
+    // Update agent with telegram token and activate
     {
-      const { error } = await supabase
-        .from("agents")
-        .update({
-          telegram_token: telegramToken,
-          openai_api_key: openaiApiKey,
-          platform: "telegram",
-          is_active: true,
-          telegram_update_offset: 0,
-          telegram_display_name: displayName || null,
-          telegram_short_description: shortDescription || null,
-          telegram_about_text: aboutText || null,
-          telegram_commands: Array.isArray(commands) ? commands : [],
-        } as any)
-        .eq("id", agentId);
-      updateError = error;
-    }
-
-    // Fallback for minimal schema (without openai_api_key / telegram_update_offset)
-    if (updateError && /column .* does not exist/i.test(updateError.message)) {
       const { error } = await supabase
         .from("agents")
         .update({
