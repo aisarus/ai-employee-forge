@@ -4,6 +4,50 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const TELEGRAM_API = "https://api.telegram.org";
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MAX_RUNTIME_MS = 55_000;
+const BYOK_FALLBACK_STATUSES = new Set([402, 403, 429]);
+
+async function callLovableAi(messages: any[], lovableKey: string): Promise<string | null> {
+  const res = await fetch(LOVABLE_AI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${lovableKey}`,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages,
+      temperature: 0.7,
+    }),
+  });
+  if (!res.ok) {
+    console.error("Lovable AI error, status:", res.status, "body:", await res.text().catch(() => ""));
+    return null;
+  }
+  const data = await res.json().catch(() => ({}));
+  return data?.choices?.[0]?.message?.content || null;
+}
+
+async function callOpenAi(messages: any[], apiKey: string): Promise<{ content: string | null; fallback: boolean }> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages,
+      temperature: 0.7,
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.error("OpenAI error, status:", res.status, "body:", errBody);
+    return { content: null, fallback: BYOK_FALLBACK_STATUSES.has(res.status) };
+  }
+  const data = await res.json().catch(() => ({}));
+  return { content: data?.choices?.[0]?.message?.content || null, fallback: false };
+}
 
 Deno.serve(async () => {
   const startTime = Date.now();
@@ -35,12 +79,10 @@ Deno.serve(async () => {
       const botToken: string = (agent.telegram_token || "").trim();
       if (!botToken) continue;
 
-      // Use agent's own OpenAI key if provided, otherwise use Lovable AI
       const agentOpenaiKey: string = (agent.openai_api_key || "").trim();
-      const useLovableAi = !agentOpenaiKey;
 
-      if (!useLovableAi && !agentOpenaiKey) continue;
-      if (useLovableAi && !lovableKey) continue;
+      // Need at least one AI provider
+      if (!agentOpenaiKey && !lovableKey) continue;
 
       const { data: lastUpdateRow } = await supabase
         .from("telegram_messages")
@@ -109,53 +151,25 @@ Deno.serve(async () => {
             { role: "user", content: userText },
           ];
 
-          let reply = "Sorry, I couldn't process that.";
-          try {
-            if (useLovableAi) {
-              // Use Lovable AI Gateway
-              const aiRes = await fetch(LOVABLE_AI_URL, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${lovableKey}`,
-                },
-                body: JSON.stringify({
-                  model: "google/gemini-2.5-flash",
-                  messages: chatMessages,
-                  temperature: 0.7,
-                }),
-              });
-              if (!aiRes.ok) {
-                const errBody = await aiRes.text().catch(() => "");
-                console.error("Lovable AI error for agent", agent.id, "status:", aiRes.status, "body:", errBody);
-              } else {
-                const aiData = await aiRes.json().catch(() => ({}));
-                reply = aiData?.choices?.[0]?.message?.content || reply;
-              }
-            } else {
-              // Use agent's own OpenAI key (BYOK)
-              const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${agentOpenaiKey}`,
-                },
-                body: JSON.stringify({
-                  model: "gpt-4o-mini",
-                  messages: chatMessages,
-                  temperature: 0.7,
-                }),
-              });
-              if (!openaiRes.ok) {
-                const errBody = await openaiRes.text().catch(() => "");
-                console.error("OpenAI error for agent", agent.id, "status:", openaiRes.status, "body:", errBody);
-              } else {
-                const openaiData = await openaiRes.json().catch(() => ({}));
-                reply = openaiData?.choices?.[0]?.message?.content || reply;
-              }
+          let reply: string | null = null;
+
+          if (agentOpenaiKey) {
+            // Try BYOK first
+            const result = await callOpenAi(chatMessages, agentOpenaiKey);
+            reply = result.content;
+
+            // Fallback to Lovable AI on quota/auth errors
+            if (!reply && result.fallback && lovableKey) {
+              console.log("BYOK failed for agent", agent.id, "— falling back to Lovable AI");
+              reply = await callLovableAi(chatMessages, lovableKey);
             }
-          } catch (err) {
-            console.error("AI error for agent", agent.id, err);
+          } else if (lovableKey) {
+            // No BYOK key — use Lovable AI directly
+            reply = await callLovableAi(chatMessages, lovableKey);
+          }
+
+          if (!reply) {
+            reply = "⚠️ AI is temporarily unavailable. Please try again later.";
           }
 
           await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {

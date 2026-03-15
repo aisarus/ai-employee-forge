@@ -1,11 +1,34 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const BYOK_FALLBACK_STATUSES = new Set([402, 403, 429]);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+async function callLovableAi(messages: any[], lovableKey: string) {
+  const res = await fetch(LOVABLE_AI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${lovableKey}`,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages,
+      temperature: 0.7,
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("Lovable AI error:", res.status, errText);
+    return { content: null, error: `AI error ${res.status}`, status: res.status };
+  }
+  const data = await res.json();
+  return { content: data?.choices?.[0]?.message?.content ?? "", error: null, status: 200 };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,9 +44,9 @@ Deno.serve(async (req) => {
     ];
 
     const useByok = openaiKey && openaiKey.startsWith("sk-");
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
 
     if (useByok) {
-      // BYOK: use user's OpenAI key
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -37,14 +60,28 @@ Deno.serve(async (req) => {
         }),
       });
 
-      const data = await response.json();
       if (!response.ok) {
-        return new Response(JSON.stringify({ error: data.error?.message || "OpenAI API error" }), {
+        const data = await response.json().catch(() => ({}));
+        console.error("OpenAI BYOK error:", response.status, data?.error?.message);
+
+        // Fallback to Lovable AI on quota/auth errors
+        if (BYOK_FALLBACK_STATUSES.has(response.status) && lovableKey) {
+          console.log("BYOK failed, falling back to Lovable AI");
+          const fallback = await callLovableAi(apiMessages, lovableKey);
+          if (fallback.content !== null) {
+            return new Response(JSON.stringify({ content: fallback.content }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+
+        return new Response(JSON.stringify({ error: data?.error?.message || "OpenAI API error" }), {
           status: response.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
+      const data = await response.json();
       return new Response(JSON.stringify({
         content: data.choices[0].message.content,
         usage: data.usage,
@@ -53,8 +90,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fallback: use Lovable AI Gateway
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    // No BYOK — use Lovable AI directly
     if (!lovableKey) {
       return new Response(JSON.stringify({ error: "AI not configured. Provide an OpenAI API key or contact support." }), {
         status: 500,
@@ -62,32 +98,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const response = await fetch(LOVABLE_AI_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: apiMessages,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Lovable AI error:", response.status, errText);
-      return new Response(JSON.stringify({ error: `AI error ${response.status}` }), {
-        status: response.status,
+    const result = await callLovableAi(apiMessages, lovableKey);
+    if (result.error) {
+      return new Response(JSON.stringify({ error: result.error }), {
+        status: result.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content ?? "";
-
-    return new Response(JSON.stringify({ content }), {
+    return new Response(JSON.stringify({ content: result.content }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
