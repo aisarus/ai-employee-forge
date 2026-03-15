@@ -108,27 +108,8 @@ Deno.serve(async (req) => {
     // ── 3. Persist token + activate agent (schema-compatible) ────────────────
     let updateError: { message: string } | null = null;
 
-    // Try extended schema first (projects with per-agent OpenAI key + offset)
+    // Update agent with telegram token and activate
     {
-      const { error } = await supabase
-        .from("agents")
-        .update({
-          telegram_token: telegramToken,
-          openai_api_key: openaiApiKey,
-          platform: "telegram",
-          is_active: true,
-          telegram_update_offset: 0,
-          telegram_display_name: displayName || null,
-          telegram_short_description: shortDescription || null,
-          telegram_about_text: aboutText || null,
-          telegram_commands: Array.isArray(commands) ? commands : [],
-        } as any)
-        .eq("id", agentId);
-      updateError = error;
-    }
-
-    // Fallback for minimal schema (without openai_api_key / telegram_update_offset)
-    if (updateError && /column .* does not exist/i.test(updateError.message)) {
       const { error } = await supabase
         .from("agents")
         .update({
