@@ -128,7 +128,7 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                     className="bg-background/50 font-mono text-xs"
                   />
                   <p className="text-xs text-muted-foreground">
-                    {t("deploy.openai_hint") !== "deploy.openai_hint" ? t("deploy.openai_hint") : "Получите ключ на platform.openai.com → API Keys"}
+                    Получите ключ на <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" className="text-primary underline">platform.openai.com</a> → API Keys
                   </p>
                 </div>
                 <Button
