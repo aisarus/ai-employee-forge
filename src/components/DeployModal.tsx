@@ -45,9 +45,9 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
     setDeploying(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("deploy-telegram", {
-        body: { agentId, telegramToken: tgToken },
-      });
+      const body: any = { agentId, telegramToken: tgToken };
+      if (openaiKey.trim()) body.openaiApiKey = openaiKey.trim();
+      const { data, error } = await supabase.functions.invoke("deploy-telegram", { body });
 
       if (error) throw new Error(error.message || "Deploy failed");
       if (data?.error) throw new Error(data.error);
