@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Zap, MessageCircle, Send, Loader2, CheckCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+const EXTERNAL_SUPABASE_URL = "https://bbhypbkanbquuoptbugo.supabase.co/functions/v1";
+const EXTERNAL_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaHlwYmthbmJxdXVvcHRidWdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Nzc2NTUsImV4cCI6MjA4OTA1MzY1NX0.KaSAUFkrydmTntXJ_tXRgocc544MBtnFhs721I9niQc";
 import { useI18n } from "@/hooks/useI18n";
 
 interface DeployModalProps {
