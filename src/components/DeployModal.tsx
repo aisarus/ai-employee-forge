@@ -18,6 +18,7 @@ interface DeployModalProps {
 export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
   const { t } = useI18n();
   const [tgToken, setTgToken] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
   const [deploying, setDeploying] = useState(false);
   const [deployed, setDeployed] = useState(false);
   const [botUsername, setBotUsername] = useState("");
@@ -43,7 +44,7 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
 
     try {
       const { data, error } = await supabase.functions.invoke("deploy-telegram", {
-        body: { agentId, telegramToken: tgToken },
+        body: { agentId, telegramToken: tgToken, openaiApiKey: openaiKey },
       });
 
       if (error) throw new Error(error.message || "Deploy failed");
@@ -116,11 +117,25 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                     className="bg-background/50 font-mono text-xs"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="openai-key" className="text-sm">OpenAI API Key</Label>
+                  <Input
+                    id="openai-key"
+                    type="password"
+                    value={openaiKey}
+                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    placeholder="sk-proj-..."
+                    className="bg-background/50 font-mono text-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Получите ключ на <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" className="text-primary underline">platform.openai.com</a> → API Keys
+                  </p>
+                </div>
                 <Button
                   className="w-full gap-2"
                   size="lg"
                   onClick={handleDeployTelegram}
-                  disabled={deploying || !agentId}
+                  disabled={deploying || !agentId || !tgToken || !openaiKey}
                 >
                   {deploying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                   {deploying ? t("deploy.deploying") : t("deploy.deploy_tg")}

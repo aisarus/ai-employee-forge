@@ -38,14 +38,12 @@ Deno.serve(async (req) => {
     const {
       agentId,
       telegramToken,
+      openaiApiKey,
       displayName,
       shortDescription,
       aboutText,
       commands,
     } = await req.json();
-
-    // Use project-level OpenAI key from secrets
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     // ── Validate inputs ──────────────────────────────────────────────────────
     if (!agentId) {
@@ -56,6 +54,12 @@ Deno.serve(async (req) => {
     }
     if (!telegramToken) {
       return new Response(JSON.stringify({ error: "telegramToken is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!openaiApiKey || !openaiApiKey.startsWith("sk-")) {
+      return new Response(JSON.stringify({ error: "Введите корректный OpenAI API ключ (начинается с sk-)" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -108,12 +112,13 @@ Deno.serve(async (req) => {
     // ── 3. Persist token + activate agent (schema-compatible) ────────────────
     let updateError: { message: string } | null = null;
 
-    // Update agent with telegram token and activate
+    // Update agent with telegram token, openai key, and activate
     {
       const { error } = await supabase
         .from("agents")
         .update({
           telegram_token: telegramToken,
+          openai_api_key: openaiApiKey,
           platform: "telegram",
           is_active: true,
           telegram_display_name: displayName || null,

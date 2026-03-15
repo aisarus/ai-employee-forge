@@ -27,6 +27,7 @@ export type Database = {
           is_active: boolean | null
           messages_count: number | null
           name: string
+          openai_api_key: string | null
           platform: string | null
           raw_instructions: string
           response_style: string | null
@@ -56,6 +57,7 @@ export type Database = {
           is_active?: boolean | null
           messages_count?: number | null
           name: string
+          openai_api_key?: string | null
           platform?: string | null
           raw_instructions?: string
           response_style?: string | null
@@ -85,6 +87,7 @@ export type Database = {
           is_active?: boolean | null
           messages_count?: number | null
           name?: string
+          openai_api_key?: string | null
           platform?: string | null
           raw_instructions?: string
           response_style?: string | null

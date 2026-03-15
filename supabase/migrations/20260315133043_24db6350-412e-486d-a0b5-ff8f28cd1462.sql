@@ -1,0 +1,1 @@
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS openai_api_key text DEFAULT NULL;
