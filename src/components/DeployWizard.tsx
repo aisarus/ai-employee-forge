@@ -17,7 +17,7 @@ import { StepTelegramPreview } from "./wizard/StepTelegramPreview";
 import { StepReviewDeploy } from "./wizard/StepReviewDeploy";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Rocket, Loader2, CheckCircle, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, Rocket, Loader2, Send } from "lucide-react";
 import { buildActionsPromptBlock } from "./wizard/promptBuilder";
 import { useI18n } from "@/hooks/useI18n";
 
@@ -45,6 +45,22 @@ const STEP_I18N: Record<string, string> = {
   deploy:           "wizard.deploy",
 };
 
+const STEP_ICONS: Record<string, string> = {
+  bot_type:         "🤖",
+  identity:         "✨",
+  welcome:          "👋",
+  actions:          "⚡",
+  workflow:         "🔄",
+  connections:      "🔗",
+  data_mapping:     "🗂️",
+  triggers:         "🎯",
+  preview:          "👁️",
+  api_keys:         "🔑",
+  telegram_config:  "📱",
+  telegram_preview: "📲",
+  deploy:           "🚀",
+};
+
 export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", initialData }: DeployWizardProps) {
   const { t } = useI18n();
   const [step, setStep] = useState(0);
@@ -53,11 +69,14 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const [deploying, setDeploying] = useState(false);
   const [deployed, setDeployed] = useState(false);
   const [botUsername, setBotUsername] = useState("");
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const [stepKey, setStepKey] = useState(0);
 
   const activeSteps = getWizardSteps(data.bot_type);
   const currentStepId = activeSteps[step] ?? "bot_type";
   const isLastStep = step === activeSteps.length - 1;
 
+  // ── Restore from localStorage on open ──────────────────────────────────────
   useEffect(() => {
     if (open) {
       setStep(0);
@@ -67,7 +86,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       let draft: Partial<WizardData> = {};
       if (agentId) {
         try {
-          const raw = sessionStorage.getItem(`wizard_draft_${agentId}`);
+          const raw = localStorage.getItem(`wizard_draft_${agentId}`);
           if (raw) draft = JSON.parse(raw) as Partial<WizardData>;
         } catch {}
       }
@@ -82,7 +101,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       };
       setData(merged);
       if (draft.bot_type && !initialData) {
-        const savedStep = Number(sessionStorage.getItem(`wizard_step_${agentId}`) || 0);
+        const savedStep = Number(localStorage.getItem(`wizard_step_${agentId}`) || 0);
         setStep(Math.max(0, savedStep));
       }
     }
@@ -90,7 +109,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
   const persistData = (d: WizardData) => {
     if (agentId) {
-      try { sessionStorage.setItem(`wizard_draft_${agentId}`, JSON.stringify(d)); } catch {}
+      try { localStorage.setItem(`wizard_draft_${agentId}`, JSON.stringify(d)); } catch {}
     }
   };
 
@@ -126,13 +145,29 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
             ? prev.telegram_commands
             : preset.telegram_commands,
         }));
-        setStep(1);
-        if (agentId) sessionStorage.setItem(`wizard_step_${agentId}`, "1");
+        goToStep(1, "forward");
+        if (agentId) localStorage.setItem(`wizard_step_${agentId}`, "1");
         return;
       }
-      setStep(1);
-      if (agentId) sessionStorage.setItem(`wizard_step_${agentId}`, "1");
+      goToStep(1, "forward");
+      if (agentId) localStorage.setItem(`wizard_step_${agentId}`, "1");
     }
+  };
+
+  const goToStep = (n: number, dir: "forward" | "back") => {
+    setDirection(dir);
+    setStepKey(k => k + 1);
+    setStep(n);
+  };
+
+  const goNext = () => {
+    const next = step + 1;
+    goToStep(next, "forward");
+    if (agentId) localStorage.setItem(`wizard_step_${agentId}`, String(next));
+  };
+
+  const goBack = () => {
+    goToStep(step - 1, "back");
   };
 
   const handleAvatarUpload = async (file: File) => {
@@ -164,10 +199,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   };
 
   const handleDeploy = async () => {
-    if (!agentId) {
-      toast.error(t("wizard.no_agent"));
-      return;
-    }
+    if (!agentId) { toast.error(t("wizard.no_agent")); return; }
     setDeploying(true);
     try {
       if (data.bot_avatar_file) {
@@ -233,10 +265,8 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         throw new Error(msg + hint);
       }
 
-      if (agentId) {
-        sessionStorage.removeItem(`wizard_draft_${agentId}`);
-        sessionStorage.removeItem(`wizard_step_${agentId}`);
-      }
+      localStorage.removeItem(`wizard_draft_${agentId}`);
+      localStorage.removeItem(`wizard_step_${agentId}`);
       setBotUsername(deployRes?.botInfo?.username || "");
       setDeployed(true);
       toast.success(deployRes?.message || t("wizard.deployed"));
@@ -259,22 +289,25 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     }
   };
 
-  // ── Deployed success screen ──────────────────────────────────────────────────
+  // ── Success screen ────────────────────────────────────────────────────────
   if (deployed) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md border-border bg-card">
-          <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="animate-scale-in">
-              <Send className="h-14 w-14 text-primary" />
+          <div className="flex flex-col items-center gap-5 py-8 text-center">
+            <div className="relative animate-scale-in">
+              <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl scale-150" />
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border border-primary/30">
+                <Send className="h-9 w-9 text-primary" />
+              </div>
             </div>
-            <div>
+            <div className="space-y-1.5 animate-fade-in" style={{ animationDelay: "150ms" }}>
               <p className="text-xl font-bold text-foreground">{t("wizard.deployed")}</p>
               {botUsername && (
-                <p className="text-sm text-muted-foreground mt-2 animate-fade-in" style={{ animationDelay: "200ms" }}>
+                <p className="text-sm text-muted-foreground">
                   {t("wizard.bot_live")}{" "}
-                  <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener" className="text-success underline font-medium">
-                    @{botUsername}
+                  <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener"
+                    className="text-primary underline font-semibold">@{botUsername}
                   </a>
                 </p>
               )}
@@ -282,7 +315,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
             <button
               onClick={() => { setDeployed(false); onOpenChange(false); }}
               className="btn-gradient h-11 px-8 rounded-xl text-primary-foreground font-semibold text-sm animate-fade-in"
-              style={{ animationDelay: "400ms" }}
+              style={{ animationDelay: "300ms" }}
             >
               <span className="relative z-10">{t("wizard.done")}</span>
             </button>
@@ -292,83 +325,107 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     );
   }
 
-  // ── Wizard dialog ────────────────────────────────────────────────────────────
+  // ── Wizard dialog ─────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-2xl border-border bg-card">
 
+        {/* Gradient accent line at top */}
+        <div className="h-0.5 bg-gradient-to-r from-primary/0 via-primary to-primary/0 shrink-0" />
+
         {/* Progress header */}
-        <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-border/50 bg-card/80 shrink-0 space-y-3">
+        <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-border/50 bg-gradient-to-b from-card to-card/80 shrink-0 space-y-3">
+
           {/* Step dots + connectors */}
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-0">
             {activeSteps.map((sid, i) => (
               <div key={sid} className="flex items-center flex-1 min-w-0">
                 <button
-                  onClick={() => i < step && setStep(i)}
-                  className={`flex shrink-0 items-center justify-center rounded-full font-bold transition-all duration-200
-                    ${activeSteps.length > 9 ? "h-4 w-4 text-[8px]" : "h-5 w-5 text-[9px]"}
+                  onClick={() => i < step && goToStep(i, "back")}
+                  title={t(STEP_I18N[sid] as any) || sid}
+                  className={`
+                    flex shrink-0 items-center justify-center rounded-full font-bold transition-all duration-300
+                    ${activeSteps.length > 9 ? "h-4 w-4 text-[8px]" : "h-6 w-6 text-[10px]"}
                     ${i === step
-                      ? "bg-primary text-primary-foreground shadow-[0_0_10px_hsl(var(--primary)/0.6)] scale-110 ring-2 ring-primary/30"
+                      ? "bg-primary text-primary-foreground shadow-[0_0_14px_hsl(var(--primary)/0.65)] scale-125 ring-2 ring-primary/20"
                       : i < step
-                        ? "bg-primary/25 text-primary cursor-pointer hover:bg-primary/40"
-                        : "bg-muted text-muted-foreground"
-                    }`}
+                        ? "bg-primary/25 text-primary cursor-pointer hover:bg-primary/45 hover:scale-110"
+                        : "bg-muted/70 text-muted-foreground/50"
+                    }
+                  `}
                 >
                   {i < step ? (
-                    <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="2,6 5,9 10,3" />
+                    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="1.5,5 4,7.5 8.5,2" />
                     </svg>
-                  ) : (
+                  ) : activeSteps.length > 9 ? (
                     i + 1
+                  ) : (
+                    STEP_ICONS[sid] ? (
+                      <span className="text-[9px]">{i + 1}</span>
+                    ) : (
+                      i + 1
+                    )
                   )}
                 </button>
                 {i < activeSteps.length - 1 && (
-                  <div className={`flex-1 h-px mx-0.5 transition-colors duration-300 ${i < step ? "bg-primary/40" : "bg-border"}`} />
+                  <div className={`
+                    flex-1 h-px mx-0.5 transition-all duration-500
+                    ${i < step ? "bg-gradient-to-r from-primary/50 to-primary/30" : "bg-border/60"}
+                  `} />
                 )}
               </div>
             ))}
           </div>
 
-          {/* Current step info + counter */}
+          {/* Step info row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground shrink-0">
-                {step + 1}
-              </span>
-              <p className="text-sm font-semibold text-foreground">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/12 border border-primary/25 shrink-0">
+                <span className="text-[10px] font-bold text-primary">{step + 1}</span>
+              </div>
+              <p className="text-sm font-semibold text-foreground leading-none">
                 {t(STEP_I18N[currentStepId] as any) || currentStepId}
               </p>
+              {STEP_ICONS[currentStepId] && (
+                <span className="text-base leading-none">{STEP_ICONS[currentStepId]}</span>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {step + 1} <span className="text-muted-foreground/50">/</span> {activeSteps.length}
+            <p className="text-xs text-muted-foreground/60 tabular-nums font-mono">
+              {step + 1}<span className="opacity-40">/</span>{activeSteps.length}
             </p>
           </div>
         </div>
 
-        {/* Step content */}
+        {/* Step content with directional slide animation */}
         <div className="flex-1 overflow-auto px-6 py-5">
-          {currentStepId === "bot_type"         && <StepBotType data={data} onChange={onChange} />}
-          {currentStepId === "identity"         && <StepIdentity data={data} onChange={onChange} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} />}
-          {currentStepId === "welcome"          && <StepWelcome data={data} onChange={onChange} />}
-          {currentStepId === "actions"          && <StepActionsData data={data} onChange={onChange} />}
-          {currentStepId === "workflow"         && <StepWorkflowLogic data={data} onChange={onChange} />}
-          {currentStepId === "connections"      && <StepConnections data={data} onChange={onChange} />}
-          {currentStepId === "data_mapping"     && <StepDataMapping data={data} onChange={onChange} />}
-          {currentStepId === "triggers"         && <StepTriggers data={data} onChange={onChange} />}
-          {currentStepId === "preview"          && <StepBehaviorPreview data={data} systemPrompt={getEnrichedPrompt()} />}
-          {currentStepId === "api_keys"         && <StepApiKeys data={data} onChange={onChange} />}
-          {currentStepId === "telegram_config"  && <StepTelegramConfig data={data} onChange={onChange} />}
-          {currentStepId === "telegram_preview" && <StepTelegramPreview data={data} />}
-          {currentStepId === "deploy"           && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
+          <div
+            key={stepKey}
+            className={direction === "forward" ? "animate-wizard-forward" : "animate-wizard-back"}
+          >
+            {currentStepId === "bot_type"         && <StepBotType data={data} onChange={onChange} />}
+            {currentStepId === "identity"         && <StepIdentity data={data} onChange={onChange} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} />}
+            {currentStepId === "welcome"          && <StepWelcome data={data} onChange={onChange} />}
+            {currentStepId === "actions"          && <StepActionsData data={data} onChange={onChange} />}
+            {currentStepId === "workflow"         && <StepWorkflowLogic data={data} onChange={onChange} />}
+            {currentStepId === "connections"      && <StepConnections data={data} onChange={onChange} />}
+            {currentStepId === "data_mapping"     && <StepDataMapping data={data} onChange={onChange} />}
+            {currentStepId === "triggers"         && <StepTriggers data={data} onChange={onChange} />}
+            {currentStepId === "preview"          && <StepBehaviorPreview data={data} systemPrompt={getEnrichedPrompt()} />}
+            {currentStepId === "api_keys"         && <StepApiKeys data={data} onChange={onChange} />}
+            {currentStepId === "telegram_config"  && <StepTelegramConfig data={data} onChange={onChange} />}
+            {currentStepId === "telegram_preview" && <StepTelegramPreview data={data} />}
+            {currentStepId === "deploy"           && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
+          </div>
         </div>
 
         {/* Footer nav */}
-        <div className="px-6 py-4 border-t border-border/50 bg-card/80 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-t border-border/40 bg-card/80 flex items-center justify-between shrink-0">
           <Button
-            variant="outline"
-            onClick={() => setStep((s) => s - 1)}
+            variant="ghost"
+            onClick={goBack}
             disabled={step === 0}
-            className="gap-1"
+            className="gap-1.5 text-sm disabled:opacity-30 hover:bg-muted/60"
           >
             <ChevronLeft className="h-4 w-4" /> {t("wizard.back")}
           </Button>
@@ -377,20 +434,20 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
             <button
               onClick={handleDeploy}
               disabled={!confirmed || deploying}
-              className={`btn-gradient h-11 px-8 rounded-xl text-primary-foreground font-semibold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${confirmed ? "animate-pulse-glow" : ""}`}
+              className={`btn-gradient h-10 px-7 rounded-xl text-primary-foreground font-semibold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${confirmed ? "animate-pulse-glow" : ""}`}
             >
-              {deploying ? <Loader2 className="h-4 w-4 animate-spin relative z-10" /> : <Rocket className="h-4 w-4 relative z-10" />}
-              <span className="relative z-10">{deploying ? t("wizard.deploying") : t("wizard.deploy_telegram")}</span>
+              {deploying
+                ? <Loader2 className="h-4 w-4 animate-spin relative z-10" />
+                : <Rocket className="h-4 w-4 relative z-10" />}
+              <span className="relative z-10">
+                {deploying ? t("wizard.deploying") : t("wizard.deploy_telegram")}
+              </span>
             </button>
           ) : (
             <Button
-              onClick={() => {
-                const next = step + 1;
-                setStep(next);
-                if (agentId) sessionStorage.setItem(`wizard_step_${agentId}`, String(next));
-              }}
+              onClick={goNext}
               disabled={!canNext()}
-              className="gap-1"
+              className="gap-1.5 text-sm bg-primary hover:bg-primary/90"
             >
               {t("wizard.next")} <ChevronRight className="h-4 w-4" />
             </Button>

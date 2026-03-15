@@ -70,6 +70,35 @@ export function QuickStartWizard() {
   const [tokenError, setTokenError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Restore state from localStorage on mount ──────────────────────────────
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("quickwizard_draft");
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.botDescription) setBotDescription(saved.botDescription);
+      if (saved.botName)        setBotName(saved.botName);
+      if (saved.tone)           setTone(saved.tone);
+      if (saved.responseStyle)  setResponseStyle(saved.responseStyle);
+      if (saved.generatedBrain) { setGeneratedBrain(saved.generatedBrain); setBrainGenerated(true); }
+      if (saved.agentId)        setAgentId(saved.agentId);
+      if (saved.wizardData)     setWizardData({ ...DEFAULT_WIZARD_DATA, ...saved.wizardData, bot_avatar_file: null });
+      if (saved.step && STEPS.includes(saved.step)) setStep(saved.step);
+    } catch {}
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Persist state to localStorage on every relevant change ───────────────
+  useEffect(() => {
+    try {
+      const draft = {
+        botDescription, botName, tone, responseStyle,
+        generatedBrain, brainGenerated, agentId, step,
+        wizardData: { ...wizardData, bot_avatar_file: null },
+      };
+      localStorage.setItem("quickwizard_draft", JSON.stringify(draft));
+    } catch {}
+  }, [botDescription, botName, tone, responseStyle, generatedBrain, brainGenerated, agentId, step, wizardData]);
+
   // Token validation
   useEffect(() => {
     const token = wizardData.telegram_bot_token.trim();
@@ -240,6 +269,7 @@ export function QuickStartWizard() {
 
       setBotUsername(deployRes?.botInfo?.username || "");
       setDeployed(true);
+      localStorage.removeItem("quickwizard_draft");
       toast.success(deployRes?.message || (lang === "ru" ? "Бот развёрнут!" : "Bot deployed!"));
     } catch (err: any) {
       toast.error(err.message || (lang === "ru" ? "Ошибка деплоя" : "Deploy failed"));
