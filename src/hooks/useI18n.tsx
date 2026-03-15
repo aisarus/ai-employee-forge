@@ -276,6 +276,11 @@ const translations = {
   "wf.custom": { en: "Custom Action", ru: "Своё действие" },
 
   // Telegram Config Step
+  // Review step — keys status
+  "wizard.review_keys_section": { en: "API Keys",          ru: "API ключи" },
+  "wizard.review_key_set":      { en: "Configured",        ru: "Настроен" },
+  "wizard.review_key_missing":  { en: "Missing — required", ru: "Не задан — обязательно" },
+
   // Token live validation
   "wizard.tg_token_ok":            { en: "Token verified — bot", ru: "Токен подтверждён — бот" },
   "wizard.tg_token_invalid":       { en: "Invalid token. Check it in BotFather.", ru: "Неверный токен. Проверьте в BotFather." },
