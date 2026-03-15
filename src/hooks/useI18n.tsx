@@ -276,6 +276,12 @@ const translations = {
   "wf.custom": { en: "Custom Action", ru: "Своё действие" },
 
   // Telegram Config Step
+  // Token live validation
+  "wizard.tg_token_ok":            { en: "Token verified — bot", ru: "Токен подтверждён — бот" },
+  "wizard.tg_token_invalid":       { en: "Invalid token. Check it in BotFather.", ru: "Неверный токен. Проверьте в BotFather." },
+  "wizard.tg_token_format_error":  { en: "Token format is wrong. It should look like: 123456789:ABC-...", ru: "Неверный формат токена. Должно быть: 123456789:ABC-..." },
+  "wizard.tg_token_network_error": { en: "Could not connect to Telegram. Check your internet.", ru: "Не удалось подключиться к Telegram. Проверьте интернет." },
+
   "wizard.tg_config_title": { en: "Telegram Configuration", ru: "Настройка Telegram" },
   "wizard.tg_config_desc": { en: "Connect your bot to Telegram and configure its settings.", ru: "Подключите бота к Telegram и настройте параметры." },
   "wizard.get_token": { en: "Get your bot token", ru: "Получите токен бота" },
