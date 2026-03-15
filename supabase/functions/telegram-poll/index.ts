@@ -135,7 +135,7 @@ Deno.serve(async () => {
             .eq("agent_id", agent.id)
             .eq("chat_id", chatId)
             .order("created_at", { ascending: true })
-            .limit(20);
+            .limit(30);
 
           const systemPrompt = (agent.system_prompt || "").toString();
           const hasExplicitLanguage =
@@ -149,7 +149,7 @@ Deno.serve(async () => {
             { role: "system", content: systemPrompt + languageRule },
           ];
 
-          for (const m of (history || []).slice(-16)) {
+          for (const m of (history || []).slice(-30)) {
             const isBotReply = m.raw_update && (m.raw_update as any).__bot_reply === true;
             chatMessages.push({
               role: isBotReply ? "assistant" : "user",
