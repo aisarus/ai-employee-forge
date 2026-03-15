@@ -17,21 +17,22 @@ export function StepBotType({ data, onChange }: Props) {
         <p className="text-sm text-muted-foreground">{t("wizard.bot_type_desc")}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {BOT_TYPES.map((bt) => {
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {BOT_TYPES.map((bt, i) => {
           const selected = data.bot_type === bt.id;
           return (
             <button
               key={bt.id}
               onClick={() => onChange({ bot_type: bt.id })}
               className={cn(
-                "flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all hover:border-primary/60 hover:bg-primary/5",
+                "flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 hover:scale-[1.03]",
                 selected
-                  ? "border-primary bg-primary/10 shadow-sm"
-                  : "border-border bg-muted/20"
+                  ? "border-primary bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)),0_0_20px_hsl(var(--primary)/0.3)]"
+                  : "border-border bg-card/50"
               )}
+              style={{ animationDelay: `${i * 40}ms` }}
             >
-              <span className="text-3xl">{bt.icon}</span>
+              <span className="text-4xl">{bt.icon}</span>
               <span className={cn("text-sm font-semibold", selected ? "text-primary" : "text-foreground")}>
                 {t(`bottype.${bt.id}` as any)}
               </span>
