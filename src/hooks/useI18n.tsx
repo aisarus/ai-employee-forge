@@ -73,7 +73,14 @@ const translations = {
   "agents.pause": { en: "Pause", ru: "Приостановить" },
   "agents.activate": { en: "Activate", ru: "Активировать" },
   "agents.delete": { en: "Delete", ru: "Удалить" },
-  "agents.deleted": { en: "Agent deleted", ru: "Агент удалён" },
+  "agents.deleted":        { en: "Agent deleted",          ru: "Агент удалён" },
+  "agents.load_failed":    { en: "Failed to load agents",   ru: "Не удалось загрузить агентов" },
+  "agents.update_failed":  { en: "Failed to update agent",  ru: "Не удалось обновить агента" },
+  "agents.delete_failed":  { en: "Failed to delete agent",  ru: "Не удалось удалить агента" },
+  "agents.platform_none":  { en: "Not deployed",            ru: "Не развёрнут" },
+  "status.active":         { en: "Active",                  ru: "Активен" },
+  "status.draft":          { en: "Draft",                   ru: "Черновик" },
+  "status.paused":         { en: "Paused",                  ru: "Приостановлен" },
 
   // Integrations
   "integrations.title": { en: "Integrations", ru: "Интеграции" },

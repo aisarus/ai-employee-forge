@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Bot, MoreVertical, Power, Pencil, Trash2, Plus, Search, MessageSquare, Zap } from "lucide-react";
+import { Bot, MoreVertical, Power, Pencil, Trash2, Plus, Search, MessageSquare, Zap, Send } from "lucide-react";
+import { BOT_TYPES } from "@/components/wizard/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,25 +96,46 @@ const MyAgents = () => {
       <div className="grid gap-3">
         {filtered.map((agent) => {
           const status = getStatusKey(agent);
+          const botTypeDef = BOT_TYPES.find((bt) => bt.id === agent.bot_type);
           return (
             <Card key={agent.id} className="glass-strong hover:border-primary/30 transition-colors">
               <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Bot className="h-5 w-5 text-primary" />
+                {/* Avatar / icon */}
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 overflow-hidden">
+                  {agent.bot_avatar_url
+                    ? <img src={agent.bot_avatar_url} alt="" className="h-10 w-10 object-cover" />
+                    : <Bot className="h-5 w-5 text-primary" />}
                 </div>
+
+                {/* Name + description + badges row */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{agent.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground truncate">{agent.name}</p>
+                    {/* Bot type badge */}
+                    {botTypeDef && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary shrink-0">
+                        {botTypeDef.icon} {t(`bottype.${botTypeDef.id}` as any)}
+                      </span>
+                    )}
+                    {/* Platform badge */}
+                    {agent.platform === "telegram" && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-400 shrink-0">
+                        <Send className="h-2.5 w-2.5" /> Telegram
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{agent.description}</p>
                 </div>
+
+                {/* Active / draft status */}
                 <Badge variant="outline" className={`${statusColor[status]} text-xs hidden sm:inline-flex`}>
                   {t(`status.${status}` as any)}
                 </Badge>
+
+                {/* Message count */}
                 <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground">
                   <MessageSquare className="h-3.5 w-3.5" />
                   {(agent.messages_count || 0).toLocaleString()}
-                </div>
-                <div className="hidden lg:block text-xs text-muted-foreground">
-                  {agent.platform || t("agents.platform_none")}
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
