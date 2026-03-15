@@ -67,23 +67,18 @@ export function Workspace() {
     setIsTyping(true);
 
     try {
-      const OPENAI_API_KEY = localStorage.getItem("userOpenAiKey") || ""; 
+      const OPENAI_API_KEY = localStorage.getItem("userOpenAiKey") || "";
       
-      if (!OPENAI_API_KEY.startsWith("sk-")) {
-        setMessages([...newMessages, { role: "assistant", content: t("workspace.no_key") }]);
-        setIsTyping(false);
-        return;
-      }
-
       const chatHistory = newMessages
         .filter(m => m.content !== t("workspace.chat_intro"))
         .map(m => ({ role: m.role, content: m.content }));
 
+      // test-bot now supports both BYOK and Lovable AI fallback
       const { data, error } = await supabase.functions.invoke("test-bot", {
         body: {
           messages: chatHistory,
           systemPrompt,
-          openaiKey: OPENAI_API_KEY,
+          openaiKey: OPENAI_API_KEY.startsWith("sk-") ? OPENAI_API_KEY : "",
         },
       });
 
