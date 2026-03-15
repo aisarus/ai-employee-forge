@@ -58,12 +58,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!openaiApiKey || !openaiApiKey.startsWith("sk-")) {
-      return new Response(JSON.stringify({ error: "Введите корректный OpenAI API ключ (начинается с sk-)" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     // ── Verify agent exists ──────────────────────────────────────────────────
     const { data: agent, error: agentError } = await supabase

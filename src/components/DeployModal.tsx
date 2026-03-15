@@ -18,7 +18,6 @@ interface DeployModalProps {
 export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
   const { t } = useI18n();
   const [tgToken, setTgToken] = useState("");
-  const [openaiKey, setOpenaiKey] = useState("");
   const [deploying, setDeploying] = useState(false);
   const [deployed, setDeployed] = useState(false);
   const [botUsername, setBotUsername] = useState("");
