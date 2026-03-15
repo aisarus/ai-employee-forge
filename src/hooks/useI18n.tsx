@@ -276,6 +276,16 @@ const translations = {
   "wf.custom": { en: "Custom Action", ru: "Своё действие" },
 
   // Telegram Config Step
+  // Deploy error messages (returned as error keys from edge function)
+  "deploy_error.tg_unauthorized":    { en: "Invalid Telegram token. Check it in @BotFather.", ru: "Неверный токен Telegram. Проверьте в @BotFather." },
+  "deploy_error.tg_conflict":        { en: "This bot token is already in use by another webhook.", ru: "Этот токен уже используется другим вебхуком." },
+  "deploy_error.tg_rate_limit":      { en: "Telegram rate limit hit. Please wait a minute and try again.", ru: "Превышен лимит Telegram. Подождите минуту и повторите." },
+  "deploy_error.tg_unknown":         { en: "Telegram API error. Check your token and try again.", ru: "Ошибка Telegram API. Проверьте токен и попробуйте снова." },
+  "deploy_error.openai_key_invalid": { en: "OpenAI key must start with sk-", ru: "OpenAI ключ должен начинаться с sk-" },
+  "deploy_error.openai_unauthorized":{ en: "Invalid OpenAI API key. Check it at platform.openai.com/api-keys.", ru: "Неверный OpenAI ключ. Проверьте на platform.openai.com/api-keys." },
+  "deploy_error.openai_rate_limit":  { en: "OpenAI rate limit. Wait a moment and try again.", ru: "Лимит OpenAI превышен. Подождите и попробуйте снова." },
+  "deploy_error.openai_unknown":     { en: "OpenAI API error. Check your key and try again.", ru: "Ошибка OpenAI API. Проверьте ключ и попробуйте снова." },
+
   // Review step — keys status
   "wizard.review_keys_section": { en: "API Keys",          ru: "API ключи" },
   "wizard.review_key_set":      { en: "Configured",        ru: "Настроен" },

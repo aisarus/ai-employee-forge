@@ -59,7 +59,22 @@ Deno.serve(async (req) => {
       });
     }
     if (!openaiApiKey || !openaiApiKey.startsWith("sk-")) {
-      return new Response(JSON.stringify({ error: "Valid openaiApiKey (sk-...) is required" }), {
+      return new Response(JSON.stringify({ error: "deploy_error.openai_key_invalid" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate OpenAI key early by calling models list (lightweight)
+    const openaiCheck = await fetch("https://api.openai.com/v1/models", {
+      headers: { Authorization: `Bearer ${openaiApiKey}` },
+    });
+    if (!openaiCheck.ok) {
+      const oc = await openaiCheck.json().catch(() => ({})) as any;
+      const errKey = openaiCheck.status === 401 ? "deploy_error.openai_unauthorized"
+                   : openaiCheck.status === 429 ? "deploy_error.openai_rate_limit"
+                   : "deploy_error.openai_unknown";
+      return new Response(JSON.stringify({ error: errKey, details: oc?.error?.message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -82,7 +97,13 @@ Deno.serve(async (req) => {
     // ── 1. Validate token via getMe ──────────────────────────────────────────
     const meResult = await callTelegram(telegramToken, "getMe", {});
     if (!meResult.ok) {
-      return new Response(JSON.stringify({ error: `Invalid Telegram token: ${JSON.stringify(meResult.data)}` }), {
+      const errData = meResult.data as any;
+      const tgCode  = errData?.error_code;
+      const errKey  = tgCode === 401 ? "deploy_error.tg_unauthorized"
+                    : tgCode === 409 ? "deploy_error.tg_conflict"
+                    : tgCode === 429 ? "deploy_error.tg_rate_limit"
+                    : "deploy_error.tg_unknown";
+      return new Response(JSON.stringify({ error: errKey, details: errData?.description }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -210,7 +210,14 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       });
 
       if (error) throw error;
-      if (deployRes?.error) throw new Error(deployRes.error);
+      if (deployRes?.error) {
+        // Map i18n error keys returned from backend
+        const errKey = deployRes.error as string;
+        const knownKey = errKey.startsWith("deploy_error.") ? errKey : null;
+        const msg = knownKey ? t(knownKey as any) : errKey;
+        const hint = deployRes.details ? ` (${deployRes.details})` : "";
+        throw new Error(msg + hint);
+      }
 
       setBotUsername(deployRes?.botInfo?.username || "");
       setDeployed(true);
