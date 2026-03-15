@@ -38,12 +38,14 @@ Deno.serve(async (req) => {
     const {
       agentId,
       telegramToken,
-      openaiApiKey,
       displayName,
       shortDescription,
       aboutText,
       commands,
     } = await req.json();
+
+    // Use project-level OpenAI key from secrets
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     // ── Validate inputs ──────────────────────────────────────────────────────
     if (!agentId) {
@@ -54,27 +56,6 @@ Deno.serve(async (req) => {
     }
     if (!telegramToken) {
       return new Response(JSON.stringify({ error: "telegramToken is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!openaiApiKey || !openaiApiKey.startsWith("sk-")) {
-      return new Response(JSON.stringify({ error: "deploy_error.openai_key_invalid" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Validate OpenAI key early by calling models list (lightweight)
-    const openaiCheck = await fetch("https://api.openai.com/v1/models", {
-      headers: { Authorization: `Bearer ${openaiApiKey}` },
-    });
-    if (!openaiCheck.ok) {
-      const oc = await openaiCheck.json().catch(() => ({})) as any;
-      const errKey = openaiCheck.status === 401 ? "deploy_error.openai_unauthorized"
-                   : openaiCheck.status === 429 ? "deploy_error.openai_rate_limit"
-                   : "deploy_error.openai_unknown";
-      return new Response(JSON.stringify({ error: errKey, details: oc?.error?.message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
