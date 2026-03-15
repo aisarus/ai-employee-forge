@@ -117,6 +117,20 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                     className="bg-background/50 font-mono text-xs"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="openai-key" className="text-sm">OpenAI API Key</Label>
+                  <Input
+                    id="openai-key"
+                    type="password"
+                    value={openaiKey}
+                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    placeholder="sk-proj-..."
+                    className="bg-background/50 font-mono text-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("deploy.openai_hint") !== "deploy.openai_hint" ? t("deploy.openai_hint") : "Получите ключ на platform.openai.com → API Keys"}
+                  </p>
+                </div>
                 <Button
                   className="w-full gap-2"
                   size="lg"
