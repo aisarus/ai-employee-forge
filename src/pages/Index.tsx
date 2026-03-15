@@ -2,29 +2,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Key, Bot, ChevronDown, ChevronUp, Settings2, ArrowRight, MessageSquare, Zap, Send } from "lucide-react";
+import { Sparkles, Key, Bot, ChevronDown, ChevronUp, Settings2, ArrowRight, MessageSquare, Zap, Send, Rocket, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GnomeAssembly } from "@/components/GnomeAssembly";
+import { QuickStartWizard } from "@/components/QuickStartWizard";
 import { runTriTfmPipeline } from "@/lib/tri-tfm";
 import { useI18n } from "@/hooks/useI18n";
 
-type WorkflowState = "input" | "loading";
-
-const HOW_STEPS = [
-  { icon: MessageSquare, key: "how.step1_title", descKey: "how.step1_desc" },
-  { icon: Zap,           key: "how.step2_title", descKey: "how.step2_desc" },
-  { icon: Send,          key: "how.step3_title", descKey: "how.step3_desc" },
-] as const;
+type PageMode = "select" | "quick_start" | "advanced_input" | "advanced_loading";
 
 const Index = () => {
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
-  const [state, setState] = useState<WorkflowState>("input");
+  const [mode, setMode] = useState<PageMode>("select");
+
+  // Advanced mode state
   const [botName, setBotName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [tone, setTone] = useState("professional");
@@ -37,18 +34,17 @@ const Index = () => {
     localStorage.setItem("userOpenAiKey", apiKey);
   }, [apiKey]);
 
-  const handleGenerate = useCallback(() => {
+  const handleAdvancedGenerate = useCallback(() => {
     if (!prompt.trim()) return;
-    setState("loading");
+    setMode("advanced_loading");
   }, [prompt]);
 
   useEffect(() => {
-    if (state !== "loading") return;
+    if (mode !== "advanced_loading") return;
 
     const runPipeline = async () => {
       try {
         const behaviorContext = `Bot name: ${botName || "AI Assistant"}\nTone: ${tone}\nResponse style: ${responseStyle}\n\nBusiness rules:\n${prompt}`;
-
         const result = await runTriTfmPipeline({
           prompt: behaviorContext,
           apiKey,
@@ -66,7 +62,6 @@ const Index = () => {
             tone,
             response_style: responseStyle,
           }).select("id").single();
-
           if (insertedAgent) localStorage.setItem("currentAgentId", insertedAgent.id);
         }
 
@@ -80,155 +75,183 @@ const Index = () => {
       }
     };
     runPipeline();
-  }, [state]);
+  }, [mode]);
 
-  if (state === "loading") {
+  // ── Mode: Quick Start ──────────────────────────────
+  if (mode === "quick_start") {
+    return <QuickStartWizard />;
+  }
+
+  // ── Mode: Advanced Loading ─────────────────────────
+  if (mode === "advanced_loading") {
     return <div className="flex flex-1 items-center justify-center"><GnomeAssembly /></div>;
   }
 
-  const canGenerate = prompt.trim().length > 0 && apiKey.startsWith("sk-");
-
-  return (
-    <div className="flex flex-1 flex-col items-center justify-start p-4 sm:p-6 pt-8 sm:pt-12 animate-fade-in dot-grid">
-      <div className="w-full max-w-xl space-y-8">
-
-        {/* ── Hero ─────────────────────────────────────────────────── */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary animate-fade-in">
-            <Bot className="h-3.5 w-3.5" /> {t("create.badge")}
+  // ── Mode: Advanced Input ───────────────────────────
+  if (mode === "advanced_input") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-start p-4 sm:p-6 pt-8 sm:pt-12 animate-fade-in dot-grid">
+        <div className="w-full max-w-xl space-y-8">
+          <div className="text-center space-y-3">
+            <button onClick={() => setMode("select")} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              ← {lang === "ru" ? "Назад к выбору режима" : "Back to mode selection"}
+            </button>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+              {lang === "ru" ? "Продвинутая настройка" : "Advanced Setup"}
+            </h1>
+            <p className="text-muted-foreground text-sm max-w-md mx-auto">
+              {lang === "ru"
+                ? "Опишите бота → сгенерируйте мозг → настройте действия, интеграции и триггеры в визарде деплоя"
+                : "Describe bot → generate brain → configure actions, integrations and triggers in the deploy wizard"}
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent"
-              style={{ animationDelay: "0ms" }}>
-            {t("create.title")}
+
+          <div className="space-y-4 rounded-2xl border border-border bg-card/60 p-6 backdrop-blur-xl shadow-lg shadow-black/20">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{t("create.instructions_label")} *</Label>
+              <Textarea
+                rows={5}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder={t("create.instructions_placeholder")}
+                className="resize-none bg-background/50 border-border text-sm leading-relaxed"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="botName" className="flex items-center gap-1.5 text-sm">
+                <Bot className="h-3.5 w-3.5" /> {t("create.bot_name")}
+                <span className="text-muted-foreground font-normal ml-1">{t("create.optional")}</span>
+              </Label>
+              <Input id="botName" value={botName} onChange={(e) => setBotName(e.target.value)} placeholder={t("create.bot_name_placeholder")} className="bg-background/50" />
+            </div>
+
+            <button type="button" onClick={() => setShowAdvanced(v => !v)} className="flex w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1">
+              <Settings2 className="h-3.5 w-3.5" />
+              {t("create.advanced")}
+              {showAdvanced ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+            </button>
+
+            {showAdvanced && (
+              <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">{t("create.tone")}</Label>
+                  <Select value={tone} onValueChange={setTone}>
+                    <SelectTrigger className="bg-background/50 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="professional">{t("create.tone.professional")}</SelectItem>
+                      <SelectItem value="friendly">{t("create.tone.friendly")}</SelectItem>
+                      <SelectItem value="formal">{t("create.tone.formal")}</SelectItem>
+                      <SelectItem value="casual">{t("create.tone.casual")}</SelectItem>
+                      <SelectItem value="humorous">{t("create.tone.humorous")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">{t("create.response_style")}</Label>
+                  <Select value={responseStyle} onValueChange={setResponseStyle}>
+                    <SelectTrigger className="bg-background/50 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="concise">{t("create.style.concise")}</SelectItem>
+                      <SelectItem value="detailed">{t("create.style.detailed")}</SelectItem>
+                      <SelectItem value="step-by-step">{t("create.style.step_by_step")}</SelectItem>
+                      <SelectItem value="conversational">{t("create.style.conversational")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={handleAdvancedGenerate}
+              disabled={!prompt.trim()}
+              className="btn-gradient w-full h-12 rounded-xl text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed mt-1"
+            >
+              <Sparkles className="h-4 w-4 relative z-10" />
+              <span className="relative z-10">{t("create.generate")}</span>
+              <ArrowRight className="h-4 w-4 ml-auto relative z-10" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Mode: Select (default) ─────────────────────────
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center p-4 sm:p-6 animate-fade-in dot-grid">
+      <div className="w-full max-w-2xl space-y-10">
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <Bot className="h-3.5 w-3.5" /> BotForge
+          </div>
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+            {lang === "ru" ? "Как вы хотите создать бота?" : "How do you want to build your bot?"}
           </h1>
-          <p className="text-muted-foreground text-base max-w-md mx-auto leading-relaxed animate-fade-in"
-             style={{ animationDelay: "100ms" }}>
-            {t("create.subtitle")}
+          <p className="text-muted-foreground text-base max-w-md mx-auto leading-relaxed">
+            {lang === "ru"
+              ? "Выберите быстрый запуск или полную настройку"
+              : "Choose a fast launch flow or a full advanced setup"}
           </p>
         </div>
 
-        {/* ── How it works ─────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-3">
-          {HOW_STEPS.map(({ icon: Icon, key, descKey }, i) => (
-            <div key={i} className="flex flex-col items-center gap-1.5 text-center animate-fade-in"
-                 style={{ animationDelay: `${i * 100}ms` }}>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                <Icon className="h-4 w-4 text-primary" />
-              </div>
-              <p className="text-xs font-semibold text-foreground">{t(key as any)}</p>
-              <p className="text-[11px] text-muted-foreground leading-tight hidden sm:block">{t(descKey as any)}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Main form ────────────────────────────────────────────── */}
-        <div className="space-y-4 rounded-2xl border border-border bg-card/60 p-6 backdrop-blur-xl shadow-lg shadow-black/20">
-
-          {/* Description textarea */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">{t("create.instructions_label")} *</Label>
-            <Textarea
-              rows={5}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={t("create.instructions_placeholder")}
-              className="resize-none bg-background/50 border-border text-sm leading-relaxed focus:border-primary/50 focus:ring-primary/20"
-            />
-          </div>
-
-          {/* Bot name — optional */}
-          <div className="space-y-2">
-            <Label htmlFor="botName" className="flex items-center gap-1.5 text-sm">
-              <Bot className="h-3.5 w-3.5" /> {t("create.bot_name")}
-              <span className="text-muted-foreground font-normal ml-1">{t("create.optional")}</span>
-            </Label>
-            <Input
-              id="botName"
-              value={botName}
-              onChange={(e) => setBotName(e.target.value)}
-              placeholder={t("create.bot_name_placeholder")}
-              className="bg-background/50 border-border"
-            />
-          </div>
-
-          {/* Advanced toggle */}
+        <div className="grid sm:grid-cols-2 gap-4">
+          {/* Quick Start */}
           <button
-            type="button"
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="flex w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+            onClick={() => setMode("quick_start")}
+            className="group relative flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card/60 p-6 text-left transition-all duration-200 hover:border-primary/50 hover:bg-primary/5 hover:shadow-[0_0_30px_hsl(var(--primary)/0.15)] hover:scale-[1.02]"
           >
-            <Settings2 className="h-3.5 w-3.5" />
-            {t("create.advanced")}
-            {showAdvanced ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 group-hover:bg-primary/25 transition-colors">
+              <Rocket className="h-6 w-6 text-primary" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-foreground">
+                {lang === "ru" ? "Быстрый старт" : "Quick Start"}
+              </h3>
+              <p className="text-sm text-primary font-medium">
+                {lang === "ru"
+                  ? "Опишите бота → сгенерируйте мозг → задеплойте"
+                  : "Describe your bot, generate its brain, and deploy fast"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {lang === "ru"
+                  ? "Лучший вариант для новых пользователей и простых ботов"
+                  : "Best for first-time users or simple bots"}
+              </p>
+            </div>
+            <div className="mt-auto pt-2 flex items-center gap-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+              {lang === "ru" ? "Начать" : "Get started"} <ArrowRight className="h-3.5 w-3.5" />
+            </div>
           </button>
 
-          {showAdvanced && (
-            <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{t("create.tone")}</Label>
-                <Select value={tone} onValueChange={setTone}>
-                  <SelectTrigger className="bg-background/50 h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="professional">{t("create.tone.professional")}</SelectItem>
-                    <SelectItem value="friendly">{t("create.tone.friendly")}</SelectItem>
-                    <SelectItem value="formal">{t("create.tone.formal")}</SelectItem>
-                    <SelectItem value="casual">{t("create.tone.casual")}</SelectItem>
-                    <SelectItem value="humorous">{t("create.tone.humorous")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{t("create.response_style")}</Label>
-                <Select value={responseStyle} onValueChange={setResponseStyle}>
-                  <SelectTrigger className="bg-background/50 h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="concise">{t("create.style.concise")}</SelectItem>
-                    <SelectItem value="detailed">{t("create.style.detailed")}</SelectItem>
-                    <SelectItem value="step-by-step">{t("create.style.step_by_step")}</SelectItem>
-                    <SelectItem value="conversational">{t("create.style.conversational")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {/* API Key */}
-          <div className="space-y-1.5 border-t border-border/50 pt-3">
-            <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Key className="h-3 w-3 text-primary" /> {t("create.api_key_label")}
-            </Label>
-            <div className="relative">
-              <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={t("create.api_key_placeholder")}
-                className="flex h-9 w-full rounded-md border border-input bg-background/50 pl-9 pr-3 py-2 text-xs font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary/50"
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">{t("create.api_key_hint")}</p>
-          </div>
-
-          {/* Generate button */}
+          {/* Advanced */}
           <button
-            onClick={handleGenerate}
-            disabled={!canGenerate}
-            className="btn-gradient w-full h-12 rounded-xl text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed mt-1"
+            onClick={() => setMode("advanced_input")}
+            className="group relative flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card/60 p-6 text-left transition-all duration-200 hover:border-primary/50 hover:bg-primary/5 hover:shadow-[0_0_30px_hsl(var(--primary)/0.15)] hover:scale-[1.02]"
           >
-            <Sparkles className="h-4 w-4 relative z-10" />
-            <span className="relative z-10">{t("create.generate")}</span>
-            <ArrowRight className="h-4 w-4 ml-auto relative z-10" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted group-hover:bg-primary/15 transition-colors">
+              <Wrench className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-foreground">
+                {lang === "ru" ? "Продвинутая настройка" : "Advanced Setup"}
+              </h3>
+              <p className="text-sm text-muted-foreground font-medium">
+                {lang === "ru"
+                  ? "Поведение, данные, интеграции и автоматизация"
+                  : "Configure behavior, data, integrations, and automation"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {lang === "ru"
+                  ? "Для пользователей, которым нужен полный контроль"
+                  : "Best for users who want full control"}
+              </p>
+            </div>
+            <div className="mt-auto pt-2 flex items-center gap-1 text-xs font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              {lang === "ru" ? "Настроить" : "Configure"} <ArrowRight className="h-3.5 w-3.5" />
+            </div>
           </button>
-
-          {!apiKey.startsWith("sk-") && apiKey.length > 0 && (
-            <p className="text-xs text-destructive text-center">{t("create.api_key_error")}</p>
-          )}
-          {!apiKey && (
-            <p className="text-xs text-muted-foreground text-center">{t("create.api_key_needed")}</p>
-          )}
         </div>
-
       </div>
     </div>
   );
