@@ -1,4 +1,3 @@
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WizardData, BOT_TYPES } from "./types";
 import { Bot, Send, CheckCircle2, AlertCircle, Zap, Workflow, Plug, Brain, Key } from "lucide-react";
@@ -8,6 +7,14 @@ interface Props {
   data: WizardData;
   confirmed: boolean;
   onConfirmChange: (v: boolean) => void;
+}
+
+function ReviewCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-xl border border-border bg-card/30 p-4 space-y-2 ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
@@ -36,7 +43,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
       </div>
 
       {/* Identity */}
-      <Card className="p-4 space-y-2 bg-muted/30">
+      <ReviewCard>
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Bot className="h-4 w-4 text-primary" /> {t("wizard.identity_section")}
         </h3>
@@ -54,11 +61,11 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
           <span className="text-muted-foreground">{t("wizard.tone")}</span>
           <span className="text-foreground">{data.tone}</span>
         </div>
-      </Card>
+      </ReviewCard>
 
-      {/* Actions & data — only shown if relevant */}
+      {/* Actions & data */}
       {(data.bot_actions.length > 0 || data.data_fields.length > 0) && (
-        <Card className="p-4 space-y-2 bg-muted/30">
+        <ReviewCard>
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Zap className="h-4 w-4 text-primary" /> {t("wizard.actions_data_section")}
           </h3>
@@ -76,12 +83,12 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
               </>
             )}
           </div>
-        </Card>
+        </ReviewCard>
       )}
 
-      {/* Logic & workflow — only shown if configured */}
+      {/* Logic & workflow */}
       {(data.workflow_steps.length > 0 || data.logic_rules.length > 0) && (
-        <Card className="p-4 space-y-2 bg-muted/30">
+        <ReviewCard>
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Workflow className="h-4 w-4 text-primary" /> {t("wizard.logic_workflow_section")}
           </h3>
@@ -99,12 +106,12 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
               </>
             )}
           </div>
-        </Card>
+        </ReviewCard>
       )}
 
-      {/* Integrations — only shown if connected */}
+      {/* Integrations */}
       {(data.connectors.length > 0 || data.action_triggers.length > 0) && (
-        <Card className="p-4 space-y-2 bg-muted/30">
+        <ReviewCard>
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Plug className="h-4 w-4 text-primary" /> {t("wizard.connections")}
           </h3>
@@ -122,11 +129,11 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
               </>
             )}
           </div>
-        </Card>
+        </ReviewCard>
       )}
 
       {/* API Keys status */}
-      <Card className="p-4 space-y-2 bg-muted/30">
+      <ReviewCard>
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Brain className="h-4 w-4 text-primary" /> {t("wizard.review_keys_section")}
         </h3>
@@ -136,11 +143,11 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
               <Brain className="h-3.5 w-3.5" /> {t("wizard.openai_key_label")}
             </span>
             {openaiKeyOk ? (
-              <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
+              <span className="flex items-center gap-1 text-success bg-success/10 px-2 py-0.5 rounded-md text-xs font-medium">
                 <CheckCircle2 className="h-3.5 w-3.5" /> {t("wizard.review_key_set")}
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-destructive text-xs font-medium">
+              <span className="flex items-center gap-1 text-destructive bg-destructive/10 px-2 py-0.5 rounded-md text-xs font-medium">
                 <AlertCircle className="h-3.5 w-3.5" /> {t("wizard.review_key_missing")}
               </span>
             )}
@@ -150,20 +157,20 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
               <Key className="h-3.5 w-3.5" /> {t("wizard.bot_token")}
             </span>
             {tokenOk ? (
-              <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
+              <span className="flex items-center gap-1 text-success bg-success/10 px-2 py-0.5 rounded-md text-xs font-medium">
                 <CheckCircle2 className="h-3.5 w-3.5" /> {t("wizard.review_key_set")}
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-destructive text-xs font-medium">
+              <span className="flex items-center gap-1 text-destructive bg-destructive/10 px-2 py-0.5 rounded-md text-xs font-medium">
                 <AlertCircle className="h-3.5 w-3.5" /> {t("wizard.review_key_missing")}
               </span>
             )}
           </div>
         </div>
-      </Card>
+      </ReviewCard>
 
       {/* Telegram settings */}
-      <Card className="p-4 space-y-2 bg-muted/30">
+      <ReviewCard>
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Send className="h-4 w-4 text-primary" /> {t("wizard.telegram_section")}
         </h3>
@@ -175,25 +182,25 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
           <span className="text-muted-foreground">{t("wizard.commands")}</span>
           <span className="text-foreground">{data.telegram_commands.length} {t("wizard.commands_count")}</span>
         </div>
-      </Card>
+      </ReviewCard>
 
       {/* Deployment checklist */}
-      <Card className="p-4 space-y-2 bg-muted/30">
+      <ReviewCard>
         <h3 className="text-sm font-semibold text-foreground">{t("wizard.checklist")}</h3>
         <div className="space-y-1.5">
           {checks.map((c) => (
             <div key={c.label} className="flex items-center gap-2 text-sm">
               {c.ok
-                ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
                 : <AlertCircle  className="h-4 w-4 text-destructive shrink-0" />}
               <span className={c.ok ? "text-foreground" : "text-destructive"}>{c.label}</span>
             </div>
           ))}
         </div>
-      </Card>
+      </ReviewCard>
 
       {/* Confirm checkbox */}
-      <div className="flex items-start gap-3 rounded-lg border border-border p-4 bg-background/50">
+      <div className="flex items-start gap-3 rounded-xl border border-border p-4 bg-card/30">
         <Checkbox
           id="confirm"
           checked={confirmed}

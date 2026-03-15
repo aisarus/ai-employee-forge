@@ -20,9 +20,11 @@ export function StepApiKeys({ data, onChange }: Props) {
       </div>
 
       {/* OpenAI Key */}
-      <div className="rounded-xl border border-border bg-muted/20 p-5 space-y-4">
+      <div className="rounded-2xl border border-border bg-card/50 p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20">
+            <Brain className="h-4 w-4 text-primary shrink-0" />
+          </div>
           <h3 className="text-sm font-semibold text-foreground">{t("wizard.openai_key_label")}</h3>
         </div>
 
@@ -52,11 +54,10 @@ export function StepApiKeys({ data, onChange }: Props) {
             value={data.openai_api_key}
             onChange={(e) => {
               onChange({ openai_api_key: e.target.value });
-              // Sync back to localStorage so Index page stays in sync
               localStorage.setItem("userOpenAiKey", e.target.value);
             }}
             placeholder="sk-..."
-            className="bg-background/50 font-mono text-xs"
+            className="bg-background/50 font-mono text-xs focus:border-primary/50"
             autoComplete="off"
           />
           {data.openai_api_key && !data.openai_api_key.startsWith("sk-") && (
@@ -66,7 +67,7 @@ export function StepApiKeys({ data, onChange }: Props) {
       </div>
 
       {/* Security notice */}
-      <div className="flex items-start gap-2.5 rounded-lg border border-border p-3 bg-muted/10">
+      <div className="flex items-start gap-2.5 rounded-xl border border-border p-3 bg-card/30">
         <ShieldCheck className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
         <p className="text-xs text-muted-foreground leading-relaxed">{t("wizard.api_keys_security")}</p>
       </div>

@@ -17,7 +17,7 @@ import { StepTelegramPreview } from "./wizard/StepTelegramPreview";
 import { StepReviewDeploy } from "./wizard/StepReviewDeploy";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Rocket, Loader2, CheckCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Rocket, Loader2, CheckCircle, Send } from "lucide-react";
 import { buildActionsPromptBlock } from "./wizard/promptBuilder";
 import { useI18n } from "@/hooks/useI18n";
 
@@ -29,7 +29,6 @@ interface DeployWizardProps {
   initialData?: Partial<WizardData>;
 }
 
-// Step id → i18n key
 const STEP_I18N: Record<string, string> = {
   bot_type:         "wizard.step_bot_type",
   identity:         "wizard.identity",
@@ -55,7 +54,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const [deployed, setDeployed] = useState(false);
   const [botUsername, setBotUsername] = useState("");
 
-  // Dynamic step list based on current bot_type
   const activeSteps = getWizardSteps(data.bot_type);
   const currentStepId = activeSteps[step] ?? "bot_type";
   const isLastStep = step === activeSteps.length - 1;
@@ -65,7 +63,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       setStep(0);
       setDeployed(false);
       setConfirmed(false);
-      // Restore from sessionStorage draft first, then apply initialData + localStorage key
       const storedKey = localStorage.getItem("userOpenAiKey") || "";
       let draft: Partial<WizardData> = {};
       if (agentId) {
@@ -84,7 +81,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         telegram_about_text: initialData?.about_text || draft.telegram_about_text || "",
       };
       setData(merged);
-      // Resume at saved step if draft exists
       if (draft.bot_type && !initialData) {
         const savedStep = Number(sessionStorage.getItem(`wizard_step_${agentId}`) || 0);
         setStep(Math.max(0, savedStep));
@@ -92,7 +88,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     }
   }, [open, initialData]);
 
-  // Persist wizard data to sessionStorage so accidental close doesn't lose work
   const persistData = (d: WizardData) => {
     if (agentId) {
       try { sessionStorage.setItem(`wizard_draft_${agentId}`, JSON.stringify(d)); } catch {}
@@ -102,7 +97,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const onChange = (patch: Partial<WizardData>) => {
     setData((prev) => {
       const next = { ...prev, ...patch };
-      // Auto-sync telegram fields from identity fields if not yet overridden
       if (patch.bot_name !== undefined && !prev.telegram_display_name) {
         next.telegram_display_name = patch.bot_name;
       }
@@ -112,17 +106,11 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       if (patch.about_text !== undefined && !prev.telegram_about_text) {
         next.telegram_about_text = patch.about_text;
       }
-      // When bot_type changes, reset step to 0 so the new profile takes effect
-      if (patch.bot_type !== undefined && patch.bot_type !== prev.bot_type) {
-        // Step reset handled below by calling setStep
-      }
       return next;
     });
 
-    // Persist to sessionStorage
     setTimeout(() => setData((d) => { persistData(d); return d; }), 0);
 
-    // When bot_type is freshly chosen: apply presets (empty fields only) + advance to step 1
     if (patch.bot_type !== undefined && patch.bot_type !== data.bot_type && patch.bot_type !== "") {
       const preset = BOT_TYPE_PRESETS[patch.bot_type];
       if (preset) {
@@ -191,7 +179,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
       const enrichedPrompt = getEnrichedPrompt();
 
-      // Save all agent data including BYOK keys
       await supabase.from("agents").update({
         name: data.bot_name,
         description: data.short_description,
@@ -225,7 +212,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         } as any,
       }).eq("id", agentId);
 
-      // Deploy: pass the user's own tokens — backend uses them directly
       const { data: deployRes, error } = await supabase.functions.invoke("deploy-telegram", {
         body: {
           agentId,
@@ -240,7 +226,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
       if (error) throw error;
       if (deployRes?.error) {
-        // Map i18n error keys returned from backend
         const errKey = deployRes.error as string;
         const knownKey = errKey.startsWith("deploy_error.") ? errKey : null;
         const msg = knownKey ? t(knownKey as any) : errKey;
@@ -248,7 +233,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         throw new Error(msg + hint);
       }
 
-      // Clear session draft after successful deploy
       if (agentId) {
         sessionStorage.removeItem(`wizard_draft_${agentId}`);
         sessionStorage.removeItem(`wizard_step_${agentId}`);
@@ -271,7 +255,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       case "api_keys":         return !!data.openai_api_key.trim() && data.openai_api_key.startsWith("sk-");
       case "telegram_config":  return !!data.telegram_bot_token.trim();
       case "deploy":           return confirmed;
-      default:                 return true; // optional steps
+      default:                 return true;
     }
   };
 
@@ -279,21 +263,29 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   if (deployed) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md border-border bg-card">
           <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <CheckCircle className="h-14 w-14 text-success" />
+            <div className="animate-scale-in">
+              <Send className="h-14 w-14 text-primary" />
+            </div>
             <div>
               <p className="text-xl font-bold text-foreground">{t("wizard.deployed")}</p>
               {botUsername && (
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="text-sm text-muted-foreground mt-2 animate-fade-in" style={{ animationDelay: "200ms" }}>
                   {t("wizard.bot_live")}{" "}
-                  <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener" className="text-primary underline font-medium">
+                  <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener" className="text-success underline font-medium">
                     @{botUsername}
                   </a>
                 </p>
               )}
             </div>
-            <Button onClick={() => { setDeployed(false); onOpenChange(false); }} size="lg">{t("wizard.done")}</Button>
+            <button
+              onClick={() => { setDeployed(false); onOpenChange(false); }}
+              className="btn-gradient h-11 px-8 rounded-xl text-primary-foreground font-semibold text-sm animate-fade-in"
+              style={{ animationDelay: "400ms" }}
+            >
+              <span className="relative z-10">{t("wizard.done")}</span>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
@@ -303,28 +295,28 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   // ── Wizard dialog ────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-lg">
+      <DialogContent className="w-full sm:max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-2xl border-border bg-card">
 
         {/* Progress bar */}
-        <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-border/50 bg-muted/20 shrink-0">
+        <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-border/50 bg-card/80 shrink-0">
           <div className="flex items-center gap-0.5">
             {activeSteps.map((sid, i) => (
               <div key={sid} className="flex items-center flex-1 min-w-0">
                 <button
                   onClick={() => i < step && setStep(i)}
-                  className={`flex shrink-0 items-center justify-center rounded-full text-[9px] font-bold transition-colors
+                  className={`flex shrink-0 items-center justify-center rounded-full text-[9px] font-bold transition-all duration-200
                     ${activeSteps.length > 9 ? "h-4 w-4" : "h-5 w-5"}
                     ${i === step
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-primary text-primary-foreground shadow-[0_0_8px_hsl(var(--primary)/0.6)] scale-110"
                       : i < step
-                        ? "bg-primary/20 text-primary cursor-pointer hover:bg-primary/40"
+                        ? "bg-primary/30 text-primary cursor-pointer hover:bg-primary/50"
                         : "bg-muted text-muted-foreground"
                     }`}
                 >
                   {i + 1}
                 </button>
                 {i < activeSteps.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-0.5 rounded ${i < step ? "bg-primary/30" : "bg-border"}`} />
+                  <div className={`flex-1 h-0.5 mx-0.5 rounded ${i < step ? "bg-gradient-to-r from-primary/50 to-primary/30" : "bg-border"}`} />
                 )}
               </div>
             ))}
@@ -357,7 +349,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         </div>
 
         {/* Footer nav */}
-        <div className="px-6 py-4 border-t border-border/50 bg-muted/20 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-t border-border/50 bg-card/80 flex items-center justify-between shrink-0">
           <Button
             variant="outline"
             onClick={() => setStep((s) => s - 1)}
@@ -368,10 +360,14 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
           </Button>
 
           {isLastStep ? (
-            <Button onClick={handleDeploy} disabled={!confirmed || deploying} className="gap-2" size="lg">
-              {deploying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-              {deploying ? t("wizard.deploying") : t("wizard.deploy_telegram")}
-            </Button>
+            <button
+              onClick={handleDeploy}
+              disabled={!confirmed || deploying}
+              className={`btn-gradient h-11 px-8 rounded-xl text-primary-foreground font-semibold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${confirmed ? "animate-pulse-glow" : ""}`}
+            >
+              {deploying ? <Loader2 className="h-4 w-4 animate-spin relative z-10" /> : <Rocket className="h-4 w-4 relative z-10" />}
+              <span className="relative z-10">{deploying ? t("wizard.deploying") : t("wizard.deploy_telegram")}</span>
+            </button>
           ) : (
             <Button
               onClick={() => {

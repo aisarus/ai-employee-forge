@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -96,10 +95,10 @@ export function StepConnections({ data, onChange }: Props) {
                 key={conn.id}
                 onClick={() => !isConnected && connectService(conn)}
                 disabled={isConnected}
-                className={`relative flex flex-col items-center gap-1 rounded-xl border-2 p-3 text-center transition-all ${
+                className={`relative flex flex-col items-center gap-1 rounded-xl border-2 p-3 text-center transition-all duration-200 ${
                   isConnected
                     ? "border-success/50 bg-success/5 opacity-70"
-                    : "border-border bg-card/50 hover:border-primary/50"
+                    : "border-border bg-card/50 hover:border-primary/40 hover:bg-primary/5 hover:scale-[1.02]"
                 }`}
               >
                 {isConnected && (
@@ -128,7 +127,7 @@ export function StepConnections({ data, onChange }: Props) {
             {data.connectors.map((conn) => {
               const def = AVAILABLE_CONNECTORS.find((c) => c.id === conn.type);
               return (
-                <Card key={conn.id} className="p-3 bg-muted/20 flex items-center gap-3">
+                <div key={conn.id} className="p-3 rounded-xl border border-border bg-card/30 flex items-center gap-3">
                   <span className="text-lg">{def?.icon || "🔌"}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
@@ -156,7 +155,7 @@ export function StepConnections({ data, onChange }: Props) {
                   <button onClick={() => disconnectService(conn.id)} className="text-muted-foreground hover:text-destructive shrink-0">
                     <X className="h-4 w-4" />
                   </button>
-                </Card>
+                </div>
               );
             })}
           </div>
@@ -164,10 +163,10 @@ export function StepConnections({ data, onChange }: Props) {
       )}
 
       {data.connectors.length === 0 && (
-        <Card className="p-6 text-center bg-muted/10 border-dashed">
+        <div className="p-6 text-center rounded-xl border border-dashed border-border bg-card/20">
           <WifiOff className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">{t("wizard.conn_empty")}</p>
-        </Card>
+        </div>
       )}
     </div>
   );
