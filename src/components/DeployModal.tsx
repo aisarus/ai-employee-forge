@@ -44,12 +44,18 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
     setDeploying(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("deploy-telegram", {
-        body: { agentId, telegramToken: tgToken },
+      const res = await fetch(`${EXTERNAL_SUPABASE_URL}/deploy-telegram`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${EXTERNAL_ANON_KEY}`,
+          "apikey": EXTERNAL_ANON_KEY,
+        },
+        body: JSON.stringify({ agentId, telegramToken: tgToken }),
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const data = await res.json();
+      if (!res.ok || data?.error) throw new Error(data?.error || "Deploy failed");
 
       setDeployed(true);
       setBotUsername(data.botInfo?.username || "");
