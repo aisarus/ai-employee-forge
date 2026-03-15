@@ -120,7 +120,7 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                   className="w-full gap-2"
                   size="lg"
                   onClick={handleDeployTelegram}
-                  disabled={deploying || !agentId || !tgToken || !openaiKey}
+                  disabled={deploying || !agentId || !tgToken}
                 >
                   {deploying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                   {deploying ? t("deploy.deploying") : t("deploy.deploy_tg")}
