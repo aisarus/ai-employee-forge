@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_connectors: {
+        Row: {
+          id: string
+          agent_id: string
+          user_id: string
+          connector_type: string
+          display_name: string
+          status: "connected" | "disconnected" | "error" | "pending"
+          auth_value: string | null
+          capabilities: string[]
+          config: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          agent_id: string
+          user_id: string
+          connector_type: string
+          display_name: string
+          status?: "connected" | "disconnected" | "error" | "pending"
+          auth_value?: string | null
+          capabilities?: string[]
+          config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          agent_id?: string
+          user_id?: string
+          connector_type?: string
+          display_name?: string
+          status?: "connected" | "disconnected" | "error" | "pending"
+          auth_value?: string | null
+          capabilities?: string[]
+          config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_connectors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       agents: {
         Row: {
           about_text: string | null

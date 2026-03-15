@@ -4,7 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WizardData, ConnectorConfig, AVAILABLE_CONNECTORS } from "./types";
-import { Plug, CheckCircle2, X, Wifi, WifiOff, ChevronDown, ChevronUp, ExternalLink, Zap } from "lucide-react";
+import {
+  Plug, CheckCircle2, X, Wifi, WifiOff, ChevronDown, ChevronUp,
+  ExternalLink, Zap, Loader2, AlertCircle, FileSpreadsheet,
+} from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
@@ -35,7 +38,6 @@ const CAT_KEYS: Record<string, string> = {
   Advanced: "conn.cat_advanced",
 };
 
-// Category color accents
 const CAT_COLORS: Record<string, string> = {
   Spreadsheet:   "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
   Database:      "text-violet-400 bg-violet-400/10 border-violet-400/20",
@@ -47,21 +49,219 @@ const CAT_COLORS: Record<string, string> = {
   Advanced:      "text-primary bg-primary/10 border-primary/20",
 };
 
+// ── Google Sheets specific config form ───────────────────────────────────────
+
+interface GoogleSheetsFormProps {
+  authInputs: Record<string, string>;
+  configInputs: Record<string, string>;
+  onAuthChange: (val: string) => void;
+  onConfigChange: (key: string, val: string) => void;
+  onConnect: () => void;
+  onSkip: () => void;
+  testing: boolean;
+  testResult: "ok" | "error" | null;
+}
+
+function GoogleSheetsForm({
+  authInputs, configInputs, onAuthChange, onConfigChange,
+  onConnect, onSkip, testing, testResult,
+}: GoogleSheetsFormProps) {
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-2 pb-1 border-b border-border/40">
+        <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+        <span className="text-xs font-semibold text-foreground">Google Sheets Setup</span>
+        <a
+          href="https://developers.google.com/sheets/api/guides/authorizing"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto text-[10px] text-primary flex items-center gap-0.5 hover:underline"
+        >
+          Docs <ExternalLink className="h-2.5 w-2.5" />
+        </a>
+      </div>
+
+      {/* API Key */}
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          API Key <span className="text-destructive">*</span>
+        </label>
+        <Input
+          autoFocus
+          value={authInputs["google_sheets"] || ""}
+          onChange={(e) => onAuthChange(e.target.value)}
+          placeholder="AIza..."
+          className="bg-background/60 font-mono text-xs h-8"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Google Cloud Console → APIs & Services → Credentials
+        </p>
+      </div>
+
+      {/* Spreadsheet ID */}
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          Spreadsheet ID <span className="text-destructive">*</span>
+        </label>
+        <Input
+          value={configInputs["spreadsheet_id"] || ""}
+          onChange={(e) => onConfigChange("spreadsheet_id", e.target.value)}
+          placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+          className="bg-background/60 font-mono text-xs h-8"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Found in the sheet URL: /spreadsheets/d/<strong>ID</strong>/edit
+        </p>
+      </div>
+
+      {/* Sheet Name */}
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          Sheet / Tab Name
+        </label>
+        <Input
+          value={configInputs["sheet_name"] || ""}
+          onChange={(e) => onConfigChange("sheet_name", e.target.value)}
+          placeholder="Sheet1"
+          className="bg-background/60 text-xs h-8"
+        />
+      </div>
+
+      {/* Range */}
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          Range (optional)
+        </label>
+        <Input
+          value={configInputs["range"] || ""}
+          onChange={(e) => onConfigChange("range", e.target.value)}
+          placeholder="A1:Z1000"
+          className="bg-background/60 font-mono text-xs h-8"
+        />
+      </div>
+
+      {/* Test result feedback */}
+      {testResult === "ok" && (
+        <div className="flex items-center gap-1.5 text-[11px] text-success">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Connection test passed — sheet is accessible.
+        </div>
+      )}
+      {testResult === "error" && (
+        <div className="flex items-center gap-1.5 text-[11px] text-destructive">
+          <AlertCircle className="h-3.5 w-3.5" />
+          Could not reach the sheet. Check your API key and ID.
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          size="sm"
+          onClick={onConnect}
+          disabled={!authInputs["google_sheets"]?.trim() || !configInputs["spreadsheet_id"]?.trim() || testing}
+          className="h-7 px-3 text-xs gap-1"
+        >
+          {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+          {testing ? "Testing…" : "Connect"}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onSkip}
+          className="h-7 px-3 text-xs text-muted-foreground"
+        >
+          Skip for now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Generic connector auth form ───────────────────────────────────────────────
+
+interface GenericFormProps {
+  connId: string;
+  authHint: string;
+  authInputs: Record<string, string>;
+  onAuthChange: (val: string) => void;
+  onConnect: () => void;
+  onSkip: () => void;
+}
+
+function GenericConnectorForm({ connId, authHint, authInputs, onAuthChange, onConnect, onSkip }: GenericFormProps) {
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+        <Zap className="h-3 w-3 text-primary" />
+        Enter your {authHint} to connect
+      </p>
+      <Input
+        autoFocus
+        value={authInputs[connId] || ""}
+        onChange={(e) => onAuthChange(e.target.value)}
+        placeholder={authHint}
+        className="bg-background/60 font-mono text-xs h-8"
+      />
+      <div className="flex items-center gap-2 pt-1">
+        <Button size="sm" onClick={onConnect} className="h-7 px-3 text-xs gap-1">
+          <CheckCircle2 className="h-3 w-3" /> Connect
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onSkip} className="h-7 px-3 text-xs text-muted-foreground">
+          Skip for now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export function StepConnections({ data, onChange }: Props) {
   const { t } = useI18n();
-  // expanded card id for inline auth form
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [authInputs, setAuthInputs] = useState<Record<string, string>>({});
+  const [authInputs, setAuthInputs]   = useState<Record<string, string>>({});
+  const [configInputs, setConfigInputs] = useState<Record<string, string>>({});
+  const [testing, setTesting]   = useState(false);
+  const [testResult, setTestResult] = useState<"ok" | "error" | null>(null);
 
   const connectedIds = new Set(data.connectors.map((c) => c.type));
 
   const toggleExpand = (connId: string) => {
     if (connectedIds.has(connId)) return;
-    setExpandedId((prev) => (prev === connId ? null : connId));
+    setExpandedId((prev) => {
+      if (prev !== connId) setTestResult(null);
+      return prev === connId ? null : connId;
+    });
   };
 
-  const connectService = (connectorDef: typeof AVAILABLE_CONNECTORS[number]) => {
-    const authVal = authInputs[connectorDef.id] || "";
+  // Simulate a connection test (stub — replace with real API call later)
+  const testGoogleSheetsConnection = (): Promise<boolean> =>
+    new Promise((resolve) => {
+      // Stub: always succeeds if both key and spreadsheet_id are non-empty
+      setTimeout(() => {
+        const ok =
+          !!authInputs["google_sheets"]?.trim() &&
+          !!configInputs["spreadsheet_id"]?.trim();
+        resolve(ok);
+      }, 900);
+    });
+
+  const connectService = async (connectorDef: typeof AVAILABLE_CONNECTORS[number]) => {
+    const authVal   = authInputs[connectorDef.id] || "";
+    const config    = connectorDef.id === "google_sheets" ? { ...configInputs } : {};
+
+    // For Google Sheets: run test before marking connected
+    if (connectorDef.id === "google_sheets" && authVal && configInputs["spreadsheet_id"]) {
+      setTesting(true);
+      const ok = await testGoogleSheetsConnection();
+      setTesting(false);
+      setTestResult(ok ? "ok" : "error");
+      if (!ok) return;
+    }
+
     const connector: ConnectorConfig = {
       id: crypto.randomUUID(),
       type: connectorDef.id,
@@ -69,17 +269,35 @@ export function StepConnections({ data, onChange }: Props) {
       status: authVal ? "connected" : "pending",
       auth_value: authVal,
       capabilities: [...connectorDef.caps],
+      config,
     };
     onChange({ connectors: [...data.connectors, connector] });
     setAuthInputs((prev) => ({ ...prev, [connectorDef.id]: "" }));
+    setConfigInputs({});
     setExpandedId(null);
+    setTestResult(null);
+  };
+
+  const skipConnect = (connectorDef: typeof AVAILABLE_CONNECTORS[number]) => {
+    const connector: ConnectorConfig = {
+      id: crypto.randomUUID(),
+      type: connectorDef.id,
+      display_name: connectorDef.name,
+      status: "pending",
+      auth_value: "",
+      capabilities: [...connectorDef.caps],
+      config: {},
+    };
+    onChange({ connectors: [...data.connectors, connector] });
+    setExpandedId(null);
+    setTestResult(null);
   };
 
   const disconnectService = (id: string) => {
     const connector = data.connectors.find((c) => c.id === id);
     onChange({
-      connectors: data.connectors.filter((c) => c.id !== id),
-      data_sources: data.data_sources.filter((ds) => ds.connector_id !== connector?.type),
+      connectors:    data.connectors.filter((c) => c.id !== id),
+      data_sources:  data.data_sources.filter((ds) => ds.connector_id !== connector?.type),
       field_mappings: data.field_mappings.filter((fm) => {
         const ds = data.data_sources.find((d) => d.id === fm.data_source_id);
         return ds?.connector_id !== connector?.type;
@@ -102,7 +320,7 @@ export function StepConnections({ data, onChange }: Props) {
         <p className="text-sm text-muted-foreground">{t("wizard.conn_desc")}</p>
       </div>
 
-      {/* Connector Gallery */}
+      {/* Connector gallery */}
       <div className="space-y-3">
         <Label className="flex items-center gap-1.5 text-sm font-medium">
           <Plug className="h-3.5 w-3.5 text-primary" />
@@ -115,8 +333,8 @@ export function StepConnections({ data, onChange }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {AVAILABLE_CONNECTORS.map((conn) => {
             const isConnected = connectedIds.has(conn.id);
-            const isExpanded = expandedId === conn.id;
-            const catColor = CAT_COLORS[conn.category] ?? CAT_COLORS.Advanced;
+            const isExpanded  = expandedId === conn.id;
+            const catColor    = CAT_COLORS[conn.category] ?? CAT_COLORS.Advanced;
 
             return (
               <div
@@ -129,7 +347,7 @@ export function StepConnections({ data, onChange }: Props) {
                       : "border-border bg-card/40 hover:border-primary/30 hover:bg-card/70"
                 }`}
               >
-                {/* Card header row */}
+                {/* Card header */}
                 <button
                   onClick={() => toggleExpand(conn.id)}
                   disabled={isConnected}
@@ -155,45 +373,30 @@ export function StepConnections({ data, onChange }: Props) {
                   </div>
                 </button>
 
-                {/* Inline auth form (expanded) */}
+                {/* Inline auth / config form */}
                 {isExpanded && !isConnected && (
-                  <div className="px-3 pb-3 space-y-2 border-t border-border/50 pt-3 animate-fade-in">
-                    <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <Zap className="h-3 w-3 text-primary" />
-                      Enter your {conn.auth_hint} to connect
-                    </p>
-                    <Input
-                      autoFocus
-                      value={authInputs[conn.id] || ""}
-                      onChange={(e) => setAuthInputs((p) => ({ ...p, [conn.id]: e.target.value }))}
-                      placeholder={conn.auth_hint}
-                      className="bg-background/60 font-mono text-xs h-8"
-                    />
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        onClick={() => connectService(conn)}
-                        className="h-7 px-3 text-xs gap-1"
-                      >
-                        <CheckCircle2 className="h-3 w-3" />
-                        Connect
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => connectService(conn)}
-                        className="h-7 px-3 text-xs text-muted-foreground"
-                      >
-                        Skip for now
-                      </Button>
-                      <a
-                        href="#"
-                        className="ml-auto text-[10px] text-primary flex items-center gap-0.5 hover:underline"
-                        onClick={(e) => e.preventDefault()}
-                      >
-                        Docs <ExternalLink className="h-2.5 w-2.5" />
-                      </a>
-                    </div>
+                  <div className="px-3 pb-3 border-t border-border/50 pt-3 animate-fade-in">
+                    {conn.id === "google_sheets" ? (
+                      <GoogleSheetsForm
+                        authInputs={authInputs}
+                        configInputs={configInputs}
+                        onAuthChange={(v) => setAuthInputs((p) => ({ ...p, google_sheets: v }))}
+                        onConfigChange={(k, v) => setConfigInputs((p) => ({ ...p, [k]: v }))}
+                        onConnect={() => connectService(conn)}
+                        onSkip={() => skipConnect(conn)}
+                        testing={testing}
+                        testResult={testResult}
+                      />
+                    ) : (
+                      <GenericConnectorForm
+                        connId={conn.id}
+                        authHint={conn.auth_hint}
+                        authInputs={authInputs}
+                        onAuthChange={(v) => setAuthInputs((p) => ({ ...p, [conn.id]: v }))}
+                        onConnect={() => connectService(conn)}
+                        onSkip={() => skipConnect(conn)}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -202,7 +405,7 @@ export function StepConnections({ data, onChange }: Props) {
         </div>
       </div>
 
-      {/* Connected Services */}
+      {/* Connected services list */}
       {data.connectors.length > 0 && (
         <div className="space-y-3">
           <Label className="flex items-center gap-1.5 text-sm font-medium">
@@ -225,7 +428,7 @@ export function StepConnections({ data, onChange }: Props) {
                     <p className="text-sm font-semibold text-foreground truncate">
                       {CONNECTOR_NAME_KEYS[conn.type] ? t(CONNECTOR_NAME_KEYS[conn.type] as any) : conn.display_name}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${conn.status === "connected" ? "text-success" : "text-amber-400"}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${conn.status === "connected" ? "bg-success" : "bg-amber-400"}`} />
                         {conn.status === "connected" ? t("wizard.conn_status_ok") : t("wizard.conn_status_pending")}
@@ -237,13 +440,19 @@ export function StepConnections({ data, onChange }: Props) {
                             ? t("wizard.conn_read")
                             : t("wizard.conn_write")}
                       </span>
+                      {/* Show spreadsheet_id badge for Google Sheets */}
+                      {conn.type === "google_sheets" && conn.config?.spreadsheet_id && (
+                        <span className="text-[10px] font-mono text-emerald-400 truncate max-w-[120px]" title={conn.config.spreadsheet_id}>
+                          {conn.config.spreadsheet_id.slice(0, 14)}…
+                        </span>
+                      )}
                     </div>
                   </div>
                   <Input
                     value={conn.auth_value}
                     onChange={(e) => updateAuth(conn.id, e.target.value)}
                     placeholder={def?.auth_hint || "API Key / URL"}
-                    className="w-36 h-7 text-[11px] bg-background/60 font-mono border-border/60"
+                    className="w-32 h-7 text-[11px] bg-background/60 font-mono border-border/60"
                   />
                   <button
                     onClick={() => disconnectService(conn.id)}

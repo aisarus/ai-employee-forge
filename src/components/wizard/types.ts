@@ -40,6 +40,8 @@ export interface ConnectorConfig {
   status: "connected" | "disconnected" | "error" | "pending";
   auth_value: string;
   capabilities: ("read" | "write")[];
+  /** Type-specific config fields (e.g. spreadsheet_id, sheet_name for Google Sheets) */
+  config?: Record<string, string>;
 }
 
 export interface DataSource {

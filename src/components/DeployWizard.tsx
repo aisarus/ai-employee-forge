@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Rocket, Loader2, Send } from "lucide-react";
 import { buildActionsPromptBlock } from "./wizard/promptBuilder";
 import { useI18n } from "@/hooks/useI18n";
+import { useConnectors } from "@/hooks/useConnectors";
 
 interface DeployWizardProps {
   open: boolean;
@@ -63,6 +64,7 @@ const STEP_ICONS: Record<string, string> = {
 
 export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", initialData }: DeployWizardProps) {
   const { t } = useI18n();
+  const { saveConnectors } = useConnectors();
   const [step, setStep] = useState(0);
   const [data, setData] = useState<WizardData>({ ...DEFAULT_WIZARD_DATA, ...initialData });
   const [confirmed, setConfirmed] = useState(false);
@@ -243,6 +245,11 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
           integration_rules: data.integration_rules,
         } as any,
       }).eq("id", agentId);
+
+      // Persist connectors to bot_connectors table
+      if (data.connectors.length > 0) {
+        await saveConnectors(agentId, data.connectors);
+      }
 
       const { data: deployRes, error } = await supabase.functions.invoke("deploy-telegram", {
         body: {
