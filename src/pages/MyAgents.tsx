@@ -37,7 +37,7 @@ const MyAgents = () => {
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error("Failed to load agents");
+      toast.error(t("agents.load_failed"));
     } else {
       setAgents(data || []);
     }
@@ -53,13 +53,13 @@ const MyAgents = () => {
       .from("agents")
       .update({ is_active: !currentActive })
       .eq("id", id);
-    if (error) toast.error("Failed to update agent");
+    if (error) toast.error(t("agents.update_failed"));
     else fetchAgents();
   };
 
   const deleteAgent = async (id: string) => {
     const { error } = await supabase.from("agents").delete().eq("id", id);
-    if (error) toast.error("Failed to delete agent");
+    if (error) toast.error(t("agents.delete_failed"));
     else {
       toast.success(t("agents.deleted"));
       fetchAgents();
@@ -67,6 +67,8 @@ const MyAgents = () => {
   };
 
   const filtered = agents.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
+
+  const getStatusKey = (agent: any) => agent.is_active ? "active" : "draft";
 
   return (
     <div className="flex-1 p-6 space-y-6 animate-fade-in">
@@ -92,7 +94,7 @@ const MyAgents = () => {
 
       <div className="grid gap-3">
         {filtered.map((agent) => {
-          const status = agent.is_active ? "active" : "draft";
+          const status = getStatusKey(agent);
           return (
             <Card key={agent.id} className="glass-strong hover:border-primary/30 transition-colors">
               <CardContent className="flex items-center gap-4 p-4">
@@ -103,14 +105,16 @@ const MyAgents = () => {
                   <p className="text-sm font-semibold text-foreground truncate">{agent.name}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{agent.description}</p>
                 </div>
-                <Badge variant="outline" className={`${statusColor[status]} text-xs capitalize hidden sm:inline-flex`}>
-                  {status}
+                <Badge variant="outline" className={`${statusColor[status]} text-xs hidden sm:inline-flex`}>
+                  {t(`status.${status}` as any)}
                 </Badge>
                 <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground">
                   <MessageSquare className="h-3.5 w-3.5" />
                   {(agent.messages_count || 0).toLocaleString()}
                 </div>
-                <div className="hidden lg:block text-xs text-muted-foreground capitalize">{agent.platform || "none"}</div>
+                <div className="hidden lg:block text-xs text-muted-foreground">
+                  {agent.platform || t("agents.platform_none")}
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">

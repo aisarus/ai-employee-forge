@@ -35,9 +35,9 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Bot className="h-4 w-4 text-primary" /> {t("wizard.identity_section")}</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
           <span className="text-muted-foreground">{t("wizard.name")}</span><span className="text-foreground font-medium">{data.bot_name || "—"}</span>
-          <span className="text-muted-foreground">{t("wizard.language")}</span><span className="text-foreground">{data.default_language}</span>
-          <span className="text-muted-foreground">{t("wizard.tone")}</span><span className="text-foreground">{data.tone}</span>
-          <span className="text-muted-foreground">{t("wizard.style")}</span><span className="text-foreground">{data.response_style}</span>
+          <span className="text-muted-foreground">{t("wizard.language")}</span><span className="text-foreground">{t(`lang.${data.default_language}` as any)}</span>
+          <span className="text-muted-foreground">{t("wizard.tone")}</span><span className="text-foreground">{t(`tone.${data.tone}` as any)}</span>
+          <span className="text-muted-foreground">{t("wizard.style")}</span><span className="text-foreground">{t(`style.${data.response_style}` as any)}</span>
         </div>
       </Card>
 

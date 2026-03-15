@@ -80,7 +80,7 @@ export function StepIdentity({ data, onChange, onAvatarUpload, onAvatarRemove }:
           <Select value={data.default_language} onValueChange={(v) => onChange({ default_language: v })}>
             <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+              {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{t(`lang.${l}` as any)}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -89,7 +89,7 @@ export function StepIdentity({ data, onChange, onAvatarUpload, onAvatarRemove }:
           <Select value={data.tone} onValueChange={(v) => onChange({ tone: v })}>
             <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {TONES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              {TONES.map((tn) => <SelectItem key={tn} value={tn}>{t(`tone.${tn}` as any)}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -98,7 +98,7 @@ export function StepIdentity({ data, onChange, onAvatarUpload, onAvatarRemove }:
           <Select value={data.response_style} onValueChange={(v) => onChange({ response_style: v })}>
             <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {RESPONSE_STYLES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {RESPONSE_STYLES.map((s) => <SelectItem key={s} value={s}>{t(`style.${s}` as any)}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

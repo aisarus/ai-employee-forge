@@ -452,6 +452,72 @@ const translations = {
   "trig_act.send_tg": { en: "Send Telegram notification", ru: "Отправить уведомление в Telegram" },
   "trig_act.call_webhook": { en: "Call webhook", ru: "Вызвать вебхук" },
   "trig_act.call_api": { en: "Call custom API", ru: "Вызвать API" },
+
+  // Languages
+  "lang.English": { en: "English", ru: "Английский" },
+  "lang.Russian": { en: "Russian", ru: "Русский" },
+  "lang.Hebrew": { en: "Hebrew", ru: "Иврит" },
+  "lang.Arabic": { en: "Arabic", ru: "Арабский" },
+  "lang.Spanish": { en: "Spanish", ru: "Испанский" },
+  "lang.French": { en: "French", ru: "Французский" },
+  "lang.German": { en: "German", ru: "Немецкий" },
+  "lang.Other": { en: "Other", ru: "Другой" },
+
+  // Tones
+  "tone.Friendly": { en: "Friendly", ru: "Дружелюбный" },
+  "tone.Professional": { en: "Professional", ru: "Профессиональный" },
+  "tone.Formal": { en: "Formal", ru: "Формальный" },
+  "tone.Supportive": { en: "Supportive", ru: "Поддерживающий" },
+  "tone.Playful": { en: "Playful", ru: "Игривый" },
+  "tone.Concise": { en: "Concise", ru: "Лаконичный" },
+
+  // Response Styles
+  "style.Concise": { en: "Concise", ru: "Кратко" },
+  "style.Detailed": { en: "Detailed", ru: "Подробно" },
+  "style.Step-by-step": { en: "Step-by-step", ru: "Пошагово" },
+  "style.Bullet points": { en: "Bullet points", ru: "Тезисно" },
+  "style.Conversational": { en: "Conversational", ru: "Разговорный" },
+
+  // Agent statuses
+  "status.active": { en: "Active", ru: "Активен" },
+  "status.paused": { en: "Paused", ru: "Пауза" },
+  "status.draft": { en: "Draft", ru: "Черновик" },
+
+  // Agent errors
+  "agents.load_failed": { en: "Failed to load agents", ru: "Не удалось загрузить агентов" },
+  "agents.update_failed": { en: "Failed to update agent", ru: "Не удалось обновить агента" },
+  "agents.delete_failed": { en: "Failed to delete agent", ru: "Не удалось удалить агента" },
+  "agents.platform_none": { en: "none", ru: "нет" },
+
+  // Avatar Upload
+  "avatar.change": { en: "Change avatar", ru: "Сменить аватар" },
+  "avatar.upload": { en: "Upload avatar", ru: "Загрузить аватар" },
+  "avatar.crop_title": { en: "Crop Avatar", ru: "Обрезка аватара" },
+  "avatar.cancel": { en: "Cancel", ru: "Отмена" },
+  "avatar.apply": { en: "Apply", ru: "Применить" },
+
+  // Deploy Modal (legacy)
+  "deploy.title": { en: "Deploy Your Bot", ru: "Развёртывание бота" },
+  "deploy.subtitle": { en: "Choose a platform and connect your bot.", ru: "Выберите платформу и подключите бота." },
+  "deploy.bot_deployed": { en: "Bot Deployed!", ru: "Бот развёрнут!" },
+  "deploy.bot_live": { en: "Your bot is live at", ru: "Ваш бот доступен:" },
+  "deploy.done": { en: "Done", ru: "Готово" },
+  "deploy.bot_token": { en: "Bot Token", ru: "Токен бота" },
+  "deploy.deploying": { en: "Deploying...", ru: "Развёртывание..." },
+  "deploy.deploy_tg": { en: "Deploy to Telegram", ru: "Развернуть в Telegram" },
+  "deploy.no_agent": { en: "No agent selected for deployment", ru: "Агент не выбран для деплоя" },
+  "deploy.failed": { en: "Deployment failed", ru: "Ошибка деплоя" },
+  "deploy.wa_phone": { en: "Phone Number ID", ru: "ID номера телефона" },
+  "deploy.wa_token": { en: "Access Token", ru: "Токен доступа" },
+  "deploy.coming_soon": { en: "Coming Soon", ru: "Скоро" },
+  "deploy.pro_plan": { en: "BotForge Pro Plan", ru: "BotForge Pro" },
+  "deploy.pro_desc": { en: "Unlimited agents • Priority support", ru: "Без ограничений • Приоритетная поддержка" },
+  "deploy.tg_step1": { en: "Open Telegram and search for @BotFather", ru: "Откройте Telegram и найдите @BotFather" },
+  "deploy.tg_step2": { en: "Send /newbot and follow the instructions to create your bot", ru: "Отправьте /newbot и следуйте инструкциям" },
+  "deploy.tg_step3": { en: "Copy the API token and paste it below", ru: "Скопируйте API токен и вставьте ниже" },
+  "deploy.wa_step1": { en: "Go to Meta Business Suite and create a WhatsApp Business App", ru: "Перейдите в Meta Business Suite и создайте приложение WhatsApp Business" },
+  "deploy.wa_step2": { en: "Get your Phone Number ID and Access Token from the API settings", ru: "Получите Phone Number ID и Access Token из настроек API" },
+  "deploy.wa_step3": { en: "Paste both credentials below", ru: "Вставьте оба ключа ниже" },
 } as const;
 
 type TranslationKey = keyof typeof translations;

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Zap, MessageCircle, Send, Loader2, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useI18n } from "@/hooks/useI18n";
 
 interface DeployModalProps {
   open: boolean;
@@ -14,27 +15,28 @@ interface DeployModalProps {
   agentId?: string;
 }
 
-const telegramSteps = [
-  { num: 1, text: "Open Telegram and search for @BotFather" },
-  { num: 2, text: "Send /newbot and follow the instructions to create your bot" },
-  { num: 3, text: "Copy the API token and paste it below" },
-];
-
-const whatsappSteps = [
-  { num: 1, text: "Go to Meta Business Suite and create a WhatsApp Business App" },
-  { num: 2, text: "Get your Phone Number ID and Access Token from the API settings" },
-  { num: 3, text: "Paste both credentials below" },
-];
-
 export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
+  const { t } = useI18n();
   const [tgToken, setTgToken] = useState("");
   const [deploying, setDeploying] = useState(false);
   const [deployed, setDeployed] = useState(false);
   const [botUsername, setBotUsername] = useState("");
 
+  const telegramSteps = [
+    { num: 1, text: t("deploy.tg_step1") },
+    { num: 2, text: t("deploy.tg_step2") },
+    { num: 3, text: t("deploy.tg_step3") },
+  ];
+
+  const whatsappSteps = [
+    { num: 1, text: t("deploy.wa_step1") },
+    { num: 2, text: t("deploy.wa_step2") },
+    { num: 3, text: t("deploy.wa_step3") },
+  ];
+
   const handleDeployTelegram = async () => {
     if (!agentId) {
-      toast.error("No agent selected for deployment");
+      toast.error(t("deploy.no_agent"));
       return;
     }
     setDeploying(true);
@@ -49,9 +51,9 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
 
       setDeployed(true);
       setBotUsername(data.botInfo?.username || "");
-      toast.success(data.message || "Bot deployed!");
+      toast.success(data.message || t("deploy.bot_deployed"));
     } catch (err: any) {
-      toast.error(err.message || "Deployment failed");
+      toast.error(err.message || t("deploy.failed"));
     } finally {
       setDeploying(false);
     }
@@ -61,25 +63,25 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-strong sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-lg">Deploy Your Bot</DialogTitle>
-          <DialogDescription>Choose a platform and connect your bot.</DialogDescription>
+          <DialogTitle className="text-lg">{t("deploy.title")}</DialogTitle>
+          <DialogDescription>{t("deploy.subtitle")}</DialogDescription>
         </DialogHeader>
 
         {deployed ? (
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <CheckCircle className="h-12 w-12 text-success" />
             <div>
-              <p className="text-lg font-semibold text-foreground">Bot Deployed!</p>
+              <p className="text-lg font-semibold text-foreground">{t("deploy.bot_deployed")}</p>
               {botUsername && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  Your bot is live at{" "}
+                  {t("deploy.bot_live")}{" "}
                   <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener" className="text-primary underline">
                     @{botUsername}
                   </a>
                 </p>
               )}
             </div>
-            <Button onClick={() => { setDeployed(false); onOpenChange(false); }}>Done</Button>
+            <Button onClick={() => { setDeployed(false); onOpenChange(false); }}>{t("deploy.done")}</Button>
           </div>
         ) : (
           <>
@@ -105,7 +107,7 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tg-token" className="text-sm">Bot Token</Label>
+                  <Label htmlFor="tg-token" className="text-sm">{t("deploy.bot_token")}</Label>
                   <Input
                     id="tg-token"
                     value={tgToken}
@@ -121,7 +123,7 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                   disabled={deploying || !agentId}
                 >
                   {deploying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                  {deploying ? "Deploying..." : "Deploy to Telegram"}
+                  {deploying ? t("deploy.deploying") : t("deploy.deploy_tg")}
                 </Button>
               </TabsContent>
 
@@ -137,16 +139,16 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="wa-phone" className="text-sm">Phone Number ID</Label>
+                  <Label htmlFor="wa-phone" className="text-sm">{t("deploy.wa_phone")}</Label>
                   <Input id="wa-phone" placeholder="1234567890" className="bg-background/50 font-mono text-xs" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="wa-token" className="text-sm">Access Token</Label>
+                  <Label htmlFor="wa-token" className="text-sm">{t("deploy.wa_token")}</Label>
                   <Input id="wa-token" type="password" placeholder="EAAxxxxxxx..." className="bg-background/50 font-mono text-xs" />
                 </div>
                 <Button className="w-full gap-2" size="lg" disabled>
                   <MessageCircle className="h-4 w-4" />
-                  Coming Soon
+                  {t("deploy.coming_soon")}
                 </Button>
               </TabsContent>
             </Tabs>
@@ -154,8 +156,8 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 mt-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">BotForge Pro Plan</p>
-                  <p className="text-xs text-muted-foreground">Unlimited agents • Priority support</p>
+                  <p className="text-sm font-semibold text-foreground">{t("deploy.pro_plan")}</p>
+                  <p className="text-xs text-muted-foreground">{t("deploy.pro_desc")}</p>
                 </div>
                 <p className="text-2xl font-bold text-primary">$29<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
               </div>

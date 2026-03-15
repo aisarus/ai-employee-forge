@@ -4,6 +4,7 @@ import "react-image-crop/dist/ReactCrop.css";
 import { Camera, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useI18n } from "@/hooks/useI18n";
 
 interface AvatarUploadProps {
   avatarUrl: string;
@@ -30,6 +31,7 @@ function centerAspectCrop(mediaWidth: number, mediaHeight: number) {
 }
 
 export function AvatarUpload({ avatarUrl, name, onUpload, onRemove }: AvatarUploadProps) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
@@ -110,13 +112,13 @@ export function AvatarUpload({ avatarUrl, name, onUpload, onRemove }: AvatarUplo
       </div>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
       <Button variant="ghost" size="sm" onClick={() => inputRef.current?.click()} className="text-xs">
-        {avatarUrl ? "Change avatar" : "Upload avatar"}
+        {avatarUrl ? t("avatar.change") : t("avatar.upload")}
       </Button>
 
       <Dialog open={cropDialogOpen} onOpenChange={setCropDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Crop Avatar</DialogTitle>
+            <DialogTitle>{t("avatar.crop_title")}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4">
             {rawImage && (
@@ -125,9 +127,9 @@ export function AvatarUpload({ avatarUrl, name, onUpload, onRemove }: AvatarUplo
               </ReactCrop>
             )}
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setCropDialogOpen(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setCropDialogOpen(false)}>{t("avatar.cancel")}</Button>
               <Button onClick={handleCropConfirm} className="gap-2">
-                <Check className="h-4 w-4" /> Apply
+                <Check className="h-4 w-4" /> {t("avatar.apply")}
               </Button>
             </div>
           </div>
