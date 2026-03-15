@@ -119,6 +119,25 @@ export function DeployModal({ open, onOpenChange, agentId }: DeployModalProps) {
                     className="bg-background/50 font-mono text-xs"
                   />
                 </div>
+                <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <Settings className="h-3.5 w-3.5" />
+                    <span>Advanced Settings</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3 space-y-2">
+                    <Label htmlFor="openai-key" className="text-sm">OpenAI API Key <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Input
+                      id="openai-key"
+                      value={openaiKey}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
+                      placeholder="sk-..."
+                      type="password"
+                      className="bg-background/50 font-mono text-xs"
+                    />
+                    <p className="text-xs text-muted-foreground">Leave empty to use built-in AI. Provide your key for GPT-4o.</p>
+                  </CollapsibleContent>
+                </Collapsible>
                 <Button
                   className="w-full gap-2"
                   size="lg"
