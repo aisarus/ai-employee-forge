@@ -149,7 +149,7 @@ Deno.serve(async () => {
             { role: "system", content: systemPrompt + languageRule },
           ];
 
-          for (const m of (history || []).slice(-16)) {
+          for (const m of (history || []).slice(-30)) {
             const isBotReply = m.raw_update && (m.raw_update as any).__bot_reply === true;
             chatMessages.push({
               role: isBotReply ? "assistant" : "user",
