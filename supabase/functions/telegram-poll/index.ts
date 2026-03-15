@@ -2,8 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const TELEGRAM_API = "https://api.telegram.org";
-const OPENAI_API = "https://api.openai.com/v1/chat/completions";
-// Leave ~5 s buffer before the function's 60 s limit
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MAX_RUNTIME_MS = 55_000;
 
 Deno.serve(async () => {
@@ -11,10 +10,9 @@ Deno.serve(async () => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const defaultOpenAiKey = Deno.env.get("OPENAI_API_KEY") || "";
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // ── Get all active Telegram agents ─────────────────────────────────────────
   const { data: agents, error: agentsError } = await supabase
     .from("agents")
     .select("*")
@@ -30,17 +28,20 @@ Deno.serve(async () => {
 
   let totalProcessed = 0;
 
-  // ── Process each agent in turn ─────────────────────────────────────────────
   for (const agent of agents as any[]) {
     if (Date.now() - startTime > MAX_RUNTIME_MS) break;
 
     try {
       const botToken: string = (agent.telegram_token || "").trim();
-      const openaiKey: string = (agent.openai_api_key || defaultOpenAiKey || "").trim();
+      if (!botToken) continue;
 
-      if (!botToken || !openaiKey) continue; // skip misconfigured agents
+      // Use agent's own OpenAI key if provided, otherwise use Lovable AI
+      const agentOpenaiKey: string = (agent.openai_api_key || "").trim();
+      const useLovableAi = !agentOpenaiKey;
 
-      // Per-agent offset from already stored messages (schema-safe, no extra column needed)
+      if (!useLovableAi && !agentOpenaiKey) continue;
+      if (useLovableAi && !lovableKey) continue;
+
       const { data: lastUpdateRow } = await supabase
         .from("telegram_messages")
         .select("update_id")
@@ -51,7 +52,6 @@ Deno.serve(async () => {
 
       const offset = lastUpdateRow?.update_id ? Number(lastUpdateRow.update_id) + 1 : 0;
 
-      // One short-poll per agent (timeout=3 to not block too long)
       const updatesRes = await fetch(`${TELEGRAM_API}/bot${botToken}/getUpdates`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +72,6 @@ Deno.serve(async () => {
 
           if (!chatId) continue;
 
-          // Store incoming update first
           await supabase.from("telegram_messages").upsert(
             {
               update_id: update.update_id,
@@ -84,10 +83,8 @@ Deno.serve(async () => {
             { onConflict: "update_id" }
           );
 
-          // Only text messages go to LLM
           if (!userText) continue;
 
-          // Get recent chat history for context (same chat + same agent)
           const { data: history } = await supabase
             .from("telegram_messages")
             .select("text, raw_update")
@@ -114,25 +111,43 @@ Deno.serve(async () => {
 
           let reply = "Sorry, I couldn't process that.";
           try {
-            const openaiRes = await fetch(OPENAI_API, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${openaiKey}`,
-              },
-              body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: chatMessages,
-                temperature: 0.7,
-              }),
-            });
-            const openaiData = await openaiRes.json().catch(() => ({}));
-            reply = openaiData?.choices?.[0]?.message?.content || reply;
+            if (useLovableAi) {
+              // Use Lovable AI Gateway
+              const aiRes = await fetch(LOVABLE_AI_URL, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${lovableKey}`,
+                },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash",
+                  messages: chatMessages,
+                  temperature: 0.7,
+                }),
+              });
+              const aiData = await aiRes.json().catch(() => ({}));
+              reply = aiData?.choices?.[0]?.message?.content || reply;
+            } else {
+              // Use agent's own OpenAI key (BYOK)
+              const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${agentOpenaiKey}`,
+                },
+                body: JSON.stringify({
+                  model: "gpt-4o-mini",
+                  messages: chatMessages,
+                  temperature: 0.7,
+                }),
+              });
+              const openaiData = await openaiRes.json().catch(() => ({}));
+              reply = openaiData?.choices?.[0]?.message?.content || reply;
+            }
           } catch (err) {
-            console.error("OpenAI error for agent", agent.id, err);
+            console.error("AI error for agent", agent.id, err);
           }
 
-          // Send plain text reply (no parse_mode to avoid HTML parse errors)
           await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
