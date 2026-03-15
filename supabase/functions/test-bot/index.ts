@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_MODEL = "google/gemini-3-flash-preview";
 const BYOK_FALLBACK_STATUSES = new Set([402, 403, 429]);
 
 const corsHeaders = {
@@ -16,7 +17,7 @@ async function callLovableAi(messages: any[], lovableKey: string) {
       Authorization: `Bearer ${lovableKey}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: LOVABLE_MODEL,
       messages,
       temperature: 0.7,
     }),
@@ -64,7 +65,6 @@ Deno.serve(async (req) => {
         const data = await response.json().catch(() => ({}));
         console.error("OpenAI BYOK error:", response.status, data?.error?.message);
 
-        // Fallback to Lovable AI on quota/auth errors
         if (BYOK_FALLBACK_STATUSES.has(response.status) && lovableKey) {
           console.log("BYOK failed, falling back to Lovable AI");
           const fallback = await callLovableAi(apiMessages, lovableKey);

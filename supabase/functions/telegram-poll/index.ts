@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const TELEGRAM_API = "https://api.telegram.org";
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_MODEL = "google/gemini-3-flash-preview";
 const MAX_RUNTIME_MS = 55_000;
 const BYOK_FALLBACK_STATUSES = new Set([402, 403, 429]);
 
@@ -14,7 +15,7 @@ async function callLovableAi(messages: any[], lovableKey: string): Promise<strin
       Authorization: `Bearer ${lovableKey}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: LOVABLE_MODEL,
       messages,
       temperature: 0.7,
     }),
@@ -127,13 +128,14 @@ Deno.serve(async () => {
 
           if (!userText) continue;
 
+          // Build conversation history from stored messages (both user and bot)
           const { data: history } = await supabase
             .from("telegram_messages")
             .select("text, raw_update")
             .eq("agent_id", agent.id)
             .eq("chat_id", chatId)
             .order("created_at", { ascending: true })
-            .limit(10);
+            .limit(20);
 
           const systemPrompt = (agent.system_prompt || "").toString();
           const hasExplicitLanguage =
@@ -142,29 +144,30 @@ Deno.serve(async () => {
             ? ""
             : "\n\nIMPORTANT: Always respond in the same language the user writes to you.";
 
-          const chatMessages = [
+          // Build messages array with proper role assignment
+          const chatMessages: { role: string; content: string }[] = [
             { role: "system", content: systemPrompt + languageRule },
-            ...(history || []).slice(-8).map((m: any) => ({
-              role: m.raw_update?.message?.from?.is_bot ? "assistant" : "user",
-              content: m.text || "",
-            })),
-            { role: "user", content: userText },
           ];
+
+          for (const m of (history || []).slice(-16)) {
+            const isBotReply = m.raw_update && (m.raw_update as any).__bot_reply === true;
+            chatMessages.push({
+              role: isBotReply ? "assistant" : "user",
+              content: m.text || "",
+            });
+          }
 
           let reply: string | null = null;
 
           if (agentOpenaiKey) {
-            // Try BYOK first
             const result = await callOpenAi(chatMessages, agentOpenaiKey);
             reply = result.content;
 
-            // Fallback to Lovable AI on quota/auth errors
             if (!reply && result.fallback && lovableKey) {
               console.log("BYOK failed for agent", agent.id, "— falling back to Lovable AI");
               reply = await callLovableAi(chatMessages, lovableKey);
             }
           } else if (lovableKey) {
-            // No BYOK key — use Lovable AI directly
             reply = await callLovableAi(chatMessages, lovableKey);
           }
 
@@ -172,11 +175,25 @@ Deno.serve(async () => {
             reply = "⚠️ AI is temporarily unavailable. Please try again later.";
           }
 
+          // Send reply to Telegram
           await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ chat_id: chatId, text: reply }),
           }).catch(() => null);
+
+          // Save bot reply to history so future conversations have full context
+          const botUpdateId = update.update_id * 10 + 1; // synthetic unique ID
+          await supabase.from("telegram_messages").upsert(
+            {
+              update_id: botUpdateId,
+              agent_id: agent.id,
+              chat_id: chatId,
+              text: reply,
+              raw_update: { __bot_reply: true, in_reply_to: update.update_id },
+            },
+            { onConflict: "update_id" }
+          ).catch((e: any) => console.error("Failed to save bot reply:", e));
 
           totalProcessed++;
         } catch (messageError) {
