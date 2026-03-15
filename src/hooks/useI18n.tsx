@@ -371,6 +371,22 @@ const translations = {
   "wizard.openai_key_invalid":      { en: "Key must start with sk-", ru: "Ключ должен начинаться с sk-" },
   "wizard.api_keys_security":       { en: "Your key is stored securely and only used to power your bot's responses. We never share it.", ru: "Ваш ключ хранится безопасно и используется только для ответов вашего бота. Мы его не передаём." },
 
+  // Welcome message templates (quick-fill chips in StepWelcome)
+  "wizard.welcome_templates_hint": { en: "Quick templates:", ru: "Быстрые шаблоны:" },
+  "template.support.w1": { en: "Hi! I'm your support assistant 🛟\nHow can I help you today?", ru: "Привет! Я ваш помощник поддержки 🛟\nЧем могу помочь?" },
+  "template.support.w2": { en: "Hello! Got a question or issue? I'm here to help 24/7.", ru: "Здравствуйте! Есть вопрос или проблема? Я здесь — отвечу в любое время." },
+  "template.faq.w1":     { en: "Hi! Ask me anything — I'll do my best to answer 💬", ru: "Привет! Задайте любой вопрос — постараюсь ответить 💬" },
+  "template.faq.w2":     { en: "Hello! I'm an FAQ bot. Type your question and I'll find the answer.", ru: "Здравствуйте! Я FAQ-бот. Напишите вопрос — найду ответ." },
+  "template.sales.w1":   { en: "Welcome! 👋 I can help you browse our catalog, answer questions, and place orders.", ru: "Добро пожаловать! 👋 Помогу с каталогом, отвечу на вопросы и оформлю заказ." },
+  "template.sales.w2":   { en: "Hi there! Ready to find something great? Let me show you what we have 🛍️", ru: "Привет! Готовы выбрать что-то классное? Покажу, что у нас есть 🛍️" },
+  "template.booking.w1": { en: "Hello! 📅 I can book an appointment for you. When would you like to come in?", ru: "Здравствуйте! 📅 Помогу записаться. Когда вам удобно?" },
+  "template.booking.w2": { en: "Hi! Let's get you booked in. What service are you looking for?", ru: "Привет! Запишем вас. Какая услуга вас интересует?" },
+  "template.lead.w1":    { en: "Hi! 👋 I'd love to learn more about your needs. Can I ask a few quick questions?", ru: "Привет! 👋 Хочу узнать о ваших потребностях. Могу задать несколько вопросов?" },
+  "template.lead.w2":    { en: "Hello! Looking for a solution? Tell me about your challenge — we might be a great fit.", ru: "Здравствуйте! Ищете решение? Расскажите о своей задаче — возможно, мы подойдём." },
+  "template.order.w1":   { en: "Welcome! 📦 Ready to place an order? I'll guide you through.", ru: "Добро пожаловать! 📦 Готовы оформить заказ? Проведу вас шаг за шагом." },
+  "template.order.w2":   { en: "Hi! Let's get your order going. What would you like today?", ru: "Привет! Оформим ваш заказ. Что хотите заказать?" },
+  "template.custom.w1":  { en: "Hello! How can I help you today?", ru: "Здравствуйте! Чем могу помочь?" },
+
   // Bot type preset messages
   "preset.support.welcome":  { en: "Hi! I'm your support assistant 🛟\nHow can I help you today?", ru: "Привет! Я ваш помощник поддержки 🛟\nЧем могу помочь?" },
   "preset.support.fallback": { en: "I'm not sure I understood. Could you rephrase?", ru: "Не уверен, что понял. Можете перефразировать?" },
