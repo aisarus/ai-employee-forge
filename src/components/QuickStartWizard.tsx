@@ -52,6 +52,7 @@ export function QuickStartWizard() {
   const [isEditingBrain, setIsEditingBrain] = useState(false);
   const [copied, setCopied] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [brainGenerated, setBrainGenerated] = useState(false);
 
   // Sandbox chat
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([]);
@@ -137,6 +138,7 @@ export function QuickStartWizard() {
           : "Hi! I'm your new bot. Test me — send a message!",
       }]);
 
+      setBrainGenerated(true);
       setStep("brain_preview");
     } catch (e) {
       console.error("TRI-TFM error:", e);
@@ -463,10 +465,24 @@ export function QuickStartWizard() {
                       </pre>
                     )}
                   </div>
-                  <div className="px-4 py-2 border-t border-border/50">
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => { setStep("describe"); }}>
+                  <div className="px-4 py-2 border-t border-border/50 flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      disabled={brainGenerated}
+                      title={brainGenerated
+                        ? (lang === "ru" ? "Генерация уже использована — редактируйте вручную" : "Generation already used — edit manually")
+                        : undefined}
+                      onClick={() => { setStep("describe"); }}
+                    >
                       <Sparkles className="h-3 w-3" /> {lang === "ru" ? "Перегенерировать" : "Regenerate"}
                     </Button>
+                    {brainGenerated && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {lang === "ru" ? "Используйте ✏️ для ручного редактирования" : "Use ✏️ to edit manually"}
+                      </span>
+                    )}
                   </div>
                 </Card>
 
@@ -766,11 +782,18 @@ export function QuickStartWizard() {
         {step === "describe" ? (
           <button
             onClick={handleGenerateBrain}
-            disabled={!canNext()}
+            disabled={!canNext() || brainGenerated}
+            title={brainGenerated
+              ? (lang === "ru" ? "Мозг уже сгенерирован. Вернитесь к превью и редактируйте вручную." : "Brain already generated. Go to preview and edit manually.")
+              : undefined}
             className="btn-gradient h-11 px-8 rounded-xl text-primary-foreground font-semibold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Sparkles className="h-4 w-4 relative z-10" />
-            <span className="relative z-10">{lang === "ru" ? "Сгенерировать мозг" : "Generate AI Brain"}</span>
+            <span className="relative z-10">
+              {brainGenerated
+                ? (lang === "ru" ? "Мозг уже создан" : "Brain Already Generated")
+                : (lang === "ru" ? "Сгенерировать мозг" : "Generate AI Brain")}
+            </span>
           </button>
         ) : step === "deploy" ? (
           <button
