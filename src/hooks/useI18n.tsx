@@ -349,6 +349,22 @@ const translations = {
   "wizard.openai_key_invalid":      { en: "Key must start with sk-", ru: "Ключ должен начинаться с sk-" },
   "wizard.api_keys_security":       { en: "Your key is stored securely and only used to power your bot's responses. We never share it.", ru: "Ваш ключ хранится безопасно и используется только для ответов вашего бота. Мы его не передаём." },
 
+  // Bot type preset messages
+  "preset.support.welcome":  { en: "Hi! I'm your support assistant 🛟\nHow can I help you today?", ru: "Привет! Я ваш помощник поддержки 🛟\nЧем могу помочь?" },
+  "preset.support.fallback": { en: "I'm not sure I understood. Could you rephrase?", ru: "Не уверен, что понял. Можете перефразировать?" },
+  "preset.faq.welcome":      { en: "Hi! Ask me anything — I'll do my best to answer 💬", ru: "Привет! Задайте любой вопрос — постараюсь ответить 💬" },
+  "preset.faq.fallback":     { en: "I don't have an answer to that yet. Try asking differently.", ru: "Пока не могу ответить на это. Попробуйте иначе." },
+  "preset.sales.welcome":    { en: "Welcome! 👋 I can help you browse our catalog, answer questions, and place orders.", ru: "Добро пожаловать! 👋 Помогу с каталогом, отвечу на вопросы и оформлю заказ." },
+  "preset.sales.fallback":   { en: "I didn't get that. You can ask about products, prices, or delivery.", ru: "Не понял запрос. Спросите о товарах, ценах или доставке." },
+  "preset.booking.welcome":  { en: "Hello! 📅 I can book an appointment for you. When would you like to come in?", ru: "Здравствуйте! 📅 Помогу записаться. Когда вам удобно?" },
+  "preset.booking.fallback": { en: "I can help with booking, rescheduling, or cancelling. What would you like to do?", ru: "Могу помочь с записью, переносом или отменой. Что вас интересует?" },
+  "preset.lead.welcome":     { en: "Hi! 👋 I'd love to learn more about your needs. Can I ask a few quick questions?", ru: "Привет! 👋 Хочу узнать о ваших потребностях. Могу задать несколько вопросов?" },
+  "preset.lead.fallback":    { en: "Let me connect you with our team who can help better.", ru: "Позвольте передать вас нашей команде для более детальной помощи." },
+  "preset.order.welcome":    { en: "Welcome! 📦 Ready to place an order? I'll guide you through.", ru: "Добро пожаловать! 📦 Готовы оформить заказ? Проведу вас шаг за шагом." },
+  "preset.order.fallback":   { en: "I can help you place or track an order. What would you like to do?", ru: "Могу помочь оформить или отследить заказ. Что вас интересует?" },
+  "preset.custom.welcome":   { en: "Hello! How can I help you today?", ru: "Здравствуйте! Чем могу помочь?" },
+  "preset.custom.fallback":  { en: "I'm not sure I can help with that. Please try again.", ru: "Не уверен, что могу помочь. Попробуйте ещё раз." },
+
   // Deploy wizard misc
   "wizard.avatar_uploaded": { en: "Avatar uploaded!", ru: "Аватар загружен!" },
   "wizard.upload_failed": { en: "Upload failed:", ru: "Ошибка загрузки:" },

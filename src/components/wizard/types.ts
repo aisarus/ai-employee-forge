@@ -290,6 +290,87 @@ export const DEFAULT_WIZARD_DATA: WizardData = {
   custom_webhook_url: "",
 };
 
+// ── Bot type presets (i18n keys resolved at apply time) ───────────────────────
+export interface BotTypePreset {
+  welcome_message_key: string;
+  fallback_message_key: string;
+  bot_actions: string[];
+  starter_buttons: StarterButton[];
+  data_fields: DataField[];
+  telegram_commands: BotCommand[];
+}
+
+export const BOT_TYPE_PRESETS: Record<string, BotTypePreset> = {
+  support: {
+    welcome_message_key:  "preset.support.welcome",
+    fallback_message_key: "preset.support.fallback",
+    bot_actions:          ["Answer questions", "Create support ticket", "Escalate to human"],
+    starter_buttons:      [{ text: "I have a problem", action_type: "text" }, { text: "Track my request", action_type: "text" }],
+    data_fields:          [],
+    telegram_commands:    [{ command: "/start", description: "Start" }, { command: "/help", description: "Help" }, { command: "/ticket", description: "Open ticket" }],
+  },
+  faq: {
+    welcome_message_key:  "preset.faq.welcome",
+    fallback_message_key: "preset.faq.fallback",
+    bot_actions:          ["Answer questions", "Ask clarifying questions"],
+    starter_buttons:      [{ text: "Ask a question", action_type: "text" }],
+    data_fields:          [],
+    telegram_commands:    [{ command: "/start", description: "Start" }, { command: "/help", description: "Help" }],
+  },
+  sales: {
+    welcome_message_key:  "preset.sales.welcome",
+    fallback_message_key: "preset.sales.fallback",
+    bot_actions:          ["Answer questions", "Recommend products", "Collect customer details", "Send confirmation message"],
+    starter_buttons:      [{ text: "View catalog", action_type: "text" }, { text: "Place order", action_type: "text" }, { text: "Ask a question", action_type: "text" }],
+    data_fields:          [],
+    telegram_commands:    [{ command: "/start", description: "Start" }, { command: "/help", description: "Help" }, { command: "/catalog", description: "View catalog" }, { command: "/order", description: "Place order" }],
+  },
+  booking: {
+    welcome_message_key:  "preset.booking.welcome",
+    fallback_message_key: "preset.booking.fallback",
+    bot_actions:          ["Create booking", "Reschedule booking", "Cancel booking", "Collect customer details"],
+    starter_buttons:      [{ text: "Book now", action_type: "text" }, { text: "My bookings", action_type: "text" }],
+    data_fields: [
+      { id: "f1", field_name: "name",  label: "Full name",    required: true,  type: "text",  ask_order: 1 },
+      { id: "f2", field_name: "phone", label: "Phone number", required: true,  type: "phone", ask_order: 2 },
+      { id: "f3", field_name: "date",  label: "Preferred date", required: true, type: "date", ask_order: 3 },
+    ],
+    telegram_commands:    [{ command: "/start", description: "Start" }, { command: "/book", description: "Book appointment" }, { command: "/cancel", description: "Cancel booking" }],
+  },
+  lead: {
+    welcome_message_key:  "preset.lead.welcome",
+    fallback_message_key: "preset.lead.fallback",
+    bot_actions:          ["Collect lead information", "Ask clarifying questions", "Send confirmation message"],
+    starter_buttons:      [{ text: "Get a quote", action_type: "text" }, { text: "Learn more", action_type: "text" }],
+    data_fields: [
+      { id: "f1", field_name: "name",    label: "Full name",    required: true,  type: "text",  ask_order: 1 },
+      { id: "f2", field_name: "phone",   label: "Phone number", required: true,  type: "phone", ask_order: 2 },
+      { id: "f3", field_name: "company", label: "Company",      required: false, type: "text",  ask_order: 3 },
+    ],
+    telegram_commands:    [{ command: "/start", description: "Start" }, { command: "/help", description: "Help" }],
+  },
+  order: {
+    welcome_message_key:  "preset.order.welcome",
+    fallback_message_key: "preset.order.fallback",
+    bot_actions:          ["Save order", "Collect customer details", "Send confirmation message", "Notify manager"],
+    starter_buttons:      [{ text: "Place order", action_type: "text" }, { text: "Track order", action_type: "text" }],
+    data_fields: [
+      { id: "f1", field_name: "name",    label: "Full name",       required: true,  type: "text",  ask_order: 1 },
+      { id: "f2", field_name: "phone",   label: "Phone number",    required: true,  type: "phone", ask_order: 2 },
+      { id: "f3", field_name: "address", label: "Delivery address", required: true, type: "text",  ask_order: 3 },
+    ],
+    telegram_commands:    [{ command: "/start", description: "Start" }, { command: "/order", description: "Place order" }, { command: "/status", description: "Order status" }],
+  },
+  custom: {
+    welcome_message_key:  "preset.custom.welcome",
+    fallback_message_key: "preset.custom.fallback",
+    bot_actions:          [],
+    starter_buttons:      [],
+    data_fields:          [],
+    telegram_commands:    [{ command: "/start", description: "Start" }, { command: "/help", description: "Help" }],
+  },
+};
+
 export const LANGUAGES = ["English", "Russian", "Hebrew", "Arabic", "Spanish", "French", "German", "Other"];
 export const TONES = ["Friendly", "Professional", "Formal", "Supportive", "Playful", "Concise"];
 export const RESPONSE_STYLES = ["Concise", "Detailed", "Step-by-step", "Bullet points", "Conversational"];

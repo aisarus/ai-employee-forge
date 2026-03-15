@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { WizardData, DEFAULT_WIZARD_DATA, getWizardSteps } from "./wizard/types";
+import { WizardData, DEFAULT_WIZARD_DATA, getWizardSteps, BOT_TYPE_PRESETS } from "./wizard/types";
 import { StepBotType } from "./wizard/StepBotType";
 import { StepIdentity } from "./wizard/StepIdentity";
 import { StepWelcome } from "./wizard/StepWelcome";
@@ -95,8 +95,25 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       return next;
     });
 
-    // When bot_type is freshly chosen, advance to next step (index 1)
+    // When bot_type is freshly chosen: apply presets (empty fields only) + advance to step 1
     if (patch.bot_type !== undefined && patch.bot_type !== data.bot_type && patch.bot_type !== "") {
+      const preset = BOT_TYPE_PRESETS[patch.bot_type];
+      if (preset) {
+        setData((prev) => ({
+          ...prev,
+          ...patch,
+          welcome_message:   prev.welcome_message   || t(preset.welcome_message_key  as any),
+          fallback_message:  prev.fallback_message  || t(preset.fallback_message_key as any),
+          bot_actions:       prev.bot_actions.length   > 0 ? prev.bot_actions   : preset.bot_actions,
+          starter_buttons:   prev.starter_buttons.length > 0 ? prev.starter_buttons : preset.starter_buttons,
+          data_fields:       prev.data_fields.length    > 0 ? prev.data_fields   : preset.data_fields,
+          telegram_commands: prev.telegram_commands.filter(c => c.command !== "/start" && c.command !== "/help").length > 0
+            ? prev.telegram_commands
+            : preset.telegram_commands,
+        }));
+        setStep(1);
+        return;
+      }
       setStep(1);
     }
   };
