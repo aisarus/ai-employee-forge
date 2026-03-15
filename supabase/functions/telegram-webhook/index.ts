@@ -135,9 +135,26 @@ Deno.serve(async (req: Request) => {
   }
 
   // ------------------------------------------------------------------
-  // 4. Store incoming user message in bot_chat_history
+  // 4. Deduplicate: skip if we already processed this update_id
   // ------------------------------------------------------------------
-  await supabase.from("bot_chat_history").insert({
+  if (updateId != null) {
+    const { data: existing } = await supabase
+      .from("bot_chat_history")
+      .select("id")
+      .eq("bot_id", botId)
+      .eq("telegram_update_id", updateId)
+      .maybeSingle();
+
+    if (existing) {
+      console.log("Duplicate update_id", updateId, "for bot", botId, "— skipping");
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 5. Store incoming user message in bot_chat_history
+  // ------------------------------------------------------------------
+  const { error: insertError } = await supabase.from("bot_chat_history").insert({
     bot_id: botId,
     chat_id: chatId,
     role: "user",
@@ -145,21 +162,26 @@ Deno.serve(async (req: Request) => {
     telegram_update_id: updateId ?? null,
   });
 
+  if (insertError) {
+    console.error("Failed to save user message:", insertError.message);
+  }
+
   // ------------------------------------------------------------------
-  // 5. Load recent conversation context
+  // 6. Load the last 30 messages (DESC → reverse to chronological order)
   // ------------------------------------------------------------------
   const { data: rawHistory } = await supabase
     .from("bot_chat_history")
     .select("role, content")
     .eq("bot_id", botId)
     .eq("chat_id", chatId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
 
-  const history: { role: string; content: string }[] = rawHistory ?? [];
+  // Reverse from newest-first to chronological order for the LLM
+  const history: { role: string; content: string }[] = (rawHistory ?? []).reverse();
 
   // ------------------------------------------------------------------
-  // 6. Build messages array for the LLM
+  // 7. Build messages array for the LLM
   // ------------------------------------------------------------------
   const systemPrompt: string = bot.system_prompt ?? "";
   const hasExplicitLanguage =
@@ -176,7 +198,7 @@ Deno.serve(async (req: Request) => {
   ];
 
   // ------------------------------------------------------------------
-  // 7. Generate AI reply (BYOK → Lovable fallback)
+  // 8. Generate AI reply (BYOK → Lovable fallback)
   // ------------------------------------------------------------------
   const botToken: string = bot.telegram_token ?? "";
   const byokKey: string = (bot.openai_api_key ?? "").trim();
@@ -199,7 +221,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // ------------------------------------------------------------------
-  // 8. Send reply via Telegram
+  // 9. Send reply via Telegram
   // ------------------------------------------------------------------
   await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
     method: "POST",
@@ -208,14 +230,18 @@ Deno.serve(async (req: Request) => {
   }).catch((e) => console.error("Telegram sendMessage error:", e));
 
   // ------------------------------------------------------------------
-  // 9. Store assistant reply in bot_chat_history
+  // 10. Store assistant reply in bot_chat_history
   // ------------------------------------------------------------------
-  await supabase.from("bot_chat_history").insert({
+  const { error: replyInsertError } = await supabase.from("bot_chat_history").insert({
     bot_id: botId,
     chat_id: chatId,
     role: "assistant",
     content: reply,
   });
+
+  if (replyInsertError) {
+    console.error("Failed to save assistant reply:", replyInsertError.message);
+  }
 
   return new Response(JSON.stringify({ ok: true }), { status: 200 });
 });
