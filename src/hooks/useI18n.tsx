@@ -308,6 +308,7 @@ const translations = {
   "deploy_error.openai_unauthorized":{ en: "Invalid OpenAI API key. Check it at platform.openai.com/api-keys.", ru: "Неверный OpenAI ключ. Проверьте на platform.openai.com/api-keys." },
   "deploy_error.openai_rate_limit":  { en: "OpenAI rate limit. Wait a moment and try again.", ru: "Лимит OpenAI превышен. Подождите и попробуйте снова." },
   "deploy_error.openai_unknown":     { en: "OpenAI API error. Check your key and try again.", ru: "Ошибка OpenAI API. Проверьте ключ и попробуйте снова." },
+  "deploy_error.webhook_failed":     { en: "Failed to register Telegram Webhook. Check the token and try again.", ru: "Не удалось зарегистрировать Webhook в Telegram. Проверьте токен и попробуйте снова." },
 
   // Review step — keys status
   "wizard.review_keys_section": { en: "API Keys",          ru: "API ключи" },

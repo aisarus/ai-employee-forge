@@ -25,6 +25,13 @@ async function callTelegram(
   return { ok: res.ok, data };
 }
 
+function generateWebhookSecret(): string {
+  // Telegram accepts 1-256 chars: A-Z, a-z, 0-9, _ and -
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -34,6 +41,17 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ── Authenticate caller ────────────────────────────────────────────────
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const {
       agentId,
@@ -45,7 +63,7 @@ Deno.serve(async (req) => {
       commands,
     } = await req.json();
 
-    // ── Validate inputs ──────────────────────────────────────────────────────
+    // ── Validate inputs ────────────────────────────────────────────────────
     if (!agentId) {
       return new Response(JSON.stringify({ error: "agentId is required" }), {
         status: 400,
@@ -59,11 +77,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Verify agent exists ──────────────────────────────────────────────────
+    // ── Verify agent belongs to this user ──────────────────────────────────
     const { data: agent, error: agentError } = await supabase
       .from("agents")
       .select("id")
       .eq("id", agentId)
+      .eq("user_id", user.id)
       .single();
 
     if (agentError || !agent) {
@@ -73,7 +92,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── 1. Validate token via getMe ──────────────────────────────────────────
+    // ── 1. Validate token via getMe ────────────────────────────────────────
     const meResult = await callTelegram(telegramToken, "getMe", {});
     if (!meResult.ok) {
       const errData = meResult.data as any;
@@ -89,7 +108,7 @@ Deno.serve(async (req) => {
     }
     const botInfo = (meResult.data as any).result;
 
-    // ── 2. Configure bot via Telegram API ────────────────────────────────────
+    // ── 2. Configure bot metadata via Telegram API ─────────────────────────
     if (displayName) {
       await callTelegram(telegramToken, "setMyName", { name: displayName });
     }
@@ -103,43 +122,102 @@ Deno.serve(async (req) => {
       await callTelegram(telegramToken, "setMyCommands", { commands });
     }
 
-    // ── 3. Persist token + activate agent (schema-compatible) ────────────────
-    let updateError: { message: string } | null = null;
+    // ── 3. Upsert bot row in `bots` table (webhook receiver) ──────────────
+    const webhookSecret = generateWebhookSecret();
 
-    // Update agent with telegram token, openai key, and activate
-    {
-      const updateData: Record<string, unknown> = {
-        telegram_token: telegramToken,
-        platform: "telegram",
-        is_active: true,
-        telegram_display_name: displayName || null,
-        telegram_short_description: shortDescription || null,
-        telegram_about_text: aboutText || null,
-        telegram_commands: Array.isArray(commands) ? commands : [],
-      };
-      // Store BYOK key only if user provided one
-      if (openaiApiKey && openaiApiKey.startsWith("sk-")) {
-        updateData.openai_api_key = openaiApiKey;
-      }
-      const { error } = await supabase
-        .from("agents")
-        .update(updateData)
-        .eq("id", agentId);
-      updateError = error;
+    const botUpsertData = {
+      user_id:       user.id,
+      agent_id:      agentId,
+      name:          displayName || botInfo.first_name || "",
+      system_prompt: "", // will be populated from agents.system_prompt below
+      telegram_token: telegramToken,
+      openai_api_key: (openaiApiKey && openaiApiKey.startsWith("sk-")) ? openaiApiKey : null,
+      webhook_secret: webhookSecret,
+      is_active:     true,
+    };
+
+    // Fetch system_prompt from agents for the bots row
+    const { data: agentFull } = await supabase
+      .from("agents")
+      .select("system_prompt")
+      .eq("id", agentId)
+      .single();
+
+    if (agentFull?.system_prompt) {
+      botUpsertData.system_prompt = agentFull.system_prompt;
     }
 
+    const { data: botRow, error: botUpsertError } = await supabase
+      .from("bots")
+      .upsert(botUpsertData, { onConflict: "agent_id" })
+      .select("id")
+      .single();
+
+    if (botUpsertError || !botRow) {
+      console.error("Bot upsert error:", botUpsertError?.message);
+      return new Response(
+        JSON.stringify({ error: "Failed to create bot record: " + (botUpsertError?.message ?? "unknown") }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const botId = botRow.id;
+
+    // ── 4. Register Webhook with Telegram ─────────────────────────────────
+    const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botId}`;
+
+    const webhookResult = await callTelegram(telegramToken, "setWebhook", {
+      url: webhookUrl,
+      secret_token: webhookSecret,
+      allowed_updates: ["message", "callback_query"],
+      drop_pending_updates: true,
+    });
+
+    if (!webhookResult.ok) {
+      const errData = webhookResult.data as any;
+      console.error("setWebhook failed:", JSON.stringify(errData));
+      return new Response(
+        JSON.stringify({
+          error: "deploy_error.webhook_failed",
+          details: errData?.description ?? "Telegram setWebhook rejected",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── 5. Persist agent metadata + activate ──────────────────────────────
+    const agentUpdateData: Record<string, unknown> = {
+      telegram_token:            telegramToken,
+      platform:                  "telegram",
+      is_active:                 true,
+      telegram_display_name:     displayName || null,
+      telegram_short_description: shortDescription || null,
+      telegram_about_text:       aboutText || null,
+      telegram_commands:         Array.isArray(commands) ? commands : [],
+    };
+    if (openaiApiKey && openaiApiKey.startsWith("sk-")) {
+      agentUpdateData.openai_api_key = openaiApiKey;
+    }
+
+    const { error: updateError } = await supabase
+      .from("agents")
+      .update(agentUpdateData)
+      .eq("id", agentId);
+
     if (updateError) {
-      return new Response(JSON.stringify({ error: "Failed to update agent: " + updateError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Failed to update agent: " + updateError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
       JSON.stringify({
-        success: true,
+        success:    true,
         botInfo,
-        message: `Bot @${botInfo.username} is now connected!`,
+        botId,
+        webhookUrl,
+        message:    `Bot @${botInfo.username} is now live! Webhook set to ${webhookUrl}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
