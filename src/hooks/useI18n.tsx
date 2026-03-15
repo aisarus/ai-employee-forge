@@ -554,16 +554,6 @@ const translations = {
   "style.Bullet points": { en: "Bullet points", ru: "Тезисно" },
   "style.Conversational": { en: "Conversational", ru: "Разговорный" },
 
-  // Agent statuses
-  "status.active": { en: "Active", ru: "Активен" },
-  "status.paused": { en: "Paused", ru: "Пауза" },
-  "status.draft": { en: "Draft", ru: "Черновик" },
-
-  // Agent errors
-  "agents.load_failed": { en: "Failed to load agents", ru: "Не удалось загрузить агентов" },
-  "agents.update_failed": { en: "Failed to update agent", ru: "Не удалось обновить агента" },
-  "agents.delete_failed": { en: "Failed to delete agent", ru: "Не удалось удалить агента" },
-  "agents.platform_none": { en: "none", ru: "нет" },
 
   // Avatar Upload
   "avatar.change": { en: "Change avatar", ru: "Сменить аватар" },
