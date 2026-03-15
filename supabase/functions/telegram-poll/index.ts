@@ -135,7 +135,7 @@ Deno.serve(async () => {
             .eq("agent_id", agent.id)
             .eq("chat_id", chatId)
             .order("created_at", { ascending: true })
-            .limit(20);
+            .limit(30);
 
           const systemPrompt = (agent.system_prompt || "").toString();
           const hasExplicitLanguage =
