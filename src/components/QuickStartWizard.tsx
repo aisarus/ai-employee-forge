@@ -310,31 +310,34 @@ export function QuickStartWizard() {
   return (
     <div className="flex flex-1 flex-col animate-fade-in h-full w-full overflow-hidden">
       {/* Progress */}
-      <div className="px-6 pt-4 pb-3 border-b border-border/50 bg-background/80 backdrop-blur-xl shrink-0">
+      <div className="px-6 pt-4 pb-3 border-b border-border/50 bg-background/80 backdrop-blur-xl shrink-0 space-y-2.5">
         <div className="flex items-center gap-1 max-w-3xl mx-auto">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center flex-1">
               <button
                 onClick={() => i < stepIdx && setStep(STEPS[i])}
-                className={`flex shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-all h-7 w-7
+                className={`flex shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-all h-6 w-6
                   ${i === stepIdx
-                    ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.5)] scale-110"
+                    ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.5)] scale-110 ring-2 ring-primary/25"
                     : i < stepIdx
-                      ? "bg-primary/30 text-primary cursor-pointer hover:bg-primary/50"
+                      ? "bg-primary/25 text-primary cursor-pointer hover:bg-primary/40"
                       : "bg-muted text-muted-foreground"
                   }`}
               >
-                {i < stepIdx ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                {i < stepIdx ? <Check className="h-3 w-3" /> : i + 1}
               </button>
               {i < STEPS.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-1 rounded ${i < stepIdx ? "bg-primary/40" : "bg-border"}`} />
+                <div className={`flex-1 h-px mx-1 transition-colors duration-300 ${i < stepIdx ? "bg-primary/40" : "bg-border"}`} />
               )}
             </div>
           ))}
         </div>
-        <p className="text-center text-xs text-muted-foreground mt-2 font-medium">
-          {STEP_LABELS[step][lang]}
-        </p>
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">{STEP_LABELS[step][lang]}</p>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {stepIdx + 1} <span className="text-muted-foreground/50">/</span> {STEPS.length}
+          </p>
+        </div>
       </div>
 
       {/* Content */}

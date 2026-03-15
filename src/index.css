@@ -101,6 +101,14 @@
     background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.06) 1px, transparent 1px);
     background-size: 24px 24px;
   }
+  /* Connector / pill card hover lift */
+  .card-lift {
+    @apply transition-all duration-200 hover:shadow-[0_4px_20px_hsl(var(--primary)/0.12)] hover:-translate-y-0.5;
+  }
+  /* Section divider label */
+  .section-label {
+    @apply text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60;
+  }
 }
 
 /* Gnome assembly animations */

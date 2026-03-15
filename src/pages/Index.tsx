@@ -199,19 +199,26 @@ const Index = () => {
           {/* Quick Start */}
           <button
             onClick={() => setMode("quick_start")}
-            className="group relative flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card/60 p-6 text-left transition-all duration-200 hover:border-primary/50 hover:bg-primary/5 hover:shadow-[0_0_30px_hsl(var(--primary)/0.15)] hover:scale-[1.02]"
+            className="group relative flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card/60 p-6 text-left transition-all duration-200 hover:border-primary/60 hover:bg-primary/5 hover:shadow-[0_0_40px_hsl(var(--primary)/0.18)] hover:scale-[1.02] overflow-hidden"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 group-hover:bg-primary/25 transition-colors">
+            {/* Subtle gradient overlay on hover */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-cyan-400/5 transition-all duration-300 pointer-events-none rounded-2xl" />
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 group-hover:bg-primary/25 transition-colors">
               <Rocket className="h-6 w-6 text-primary" />
             </div>
-            <div className="space-y-1.5">
-              <h3 className="text-lg font-bold text-foreground">
-                {lang === "ru" ? "Быстрый старт" : "Quick Start"}
-              </h3>
-              <p className="text-sm text-primary font-medium">
+            <div className="relative space-y-1.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-foreground">
+                  {lang === "ru" ? "Быстрый старт" : "Quick Start"}
+                </h3>
+                <span className="text-[10px] font-semibold text-primary bg-primary/15 border border-primary/25 px-2 py-0.5 rounded-full">
+                  {lang === "ru" ? "Рекомендуем" : "Recommended"}
+                </span>
+              </div>
+              <p className="text-sm text-primary/80 font-medium leading-snug">
                 {lang === "ru"
                   ? "Опишите бота → сгенерируйте мозг → задеплойте"
-                  : "Describe your bot, generate its brain, and deploy fast"}
+                  : "Describe → Generate brain → Deploy"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {lang === "ru"
@@ -219,7 +226,7 @@ const Index = () => {
                   : "Best for first-time users or simple bots"}
               </p>
             </div>
-            <div className="mt-auto pt-2 flex items-center gap-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="relative mt-auto pt-2 flex items-center gap-1 text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               {lang === "ru" ? "Начать" : "Get started"} <ArrowRight className="h-3.5 w-3.5" />
             </div>
           </button>
@@ -227,27 +234,28 @@ const Index = () => {
           {/* Advanced */}
           <button
             onClick={() => setMode("advanced_input")}
-            className="group relative flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card/60 p-6 text-left transition-all duration-200 hover:border-primary/50 hover:bg-primary/5 hover:shadow-[0_0_30px_hsl(var(--primary)/0.15)] hover:scale-[1.02]"
+            className="group relative flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card/60 p-6 text-left transition-all duration-200 hover:border-border/80 hover:bg-card/80 hover:shadow-lg hover:scale-[1.02] overflow-hidden"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted group-hover:bg-primary/15 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-transparent group-hover:from-muted/20 transition-all duration-300 pointer-events-none rounded-2xl" />
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-muted group-hover:bg-primary/15 transition-colors">
               <Wrench className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
             </div>
-            <div className="space-y-1.5">
+            <div className="relative space-y-1.5">
               <h3 className="text-lg font-bold text-foreground">
                 {lang === "ru" ? "Продвинутая настройка" : "Advanced Setup"}
               </h3>
-              <p className="text-sm text-muted-foreground font-medium">
+              <p className="text-sm text-muted-foreground font-medium leading-snug">
                 {lang === "ru"
                   ? "Поведение, данные, интеграции и автоматизация"
-                  : "Configure behavior, data, integrations, and automation"}
+                  : "Behavior · Integrations · Automation"}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground/70">
                 {lang === "ru"
                   ? "Для пользователей, которым нужен полный контроль"
-                  : "Best for users who want full control"}
+                  : "For users who want full control"}
               </p>
             </div>
-            <div className="mt-auto pt-2 flex items-center gap-1 text-xs font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="relative mt-auto pt-2 flex items-center gap-1 text-xs font-semibold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               {lang === "ru" ? "Настроить" : "Configure"} <ArrowRight className="h-3.5 w-3.5" />
             </div>
           </button>

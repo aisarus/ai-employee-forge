@@ -297,36 +297,50 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-2xl border-border bg-card">
 
-        {/* Progress bar */}
-        <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-border/50 bg-card/80 shrink-0">
+        {/* Progress header */}
+        <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-border/50 bg-card/80 shrink-0 space-y-3">
+          {/* Step dots + connectors */}
           <div className="flex items-center gap-0.5">
             {activeSteps.map((sid, i) => (
               <div key={sid} className="flex items-center flex-1 min-w-0">
                 <button
                   onClick={() => i < step && setStep(i)}
-                  className={`flex shrink-0 items-center justify-center rounded-full text-[9px] font-bold transition-all duration-200
-                    ${activeSteps.length > 9 ? "h-4 w-4" : "h-5 w-5"}
+                  className={`flex shrink-0 items-center justify-center rounded-full font-bold transition-all duration-200
+                    ${activeSteps.length > 9 ? "h-4 w-4 text-[8px]" : "h-5 w-5 text-[9px]"}
                     ${i === step
-                      ? "bg-primary text-primary-foreground shadow-[0_0_8px_hsl(var(--primary)/0.6)] scale-110"
+                      ? "bg-primary text-primary-foreground shadow-[0_0_10px_hsl(var(--primary)/0.6)] scale-110 ring-2 ring-primary/30"
                       : i < step
-                        ? "bg-primary/30 text-primary cursor-pointer hover:bg-primary/50"
+                        ? "bg-primary/25 text-primary cursor-pointer hover:bg-primary/40"
                         : "bg-muted text-muted-foreground"
                     }`}
                 >
-                  {i + 1}
+                  {i < step ? (
+                    <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="2,6 5,9 10,3" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
                 </button>
                 {i < activeSteps.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-0.5 rounded ${i < step ? "bg-gradient-to-r from-primary/50 to-primary/30" : "bg-border"}`} />
+                  <div className={`flex-1 h-px mx-0.5 transition-colors duration-300 ${i < step ? "bg-primary/40" : "bg-border"}`} />
                 )}
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <p className="text-xs text-muted-foreground">
-              {t(STEP_I18N[currentStepId] as any) || currentStepId}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {step + 1} / {activeSteps.length}
+
+          {/* Current step info + counter */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground shrink-0">
+                {step + 1}
+              </span>
+              <p className="text-sm font-semibold text-foreground">
+                {t(STEP_I18N[currentStepId] as any) || currentStepId}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {step + 1} <span className="text-muted-foreground/50">/</span> {activeSteps.length}
             </p>
           </div>
         </div>
