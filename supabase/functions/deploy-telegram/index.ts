@@ -108,18 +108,22 @@ Deno.serve(async (req) => {
 
     // Update agent with telegram token, openai key, and activate
     {
+      const updateData: Record<string, unknown> = {
+        telegram_token: telegramToken,
+        platform: "telegram",
+        is_active: true,
+        telegram_display_name: displayName || null,
+        telegram_short_description: shortDescription || null,
+        telegram_about_text: aboutText || null,
+        telegram_commands: Array.isArray(commands) ? commands : [],
+      };
+      // Store BYOK key only if user provided one
+      if (openaiApiKey && openaiApiKey.startsWith("sk-")) {
+        updateData.openai_api_key = openaiApiKey;
+      }
       const { error } = await supabase
         .from("agents")
-        .update({
-          telegram_token: telegramToken,
-          openai_api_key: openaiApiKey,
-          platform: "telegram",
-          is_active: true,
-          telegram_display_name: displayName || null,
-          telegram_short_description: shortDescription || null,
-          telegram_about_text: aboutText || null,
-          telegram_commands: Array.isArray(commands) ? commands : [],
-        })
+        .update(updateData)
         .eq("id", agentId);
       updateError = error;
     }
