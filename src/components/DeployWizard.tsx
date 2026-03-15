@@ -18,7 +18,7 @@ import { StepReviewDeploy } from "./wizard/StepReviewDeploy";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Rocket, Loader2, Send } from "lucide-react";
-import { buildActionsPromptBlock } from "./wizard/promptBuilder";
+import { buildFullSystemPrompt } from "./wizard/promptBuilder";
 import { useI18n } from "@/hooks/useI18n";
 import { useConnectors } from "@/hooks/useConnectors";
 
@@ -194,11 +194,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     setData((prev) => ({ ...prev, bot_avatar_url: "", bot_avatar_file: null }));
   };
 
-  const getEnrichedPrompt = () => {
-    const actionsBlock = buildActionsPromptBlock(data);
-    if (!actionsBlock) return systemPrompt;
-    return systemPrompt + "\n\n" + actionsBlock;
-  };
+  const getEnrichedPrompt = () => buildFullSystemPrompt(data, systemPrompt);
 
   const handleDeploy = async () => {
     if (!agentId) { toast.error(t("wizard.no_agent")); return; }
