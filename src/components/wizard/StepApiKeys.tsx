@@ -50,7 +50,11 @@ export function StepApiKeys({ data, onChange }: Props) {
           <Input
             type="password"
             value={data.openai_api_key}
-            onChange={(e) => onChange({ openai_api_key: e.target.value })}
+            onChange={(e) => {
+              onChange({ openai_api_key: e.target.value });
+              // Sync back to localStorage so Index page stays in sync
+              localStorage.setItem("userOpenAiKey", e.target.value);
+            }}
             placeholder="sk-..."
             className="bg-background/50 font-mono text-xs"
             autoComplete="off"

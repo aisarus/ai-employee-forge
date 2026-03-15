@@ -65,9 +65,12 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       setStep(0);
       setDeployed(false);
       setConfirmed(false);
+      // Pre-fill OpenAI key from localStorage (entered on Index page) if not already in initialData
+      const storedKey = localStorage.getItem("userOpenAiKey") || "";
       setData((prev) => ({
         ...DEFAULT_WIZARD_DATA,
         ...initialData,
+        openai_api_key: initialData?.openai_api_key || storedKey,
         telegram_display_name: initialData?.bot_name || prev.bot_name || "",
         telegram_short_description: initialData?.short_description || prev.short_description || "",
         telegram_about_text: initialData?.about_text || prev.about_text || "",
@@ -269,22 +272,23 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   // ── Wizard dialog ────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="w-full sm:max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-lg">
 
         {/* Progress bar */}
-        <div className="px-6 pt-5 pb-3 border-b border-border/50 bg-muted/20 shrink-0">
+        <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-border/50 bg-muted/20 shrink-0">
           <div className="flex items-center gap-0.5">
             {activeSteps.map((sid, i) => (
-              <div key={sid} className="flex items-center flex-1">
+              <div key={sid} className="flex items-center flex-1 min-w-0">
                 <button
                   onClick={() => i < step && setStep(i)}
-                  className={`flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold transition-colors ${
-                    i === step
+                  className={`flex shrink-0 items-center justify-center rounded-full text-[9px] font-bold transition-colors
+                    ${activeSteps.length > 9 ? "h-4 w-4" : "h-5 w-5"}
+                    ${i === step
                       ? "bg-primary text-primary-foreground"
                       : i < step
                         ? "bg-primary/20 text-primary cursor-pointer hover:bg-primary/40"
                         : "bg-muted text-muted-foreground"
-                  }`}
+                    }`}
                 >
                   {i + 1}
                 </button>
@@ -294,9 +298,14 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            {t(STEP_I18N[currentStepId] as any) || currentStepId}
-          </p>
+          <div className="flex items-center justify-between mt-1.5">
+            <p className="text-xs text-muted-foreground">
+              {t(STEP_I18N[currentStepId] as any) || currentStepId}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {step + 1} / {activeSteps.length}
+            </p>
+          </div>
         </div>
 
         {/* Step content */}
