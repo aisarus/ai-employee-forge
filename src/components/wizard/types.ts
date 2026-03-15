@@ -76,6 +76,9 @@ export interface IntegrationRule {
 }
 
 export interface WizardData {
+  // BYOK
+  openai_api_key: string;
+
   // Identity
   bot_name: string;
   bot_username_hint: string;
@@ -117,6 +120,7 @@ export interface WizardData {
   custom_webhook_url: string;
 }
 
+// ── Static full step list (kept for backward compat) ──────────────────────────
 export const WIZARD_STEPS = [
   { id: "identity", title: "Bot Identity" },
   { id: "welcome", title: "Welcome Experience" },
@@ -130,6 +134,28 @@ export const WIZARD_STEPS = [
   { id: "telegram_preview", title: "Telegram Preview" },
   { id: "deploy", title: "Review & Deploy" },
 ] as const;
+
+// ── Dynamic step profiles per bot type ────────────────────────────────────────
+// Steps: bot_type → identity → welcome → (type-specific) → api_keys → telegram_config → telegram_preview → deploy
+
+export const BOT_TYPE_STEP_PROFILES: Record<string, readonly string[]> = {
+  // Simple bots — minimal steps
+  support:  ["bot_type", "identity", "welcome", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  faq:      ["bot_type", "identity", "welcome", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  // Medium bots
+  lead:     ["bot_type", "identity", "welcome", "actions", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  booking:  ["bot_type", "identity", "welcome", "actions", "connections", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  order:    ["bot_type", "identity", "welcome", "actions", "connections", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  // Full bots
+  sales:    ["bot_type", "identity", "welcome", "actions", "workflow", "connections", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  custom:   ["bot_type", "identity", "welcome", "actions", "workflow", "connections", "data_mapping", "triggers", "preview", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  // Before type selected
+  "":       ["bot_type"],
+};
+
+export function getWizardSteps(botType: string): readonly string[] {
+  return BOT_TYPE_STEP_PROFILES[botType] ?? BOT_TYPE_STEP_PROFILES["custom"];
+}
 
 export const AVAILABLE_CONNECTORS = [
   { id: "google_sheets", name: "Google Sheets", icon: "📊", category: "Spreadsheet", auth_hint: "API Key", caps: ["read", "write"] as const },
@@ -228,6 +254,7 @@ export const WORKFLOW_ACTION_TYPES = [
 ];
 
 export const DEFAULT_WIZARD_DATA: WizardData = {
+  openai_api_key: "",
   bot_name: "",
   bot_username_hint: "",
   bot_avatar_url: "",

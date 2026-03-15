@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { WizardData, DEFAULT_WIZARD_DATA, WIZARD_STEPS } from "./wizard/types";
+import { WizardData, DEFAULT_WIZARD_DATA, getWizardSteps } from "./wizard/types";
+import { StepBotType } from "./wizard/StepBotType";
 import { StepIdentity } from "./wizard/StepIdentity";
 import { StepWelcome } from "./wizard/StepWelcome";
 import { StepActionsData } from "./wizard/StepActionsData";
@@ -10,6 +11,7 @@ import { StepConnections } from "./wizard/StepConnections";
 import { StepDataMapping } from "./wizard/StepDataMapping";
 import { StepTriggers } from "./wizard/StepTriggers";
 import { StepBehaviorPreview } from "./wizard/StepBehaviorPreview";
+import { StepApiKeys } from "./wizard/StepApiKeys";
 import { StepTelegramConfig } from "./wizard/StepTelegramConfig";
 import { StepTelegramPreview } from "./wizard/StepTelegramPreview";
 import { StepReviewDeploy } from "./wizard/StepReviewDeploy";
@@ -27,19 +29,22 @@ interface DeployWizardProps {
   initialData?: Partial<WizardData>;
 }
 
-const STEP_TITLE_KEYS = [
-  "wizard.identity",
-  "wizard.welcome",
-  "wizard.actions",
-  "wizard.workflow",
-  "wizard.connections",
-  "wizard.data_mapping",
-  "wizard.triggers",
-  "wizard.preview",
-  "wizard.telegram_config",
-  "wizard.telegram_preview",
-  "wizard.deploy",
-] as const;
+// Step id → i18n key
+const STEP_I18N: Record<string, string> = {
+  bot_type:         "wizard.step_bot_type",
+  identity:         "wizard.identity",
+  welcome:          "wizard.welcome",
+  actions:          "wizard.actions",
+  workflow:         "wizard.workflow",
+  connections:      "wizard.connections",
+  data_mapping:     "wizard.data_mapping",
+  triggers:         "wizard.triggers",
+  preview:          "wizard.preview",
+  api_keys:         "wizard.step_api_keys",
+  telegram_config:  "wizard.telegram_config",
+  telegram_preview: "wizard.telegram_preview",
+  deploy:           "wizard.deploy",
+};
 
 export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", initialData }: DeployWizardProps) {
   const { t } = useI18n();
@@ -49,6 +54,11 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const [deploying, setDeploying] = useState(false);
   const [deployed, setDeployed] = useState(false);
   const [botUsername, setBotUsername] = useState("");
+
+  // Dynamic step list based on current bot_type
+  const activeSteps = getWizardSteps(data.bot_type);
+  const currentStepId = activeSteps[step] ?? "bot_type";
+  const isLastStep = step === activeSteps.length - 1;
 
   useEffect(() => {
     if (open) {
@@ -68,6 +78,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const onChange = (patch: Partial<WizardData>) => {
     setData((prev) => {
       const next = { ...prev, ...patch };
+      // Auto-sync telegram fields from identity fields if not yet overridden
       if (patch.bot_name !== undefined && !prev.telegram_display_name) {
         next.telegram_display_name = patch.bot_name;
       }
@@ -77,8 +88,17 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       if (patch.about_text !== undefined && !prev.telegram_about_text) {
         next.telegram_about_text = patch.about_text;
       }
+      // When bot_type changes, reset step to 0 so the new profile takes effect
+      if (patch.bot_type !== undefined && patch.bot_type !== prev.bot_type) {
+        // Step reset handled below by calling setStep
+      }
       return next;
     });
+
+    // When bot_type is freshly chosen, advance to next step (index 1)
+    if (patch.bot_type !== undefined && patch.bot_type !== data.bot_type && patch.bot_type !== "") {
+      setStep(1);
+    }
   };
 
   const handleAvatarUpload = async (file: File) => {
@@ -125,6 +145,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
       const enrichedPrompt = getEnrichedPrompt();
 
+      // Save all agent data including BYOK keys
       await supabase.from("agents").update({
         name: data.bot_name,
         description: data.short_description,
@@ -136,6 +157,8 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         welcome_message: data.welcome_message,
         fallback_message: data.fallback_message,
         bot_avatar_url: data.bot_avatar_url,
+        bot_type: data.bot_type,
+        openai_api_key: data.openai_api_key,
         telegram_display_name: data.telegram_display_name || data.bot_name,
         telegram_short_description: data.telegram_short_description || data.short_description,
         telegram_about_text: data.telegram_about_text || data.about_text,
@@ -156,10 +179,12 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         } as any,
       }).eq("id", agentId);
 
+      // Deploy: pass the user's own tokens — backend uses them directly
       const { data: deployRes, error } = await supabase.functions.invoke("deploy-telegram", {
         body: {
           agentId,
           telegramToken: data.telegram_bot_token,
+          openaiApiKey: data.openai_api_key,
           displayName: data.telegram_display_name || data.bot_name,
           shortDescription: data.telegram_short_description || data.short_description,
           aboutText: data.telegram_about_text || data.about_text,
@@ -180,25 +205,19 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     }
   };
 
-  const canNext = () => {
-    switch (step) {
-      case 0: return !!data.bot_name.trim() && !!data.short_description.trim();
-      case 1: return !!data.welcome_message.trim();
-      case 2: return true;
-      case 3: return true;
-      case 4: return true; // connections - optional
-      case 5: return true; // data mapping - optional
-      case 6: return true; // triggers - optional
-      case 7: return true; // behavior preview
-      case 8: return !!data.telegram_bot_token.trim();
-      case 9: return true; // telegram preview
-      case 10: return confirmed;
-      default: return true;
+  const canNext = (): boolean => {
+    switch (currentStepId) {
+      case "bot_type":         return !!data.bot_type;
+      case "identity":         return !!data.bot_name.trim() && !!data.short_description.trim();
+      case "welcome":          return !!data.welcome_message.trim();
+      case "api_keys":         return !!data.openai_api_key.trim() && data.openai_api_key.startsWith("sk-");
+      case "telegram_config":  return !!data.telegram_bot_token.trim();
+      case "deploy":           return confirmed;
+      default:                 return true; // optional steps
     }
   };
 
-  const isLastStep = step === WIZARD_STEPS.length - 1;
-
+  // ── Deployed success screen ──────────────────────────────────────────────────
   if (deployed) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -223,52 +242,67 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     );
   }
 
+  // ── Wizard dialog ────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+
+        {/* Progress bar */}
         <div className="px-6 pt-5 pb-3 border-b border-border/50 bg-muted/20 shrink-0">
           <div className="flex items-center gap-0.5">
-            {WIZARD_STEPS.map((s, i) => (
-              <div key={s.id} className="flex items-center flex-1">
+            {activeSteps.map((sid, i) => (
+              <div key={sid} className="flex items-center flex-1">
                 <button
-                  onClick={() => i <= step && setStep(i)}
+                  onClick={() => i < step && setStep(i)}
                   className={`flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold transition-colors ${
                     i === step
                       ? "bg-primary text-primary-foreground"
                       : i < step
-                        ? "bg-primary/20 text-primary cursor-pointer"
+                        ? "bg-primary/20 text-primary cursor-pointer hover:bg-primary/40"
                         : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {i + 1}
                 </button>
-                {i < WIZARD_STEPS.length - 1 && (
+                {i < activeSteps.length - 1 && (
                   <div className={`flex-1 h-0.5 mx-0.5 rounded ${i < step ? "bg-primary/30" : "bg-border"}`} />
                 )}
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">{t(STEP_TITLE_KEYS[step] as any)}</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            {t(STEP_I18N[currentStepId] as any) || currentStepId}
+          </p>
         </div>
 
+        {/* Step content */}
         <div className="flex-1 overflow-auto px-6 py-5">
-          {step === 0 && <StepIdentity data={data} onChange={onChange} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} />}
-          {step === 1 && <StepWelcome data={data} onChange={onChange} />}
-          {step === 2 && <StepActionsData data={data} onChange={onChange} />}
-          {step === 3 && <StepWorkflowLogic data={data} onChange={onChange} />}
-          {step === 4 && <StepConnections data={data} onChange={onChange} />}
-          {step === 5 && <StepDataMapping data={data} onChange={onChange} />}
-          {step === 6 && <StepTriggers data={data} onChange={onChange} />}
-          {step === 7 && <StepBehaviorPreview data={data} systemPrompt={getEnrichedPrompt()} />}
-          {step === 8 && <StepTelegramConfig data={data} onChange={onChange} />}
-          {step === 9 && <StepTelegramPreview data={data} />}
-          {step === 10 && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
+          {currentStepId === "bot_type"         && <StepBotType data={data} onChange={onChange} />}
+          {currentStepId === "identity"         && <StepIdentity data={data} onChange={onChange} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} />}
+          {currentStepId === "welcome"          && <StepWelcome data={data} onChange={onChange} />}
+          {currentStepId === "actions"          && <StepActionsData data={data} onChange={onChange} />}
+          {currentStepId === "workflow"         && <StepWorkflowLogic data={data} onChange={onChange} />}
+          {currentStepId === "connections"      && <StepConnections data={data} onChange={onChange} />}
+          {currentStepId === "data_mapping"     && <StepDataMapping data={data} onChange={onChange} />}
+          {currentStepId === "triggers"         && <StepTriggers data={data} onChange={onChange} />}
+          {currentStepId === "preview"          && <StepBehaviorPreview data={data} systemPrompt={getEnrichedPrompt()} />}
+          {currentStepId === "api_keys"         && <StepApiKeys data={data} onChange={onChange} />}
+          {currentStepId === "telegram_config"  && <StepTelegramConfig data={data} onChange={onChange} />}
+          {currentStepId === "telegram_preview" && <StepTelegramPreview data={data} />}
+          {currentStepId === "deploy"           && <StepReviewDeploy data={data} confirmed={confirmed} onConfirmChange={setConfirmed} />}
         </div>
 
+        {/* Footer nav */}
         <div className="px-6 py-4 border-t border-border/50 bg-muted/20 flex items-center justify-between shrink-0">
-          <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0} className="gap-1">
+          <Button
+            variant="outline"
+            onClick={() => setStep((s) => s - 1)}
+            disabled={step === 0}
+            className="gap-1"
+          >
             <ChevronLeft className="h-4 w-4" /> {t("wizard.back")}
           </Button>
+
           {isLastStep ? (
             <Button onClick={handleDeploy} disabled={!confirmed || deploying} className="gap-2" size="lg">
               {deploying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}

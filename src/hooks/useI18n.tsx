@@ -325,6 +325,24 @@ const translations = {
   "field.name_placeholder": { en: "Field name", ru: "Название поля" },
   "field.step_title": { en: "Step title", ru: "Название шага" },
 
+  // Bot Type step (new first step)
+  "wizard.step_bot_type":           { en: "Bot Type",              ru: "Тип бота" },
+  "wizard.bot_type_title":          { en: "What kind of bot are you building?", ru: "Какой бот вам нужен?" },
+  "wizard.bot_type_desc":           { en: "Choose the scenario — the wizard will adapt to show only what you need.", ru: "Выберите сценарий — визард покажет только нужные шаги." },
+  "wizard.bot_type_selected_hint":  { en: "Great choice! Click Next to continue with a tailored setup.", ru: "Отличный выбор! Нажмите «Далее» для персонализированной настройки." },
+
+  // API Keys step (BYOK)
+  "wizard.step_api_keys":           { en: "API Keys",              ru: "API ключи" },
+  "wizard.api_keys_title":          { en: "Power your bot's brain", ru: "Подключите мозг бота" },
+  "wizard.api_keys_desc":           { en: "Your bot uses your OpenAI key. You pay only for what your bot uses.", ru: "Бот работает на вашем OpenAI ключе. Вы платите только за то, что использует ваш бот." },
+  "wizard.openai_key_label":        { en: "OpenAI API Key",        ru: "OpenAI API ключ" },
+  "wizard.openai_how_to_get":       { en: "How to get your key:",  ru: "Как получить ключ:" },
+  "wizard.openai_step1":            { en: "Go to",                 ru: "Перейдите на" },
+  "wizard.openai_step2":            { en: "Sign in / Sign up",     ru: "Войдите или зарегистрируйтесь" },
+  "wizard.openai_step3":            { en: "Click «Create new secret key» and copy it", ru: "Нажмите «Create new secret key» и скопируйте" },
+  "wizard.openai_key_invalid":      { en: "Key must start with sk-", ru: "Ключ должен начинаться с sk-" },
+  "wizard.api_keys_security":       { en: "Your key is stored securely and only used to power your bot's responses. We never share it.", ru: "Ваш ключ хранится безопасно и используется только для ответов вашего бота. Мы его не передаём." },
+
   // Deploy wizard misc
   "wizard.avatar_uploaded": { en: "Avatar uploaded!", ru: "Аватар загружен!" },
   "wizard.upload_failed": { en: "Upload failed:", ru: "Ошибка загрузки:" },
