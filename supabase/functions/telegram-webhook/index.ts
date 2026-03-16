@@ -8,7 +8,7 @@
  * bots.webhook_secret stored in the database.
  *
  * AI: Uses the bot's BYOK openai_api_key (gpt-4o-mini).
- * Fallback: if BYOK key is absent or returns 402/403/429, falls back to Lovable AI gateway.
+ * Fallback: if BYOK key is absent, errors, or times out, falls back to Lovable AI gateway.
  *
  * Context: last 30 turns from bot_chat_history for the (bot, chat) pair.
  */
@@ -19,43 +19,69 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const TELEGRAM_API = "https://api.telegram.org";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const LOVABLE_MODEL = "google/gemini-3-flash-preview";
+const LOVABLE_MODEL = "google/gemini-2.0-flash-exp";
 const OPENAI_MODEL = "gpt-4o-mini";
 const HISTORY_LIMIT = 30;
-const BYOK_FALLBACK_STATUSES = new Set([402, 403, 429]);
+/** Timeout (ms) for each AI API call — keeps us well within Telegram's 15s window */
+const AI_TIMEOUT_MS = 20_000;
 
 // ---------------------------------------------------------------------------
 // AI helpers
 // ---------------------------------------------------------------------------
 
+/** Returns an AbortSignal that cancels after `ms` milliseconds */
+function timeoutSignal(ms: number): AbortSignal {
+  return AbortSignal.timeout(ms);
+}
+
 async function callOpenAi(
   messages: { role: string; content: string }[],
   apiKey: string
 ): Promise<{ content: string | null; shouldFallback: boolean }> {
-  const res = await fetch(OPENAI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: OPENAI_MODEL, messages, temperature: 0.7 }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: OPENAI_MODEL, messages, temperature: 0.7 }),
+      signal: timeoutSignal(AI_TIMEOUT_MS),
+    });
+  } catch (err) {
+    // Network error or timeout — always try fallback
+    console.error("OpenAI fetch error:", (err as Error).message);
+    return { content: null, shouldFallback: true };
+  }
 
   if (!res.ok) {
-    console.error("OpenAI error:", res.status, await res.text().catch(() => ""));
-    return { content: null, shouldFallback: BYOK_FALLBACK_STATUSES.has(res.status) };
+    const body = await res.text().catch(() => "");
+    console.error("OpenAI error:", res.status, body);
+    // Only skip fallback for 400 (malformed request — same request will fail on Lovable too).
+    // Everything else (401 invalid key, 402/403 quota, 429 rate-limit, 5xx) → try Lovable.
+    return { content: null, shouldFallback: res.status !== 400 };
   }
 
   const data = await res.json().catch(() => ({}));
-  return { content: data?.choices?.[0]?.message?.content ?? null, shouldFallback: false };
+  const content: string | null = data?.choices?.[0]?.message?.content ?? null;
+  // Treat empty/null response as a reason to try fallback too
+  return { content, shouldFallback: content === null };
 }
 
 async function callLovableAi(
   messages: { role: string; content: string }[],
   lovableKey: string
 ): Promise<string | null> {
-  const res = await fetch(LOVABLE_AI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}` },
-    body: JSON.stringify({ model: LOVABLE_MODEL, messages, temperature: 0.7 }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(LOVABLE_AI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}` },
+      body: JSON.stringify({ model: LOVABLE_MODEL, messages, temperature: 0.7 }),
+      signal: timeoutSignal(AI_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error("Lovable AI fetch error:", (err as Error).message);
+    return null;
+  }
 
   if (!res.ok) {
     console.error("Lovable AI error:", res.status, await res.text().catch(() => ""));
