@@ -190,16 +190,13 @@ export function QuickStartWizard() {
 
     try {
       const behaviorContext = `Bot name: ${botName || "AI Assistant"}\nTone: ${tone}\nResponse style: ${responseStyle}\n\nBusiness rules:\n${botDescription}`;
-      const { data: llmData, error: llmError } = await Promise.race([
-        supabase.functions.invoke("llm-proxy", {
-          body: {
-            messages: [
-              {
-                role: "user",
-                content: `${behaviorContext}`,
-              },
-            ],
-            system: `You are a world-class system prompt engineer specializing in Telegram business bots.
+      const userApiKey = localStorage.getItem("userOpenAiKey") ?? "";
+      if (!userApiKey) {
+        toast.error("Please add your API key in Step 1");
+        return;
+      }
+
+      const MASTER_SYSTEM_PROMPT = `You are a world-class system prompt engineer specializing in Telegram business bots.
 
 Your ONLY task: Transform the raw business description below into a production-ready system prompt for a Telegram bot. Output ONLY the finished system prompt — no explanations, no meta-commentary.
 
@@ -242,15 +239,73 @@ CONSTRAINTS:
 - Output length: 400-750 words
 - Preserve ALL original data: every price, hour, name, rule, contact
 - Do NOT add information not in the original description
-- Do NOT use markdown asterisks`,
-          },
-        }),
-        timeoutPromise,
-      ]);
+- Do NOT use markdown asterisks`;
 
-      if (llmError) throw llmError;
+      let brain: string;
 
-      const brain: string = llmData?.content ?? llmData?.text ?? llmData?.result ?? "";
+      if (userApiKey.startsWith("AIza")) {
+        // Gemini
+        const res = await Promise.race([
+          fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${userApiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: MASTER_SYSTEM_PROMPT }] },
+              contents: [{ role: "user", parts: [{ text: behaviorContext }] }],
+            }),
+          }),
+          timeoutPromise,
+        ]);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message ?? "Gemini error");
+        brain = data.candidates[0].content.parts[0].text;
+      } else if (userApiKey.startsWith("sk-ant-")) {
+        // Anthropic
+        const res = await Promise.race([
+          fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": userApiKey,
+              "anthropic-version": "2023-06-01",
+              "content-type": "application/json",
+              "anthropic-dangerous-direct-browser-access": "true",
+            },
+            body: JSON.stringify({
+              model: "claude-3-haiku-20240307",
+              max_tokens: 2048,
+              system: MASTER_SYSTEM_PROMPT,
+              messages: [{ role: "user", content: behaviorContext }],
+            }),
+          }),
+          timeoutPromise,
+        ]);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message ?? "Anthropic error");
+        brain = data.content[0].text;
+      } else {
+        // OpenAI (sk-)
+        const res = await Promise.race([
+          fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${userApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: MASTER_SYSTEM_PROMPT },
+                { role: "user", content: behaviorContext },
+              ],
+              temperature: 0.3,
+            }),
+          }),
+          timeoutPromise,
+        ]);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message ?? "OpenAI error");
+        brain = data.choices[0].message.content;
+      }
       setGeneratedBrain(brain);
 
       // Save agent
