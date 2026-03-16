@@ -31,6 +31,7 @@ const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_MODEL = "claude-haiku-4-5";
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
+const GEMINI_STREAM_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse&key=";
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const LOVABLE_MODEL = "google/gemini-2.0-flash-exp";
 const OPENAI_MODEL = "gpt-4o-mini";
@@ -471,6 +472,87 @@ async function callOpenAiStreaming(
 }
 
 // ---------------------------------------------------------------------------
+// Gemini streaming — sends interim edits every 800 ms, returns full text
+// ---------------------------------------------------------------------------
+async function callGeminiStreaming(
+  messages: { role: string; content: string }[],
+  apiKey: string,
+  botToken: string,
+  chatId: number,
+  placeholderMsgId: number,
+): Promise<string | null> {
+  const systemMsg = messages.find((m) => m.role === "system");
+  const chatMessages = messages.filter((m) => m.role !== "system");
+
+  const contents = chatMessages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const requestBody: Record<string, unknown> = { contents };
+  if (systemMsg) {
+    requestBody.systemInstruction = { parts: [{ text: systemMsg.content }] };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${GEMINI_STREAM_URL}${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+      signal: timeoutSignal(AI_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error("Gemini streaming fetch error:", (err as Error).message);
+    return null;
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("Gemini streaming error:", res.status, body);
+    return null;
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) return null;
+
+  let accumulated = "";
+  let lastEditAt = 0;
+  const decoder = new TextDecoder();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6);
+        try {
+          const json = JSON.parse(data);
+          const text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          if (text) accumulated += text;
+        } catch {
+          // Skip malformed SSE lines
+        }
+      }
+
+      const now = Date.now();
+      if (now - lastEditAt > 800 && accumulated.length > 0) {
+        await editTelegramMessage(botToken, chatId, placeholderMsgId, accumulated + " ✏️");
+        lastEditAt = now;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return accumulated || null;
+}
+
+// ---------------------------------------------------------------------------
 // Core message processing — runs in background via EdgeRuntime.waitUntil()
 // TW1: This function is called after Telegram already received 200 OK.
 // ---------------------------------------------------------------------------
@@ -589,8 +671,20 @@ async function processMessage(
           reply = await callLovableAi(messages, lovableKey);
         }
       }
+    } else if (provider === "gemini" && placeholderMsgId) {
+      // Gemini BYOK — real-time streaming with interim message edits
+      reply = await callGeminiStreaming(messages, byokKey, botToken, chatId, placeholderMsgId);
+      if (!reply) {
+        // Streaming failed — fall back to non-streaming Gemini then Lovable
+        const result = await callGemini(messages, byokKey);
+        reply = result.content;
+        if (!reply && result.shouldFallback && lovableKey) {
+          console.log("BYOK streaming failed for bot", botId, "— falling back to Lovable AI");
+          reply = await callLovableAi(messages, lovableKey);
+        }
+      }
     } else {
-      // Anthropic or Gemini — non-streaming
+      // Anthropic or Gemini (no placeholder) — non-streaming
       let result: { content: string | null; shouldFallback: boolean };
       if (provider === "anthropic") {
         result = await callAnthropic(messages, byokKey);
