@@ -162,7 +162,38 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     setStep(n);
   };
 
-  const goNext = () => {
+  /**
+   * Persist data_sources, field_mappings, action_triggers, and integration_rules
+   * to agents.structured_prompt so they survive page reloads.
+   * Called when leaving the data_mapping or triggers step.
+   */
+  const saveIntegrationData = async () => {
+    if (!agentId) return;
+    try {
+      const { data: existing } = await supabase
+        .from("agents")
+        .select("structured_prompt")
+        .eq("id", agentId)
+        .single();
+      const current = (existing?.structured_prompt as Record<string, unknown>) ?? {};
+      await supabase.from("agents").update({
+        structured_prompt: {
+          ...current,
+          data_sources:      data.data_sources,
+          field_mappings:    data.field_mappings,
+          action_triggers:   data.action_triggers,
+          integration_rules: data.integration_rules,
+        } as any,
+      }).eq("id", agentId);
+    } catch {
+      // non-fatal — data is still in localStorage draft
+    }
+  };
+
+  const goNext = async () => {
+    if (currentStepId === "data_mapping" || currentStepId === "triggers") {
+      await saveIntegrationData();
+    }
     const next = step + 1;
     goToStep(next, "forward");
     if (agentId) localStorage.setItem(`wizard_step_${agentId}`, String(next));
