@@ -169,6 +169,17 @@ Deno.serve(async (req) => {
     // ── 4. Register Webhook with Telegram ─────────────────────────────────
     const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botId}`;
 
+    // 4a. Delete any pre-existing webhook so re-deploys start clean.
+    //     We do NOT drop pending updates here — setWebhook will handle that.
+    const deleteResult = await callTelegram(telegramToken, "deleteWebhook", {
+      drop_pending_updates: false,
+    });
+    if (!deleteResult.ok) {
+      // Non-fatal: log and continue — setWebhook will overwrite the old one.
+      console.warn("deleteWebhook returned non-ok (continuing):", JSON.stringify(deleteResult.data));
+    }
+
+    // 4b. Register the new webhook.
     const webhookResult = await callTelegram(telegramToken, "setWebhook", {
       url: webhookUrl,
       secret_token: webhookSecret,
@@ -186,6 +197,33 @@ Deno.serve(async (req) => {
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // 4c. Verify the webhook was actually registered with the correct URL.
+    const webhookInfoResult = await callTelegram(telegramToken, "getWebhookInfo", {});
+    const webhookInfo = webhookInfoResult.ok
+      ? (webhookInfoResult.data as any).result
+      : null;
+
+    if (webhookInfo && webhookInfo.url !== webhookUrl) {
+      console.error(
+        "Webhook URL mismatch after setWebhook:",
+        "expected:", webhookUrl,
+        "got:", webhookInfo.url
+      );
+      return new Response(
+        JSON.stringify({
+          error: "deploy_error.webhook_failed",
+          details: `Webhook URL mismatch: Telegram reports "${webhookInfo.url}" but expected "${webhookUrl}"`,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (webhookInfo?.last_error_message) {
+      // Surface any last delivery error so the user knows the webhook URL
+      // was set but Telegram had trouble reaching it recently.
+      console.warn("Telegram webhook last_error:", webhookInfo.last_error_message);
     }
 
     // ── 5. Persist agent metadata + activate ──────────────────────────────
@@ -216,11 +254,12 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        success:    true,
+        success:      true,
         botInfo,
         botId,
         webhookUrl,
-        message:    `Bot @${botInfo.username} is now live! Webhook set to ${webhookUrl}`,
+        webhookInfo,  // url, pending_update_count, last_error_message, etc.
+        message:      `Bot @${botInfo.username} is now live! Webhook set to ${webhookUrl}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
