@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/hooks/useI18n";
-import { runTriTfmPipeline } from "@/lib/tri-tfm";
 import { GnomeAssembly } from "./GnomeAssembly";
 import { AvatarUpload } from "./wizard/AvatarUpload";
 import { TelegramChatMockup, TelegramProfileMockup, TelegramStartMockup } from "./wizard/TelegramMockup";
@@ -186,22 +185,29 @@ export function QuickStartWizard() {
     setGeneratingMsg("");
 
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("timeout")), 180_000)
+      setTimeout(() => reject(new Error("timeout")), 30_000)
     );
 
     try {
       const behaviorContext = `Bot name: ${botName || "AI Assistant"}\nTone: ${tone}\nResponse style: ${responseStyle}\n\nBusiness rules:\n${botDescription}`;
-      const result = await Promise.race([
-        runTriTfmPipeline({
-          prompt: behaviorContext,
-          apiKey: "",
-          config: { maxIterations: 3, useProposerCriticVerifier: true, proposerCriticOnly: false },
-          onProgress: (_stage, detail) => setGeneratingMsg(detail || _stage),
+      const { data: llmData, error: llmError } = await Promise.race([
+        supabase.functions.invoke("llm-proxy", {
+          body: {
+            messages: [
+              {
+                role: "user",
+                content: `Create a system prompt for this bot: ${behaviorContext}`,
+              },
+            ],
+            system: "You are an expert prompt engineer for Telegram bots. Transform the user description into a perfect system prompt. Keep ALL original data (prices, hours, names, rules). Preserve original language. Structure with clear sections: ROLE, CAPABILITIES, RULES, RESPONSE_STYLE. Be concise (200-400 words). No markdown, just plain text sections.",
+          },
         }),
         timeoutPromise,
       ]);
 
-      const brain = result.finalText || "";
+      if (llmError) throw llmError;
+
+      const brain: string = llmData?.content ?? llmData?.text ?? llmData?.result ?? "";
       setGeneratedBrain(brain);
 
       // Save agent
@@ -230,9 +236,9 @@ export function QuickStartWizard() {
       setStep("brain_preview");
     } catch (e: unknown) {
       if (e instanceof Error && e.message === "timeout") {
-        toast.error(lang === "ru" ? "Превышено время ожидания (180 с). Попробуйте снова." : "Generation timed out after 180s. Please try again.");
+        toast.error(lang === "ru" ? "Превышено время ожидания (30 с). Попробуйте снова." : "Generation timed out after 30s. Please try again.");
       } else {
-        console.error("TRI-TFM error:", e);
+        console.error("Brain generation error:", e);
         const msg = e instanceof Error ? e.message : String(e);
         toast.error(lang === "ru" ? `Ошибка генерации: ${msg}` : `Generation error: ${msg}`);
       }
