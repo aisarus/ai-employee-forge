@@ -198,6 +198,14 @@ async function processMessage(
     return;
   }
 
+  // TW2: Send typing indicator so the user sees '...' while AI generates
+  const botToken: string = (bot.telegram_token as string) ?? "";
+  await fetch(`${TELEGRAM_API}/bot${botToken}/sendChatAction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+  }).catch(() => {}); // Non-critical — ignore failures
+
   // Deduplicate: skip already-processed update_ids
   if (updateId != null) {
     const { data: existing } = await supabase
@@ -252,7 +260,6 @@ async function processMessage(
   ];
 
   // Generate AI reply (BYOK → Lovable fallback)
-  const botToken: string = (bot.telegram_token as string) ?? "";
   const byokKey: string = ((bot.openai_api_key as string) ?? "").trim();
   let reply: string | null = null;
 
