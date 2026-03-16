@@ -195,7 +195,7 @@ export function QuickStartWizard() {
         runTriTfmPipeline({
           prompt: behaviorContext,
           apiKey: "",
-          config: { maxIterations: 5, useProposerCriticVerifier: true, proposerCriticOnly: true },
+          config: { maxIterations: 3, useProposerCriticVerifier: true, proposerCriticOnly: false },
           onProgress: (_stage, detail) => setGeneratingMsg(detail || _stage),
         }),
         timeoutPromise,
@@ -933,3 +933,4 @@ export function QuickStartWizard() {
     </div>
   );
 }
+
