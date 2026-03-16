@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { WizardData } from "./types";
 import { Brain, ExternalLink, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
+import { encryptKey } from "@/lib/crypto";
 
 interface Props {
   data: WizardData;
@@ -54,7 +55,10 @@ export function StepApiKeys({ data, onChange }: Props) {
             value={data.openai_api_key}
             onChange={(e) => {
               onChange({ openai_api_key: e.target.value });
-              localStorage.setItem("userOpenAiKey", e.target.value);
+              // Store an AES-256-GCM encrypted copy in localStorage
+              encryptKey(e.target.value).then((enc) => {
+                localStorage.setItem("userOpenAiKey", enc);
+              });
             }}
             placeholder="sk-..."
             className="bg-background/50 font-mono text-xs focus:border-primary/50"
