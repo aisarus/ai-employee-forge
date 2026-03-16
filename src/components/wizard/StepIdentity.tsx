@@ -38,12 +38,14 @@ function PillSelector<T extends string>({
   onChange,
   meta,
   tKey,
+  labelSuffix,
 }: {
   options: readonly T[];
   value: T;
   onChange: (v: T) => void;
   meta: Record<string, { emoji: string; desc: string }>;
   tKey: (v: T) => string;
+  labelSuffix?: string;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -55,6 +57,7 @@ function PillSelector<T extends string>({
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
+            aria-label={`Select ${tKey(opt)}${labelSuffix ? ` ${labelSuffix}` : ""}`}
             className={`group flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition-all duration-150 ${
               isSelected
                 ? "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
@@ -173,6 +176,7 @@ export function StepIdentity({ data, onChange, onAvatarUpload, onAvatarRemove }:
           onChange={(v) => onChange({ tone: v })}
           meta={TONE_META}
           tKey={(v) => t(`tone.${v}` as any) || v}
+          labelSuffix="tone"
         />
       </div>
 
@@ -188,6 +192,7 @@ export function StepIdentity({ data, onChange, onAvatarUpload, onAvatarRemove }:
           onChange={(v) => onChange({ response_style: v })}
           meta={STYLE_META}
           tKey={(v) => t(`style.${v}` as any) || v}
+          labelSuffix="response style"
         />
       </div>
     </div>
