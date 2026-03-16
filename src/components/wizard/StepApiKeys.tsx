@@ -63,9 +63,10 @@ export function StepApiKeys({ data, onChange }: Props) {
             placeholder="sk-..."
             className="bg-background/50 font-mono text-xs focus:border-primary/50"
             autoComplete="off"
+            aria-describedby="openai-key-error"
           />
           {data.openai_api_key && !data.openai_api_key.startsWith("sk-") && (
-            <p className="text-xs text-destructive">{t("wizard.openai_key_invalid")}</p>
+            <p id="openai-key-error" className="text-xs text-destructive">{t("wizard.openai_key_invalid")}</p>
           )}
         </div>
       </div>

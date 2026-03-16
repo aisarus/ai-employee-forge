@@ -126,6 +126,7 @@ export function StepTelegramConfig({ data, onChange }: Props) {
             value={data.telegram_bot_token}
             onChange={(e) => onChange({ telegram_bot_token: e.target.value })}
             placeholder="123456789:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+            aria-describedby="telegram-token-error"
             className={`bg-background/50 font-mono text-xs pr-10 ${
               tokenState === "valid"
                 ? "border-success focus-visible:ring-success/30"
@@ -148,7 +149,7 @@ export function StepTelegramConfig({ data, onChange }: Props) {
           </p>
         )}
         {tokenState === "invalid" && tokenError && (
-          <p className="text-xs text-destructive">{tokenError}</p>
+          <p id="telegram-token-error" className="text-xs text-destructive">{tokenError}</p>
         )}
       </div>
 
