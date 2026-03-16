@@ -141,10 +141,10 @@ export function StepDataMapping({ data, onChange }: Props) {
       {data.connectors.length > 0 ? (
         <Card className="p-4 space-y-3 bg-background/50 border-dashed">
           <p className="text-xs font-medium text-foreground">{t("wizard.ds_add")}</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} placeholder={t("wizard.ds_source_name")} className="h-8 text-xs bg-background/50" />
             <Select value={newSourceConnector} onValueChange={setNewSourceConnector}>
-              <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue placeholder={t("wizard.ds_select_connector")} /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs bg-background/50" aria-label="Select connector"><SelectValue placeholder={t("wizard.ds_select_connector")} /></SelectTrigger>
               <SelectContent>
                 {data.connectors.map((c) => (
                   <SelectItem key={c.id} value={c.type}>{c.display_name}</SelectItem>
@@ -153,7 +153,7 @@ export function StepDataMapping({ data, onChange }: Props) {
             </Select>
             <Input value={newSourceResource} onChange={(e) => setNewSourceResource(e.target.value)} placeholder={t("wizard.ds_resource")} className="h-8 text-xs bg-background/50" />
             <Select value={newSourceMode} onValueChange={(v) => setNewSourceMode(v as "read" | "write")}>
-              <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs bg-background/50" aria-label="Select data source mode"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="read">{t("wizard.ds_mode_read")}</SelectItem>
                 <SelectItem value="write">{t("wizard.ds_mode_write")}</SelectItem>
@@ -191,7 +191,7 @@ export function StepDataMapping({ data, onChange }: Props) {
                   <span className="text-xs text-foreground">{ds?.name || "?"}</span>
                   <span className="text-[10px] text-muted-foreground">→ {fm.external_field}</span>
                   <Select value={fm.transform} onValueChange={(v) => updateMapping(fm.id, { transform: v as FieldMapping["transform"] })}>
-                    <SelectTrigger className="h-6 text-[10px] w-24 bg-background/50"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-[10px] w-24 bg-background/50" aria-label="Select transform"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {TRANSFORM_OPTIONS.map((tr) => (
                         <SelectItem key={tr} value={tr}>{TRANSFORM_KEYS[tr] ? t(TRANSFORM_KEYS[tr] as any) : tr}</SelectItem>
@@ -212,12 +212,12 @@ export function StepDataMapping({ data, onChange }: Props) {
         )}
 
         {data.data_sources.length > 0 && (
-          <div className="grid grid-cols-[1fr_auto_1fr_auto_auto] gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             <Input value={newMapBotField} onChange={(e) => setNewMapBotField(e.target.value)} placeholder={t("wizard.fm_bot_field")} className="h-8 text-xs bg-background/50 font-mono" />
             <ArrowRight className="h-4 w-4 text-muted-foreground" />
             <div className="flex gap-1">
               <Select value={newMapDsId} onValueChange={setNewMapDsId}>
-                <SelectTrigger className="h-8 text-xs bg-background/50 w-28"><SelectValue placeholder={t("wizard.fm_dest")} /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs bg-background/50 w-28" aria-label="Select destination data source"><SelectValue placeholder={t("wizard.fm_dest")} /></SelectTrigger>
                 <SelectContent>
                   {data.data_sources.map((ds) => (
                     <SelectItem key={ds.id} value={ds.id}>{ds.name}</SelectItem>

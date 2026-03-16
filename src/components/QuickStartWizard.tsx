@@ -841,7 +841,7 @@ export function QuickStartWizard() {
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-4 border-t border-border/50 bg-background/80 backdrop-blur-xl flex items-center justify-between shrink-0">
+      <div className="px-6 py-4 border-t border-border/50 bg-background/80 backdrop-blur-xl flex flex-wrap items-center justify-between gap-y-2 shrink-0">
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={goBack} disabled={stepIdx === 0} className="gap-1">
             <ChevronLeft className="h-4 w-4" /> {lang === "ru" ? "Назад" : "Back"}
