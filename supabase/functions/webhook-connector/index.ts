@@ -12,31 +12,42 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// DT2/S4: Restrict CORS to configured frontend origin.
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "";
+  const isAllowed =
+    (allowedOrigin !== "" && origin === allowedOrigin) ||
+    origin.startsWith("http://localhost") ||
+    origin.startsWith("http://127.0.0.1") ||
+    origin.startsWith("https://localhost");
+  return {
+    "Access-Control-Allow-Origin": isAllowed ? origin : (allowedOrigin || "null"),
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 /** Exponential back-off delays (ms) before each retry attempt. */
 const BACKOFF_MS = [1_000, 2_000, 4_000];
 
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, corsHeaders: Record<string, string>, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+
   // Handle CORS pre-flight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS_HEADERS });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   if (req.method !== "POST") {
-    return json({ error: "Method not allowed. Use POST." }, 405);
+    return json({ error: "Method not allowed. Use POST." }, corsHeaders, 405);
   }
 
   // ── Parse & validate request body ────────────────────────────────────────
@@ -44,24 +55,24 @@ Deno.serve(async (req: Request) => {
   try {
     ({ agentId, webhookUrl, payload } = await req.json());
   } catch {
-    return json({ error: "Invalid JSON body." }, 400);
+    return json({ error: "Invalid JSON body." }, corsHeaders, 400);
   }
 
   if (!agentId || typeof agentId !== "string") {
-    return json({ error: "Missing or invalid field: agentId" }, 400);
+    return json({ error: "Missing or invalid field: agentId" }, corsHeaders, 400);
   }
   if (!webhookUrl || typeof webhookUrl !== "string") {
-    return json({ error: "Missing or invalid field: webhookUrl" }, 400);
+    return json({ error: "Missing or invalid field: webhookUrl" }, corsHeaders, 400);
   }
   if (payload === undefined || payload === null) {
-    return json({ error: "Missing field: payload" }, 400);
+    return json({ error: "Missing field: payload" }, corsHeaders, 400);
   }
 
   // Basic URL validation
   try {
     new URL(webhookUrl);
   } catch {
-    return json({ error: "webhookUrl is not a valid URL." }, 400);
+    return json({ error: "webhookUrl is not a valid URL." }, corsHeaders, 400);
   }
 
   // ── Supabase client (service-role for logging) ────────────────────────────
@@ -151,9 +162,10 @@ Deno.serve(async (req: Request) => {
         lastError,
         lastHttpStatus: lastStatus || undefined,
       },
+      corsHeaders,
       502,
     );
   }
 
-  return json({ success: true, message: "Webhook delivered successfully." });
+  return json({ success: true, message: "Webhook delivered successfully." }, corsHeaders);
 });

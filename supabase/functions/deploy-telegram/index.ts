@@ -1,17 +1,34 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encryptValue } from "../_shared/crypto.ts";
 
 const TELEGRAM_API = "https://api.telegram.org";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// ---------------------------------------------------------------------------
+// DT2/S4: Restrict CORS to the configured frontend origin.
+// Set the ALLOWED_ORIGIN env var to your Lovable/Vercel domain.
+// localhost / 127.0.0.1 are always allowed for local development.
+// ---------------------------------------------------------------------------
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "";
+
+  const isAllowed =
+    (allowedOrigin !== "" && origin === allowedOrigin) ||
+    origin.startsWith("http://localhost") ||
+    origin.startsWith("http://127.0.0.1") ||
+    origin.startsWith("https://localhost");
+
+  return {
+    "Access-Control-Allow-Origin": isAllowed ? origin : (allowedOrigin || "null"),
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 async function callTelegram(
   token: string,
   method: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
 ): Promise<{ ok: boolean; data: unknown }> {
   const res = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
     method: "POST",
@@ -26,13 +43,14 @@ async function callTelegram(
 }
 
 function generateWebhookSecret(): string {
-  // Telegram accepts 1-256 chars: A-Z, a-z, 0-9, _ and -
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -98,18 +116,19 @@ Deno.serve(async (req) => {
     // ── 1. Validate token via getMe ────────────────────────────────────────
     const meResult = await callTelegram(telegramToken, "getMe", {});
     if (!meResult.ok) {
-      const errData = meResult.data as any;
-      const tgCode  = errData?.error_code;
-      const errKey  = tgCode === 401 ? "deploy_error.tg_unauthorized"
-                    : tgCode === 409 ? "deploy_error.tg_conflict"
-                    : tgCode === 429 ? "deploy_error.tg_rate_limit"
-                    : "deploy_error.tg_unknown";
+      const errData = meResult.data as { error_code?: number; description?: string };
+      const tgCode = errData?.error_code;
+      const errKey =
+        tgCode === 401 ? "deploy_error.tg_unauthorized"
+        : tgCode === 409 ? "deploy_error.tg_conflict"
+        : tgCode === 429 ? "deploy_error.tg_rate_limit"
+        : "deploy_error.tg_unknown";
       return new Response(JSON.stringify({ error: errKey, details: errData?.description }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const botInfo = (meResult.data as any).result;
+    const botInfo = (meResult.data as { result: unknown }).result;
 
     // ── 2. Configure bot metadata via Telegram API ─────────────────────────
     if (displayName) {
@@ -122,8 +141,6 @@ Deno.serve(async (req) => {
       await callTelegram(telegramToken, "setMyDescription", { description: aboutText });
     }
 
-    // Normalize commands: Telegram requires no leading slash and lowercase letters.
-    // Strip "/" prefix that the wizard adds for display purposes, then lowercase.
     const normalizedCommands = Array.isArray(commands)
       ? commands
           .map((c: { command: string; description: string }) => ({
@@ -133,38 +150,34 @@ Deno.serve(async (req) => {
           .filter((c) => c.command.length >= 1 && c.command.length <= 32)
       : [];
 
-    // Always call setMyCommands — even with an empty array — so that a
-    // re-deploy with no commands correctly clears previously registered ones.
     await callTelegram(telegramToken, "setMyCommands", { commands: normalizedCommands });
-
-    // Configure the bot's menu button: show the command list when there are
-    // commands, otherwise hide it with a plain "default" button.
     await callTelegram(telegramToken, "setChatMenuButton", {
-      menu_button: normalizedCommands.length > 0
-        ? { type: "commands" }
-        : { type: "default" },
+      menu_button: normalizedCommands.length > 0 ? { type: "commands" } : { type: "default" },
     });
 
-    // ── 3. Upsert bot row in `bots` table (webhook receiver) ──────────────
+    // ── 3. Upsert bot row in `bots` table ──────────────────────────────────
     const webhookSecret = generateWebhookSecret();
 
-    // Fetch system_prompt and welcome experience fields from agents
     const { data: agentFull } = await supabase
       .from("agents")
       .select("system_prompt, welcome_message, fallback_message")
       .eq("id", agentId)
       .single();
 
+    // S1/S2/DT1/DT6: Encrypt credentials before storing to DB
+    const encryptedTelegramToken = await encryptValue(telegramToken);
+    const cleanOpenaiKey = openaiApiKey && openaiApiKey.startsWith("sk-") ? openaiApiKey : null;
+    const encryptedOpenaiKey = cleanOpenaiKey ? await encryptValue(cleanOpenaiKey) : null;
+
     const botUpsertData: Record<string, unknown> = {
       user_id:          user.id,
       agent_id:         agentId,
-      name:             displayName || botInfo.first_name || "",
+      name:             displayName || (botInfo as { first_name?: string }).first_name || "",
       system_prompt:    agentFull?.system_prompt ?? "",
-      telegram_token:   telegramToken,
-      openai_api_key:   (openaiApiKey && openaiApiKey.startsWith("sk-")) ? openaiApiKey : null,
+      telegram_token:   encryptedTelegramToken,
+      openai_api_key:   encryptedOpenaiKey,
       webhook_secret:   webhookSecret,
       is_active:        true,
-      // Welcome experience — prefer body params, fall back to what's saved in agents table
       welcome_message:  welcomeMessage  ?? agentFull?.welcome_message  ?? "",
       fallback_message: fallbackMessage ?? agentFull?.fallback_message ?? "",
       starter_buttons:  Array.isArray(starterButtons) ? starterButtons : [],
@@ -180,7 +193,7 @@ Deno.serve(async (req) => {
       console.error("Bot upsert error:", botUpsertError?.message);
       return new Response(
         JSON.stringify({ error: "Failed to create bot record: " + (botUpsertError?.message ?? "unknown") }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -189,17 +202,13 @@ Deno.serve(async (req) => {
     // ── 4. Register Webhook with Telegram ─────────────────────────────────
     const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botId}`;
 
-    // 4a. Delete any pre-existing webhook so re-deploys start clean.
-    //     We do NOT drop pending updates here — setWebhook will handle that.
     const deleteResult = await callTelegram(telegramToken, "deleteWebhook", {
       drop_pending_updates: false,
     });
     if (!deleteResult.ok) {
-      // Non-fatal: log and continue — setWebhook will overwrite the old one.
       console.warn("deleteWebhook returned non-ok (continuing):", JSON.stringify(deleteResult.data));
     }
 
-    // 4b. Register the new webhook.
     const webhookResult = await callTelegram(telegramToken, "setWebhook", {
       url: webhookUrl,
       secret_token: webhookSecret,
@@ -208,56 +217,54 @@ Deno.serve(async (req) => {
     });
 
     if (!webhookResult.ok) {
-      const errData = webhookResult.data as any;
+      const errData = webhookResult.data as { description?: string };
       console.error("setWebhook failed:", JSON.stringify(errData));
       return new Response(
         JSON.stringify({
           error: "deploy_error.webhook_failed",
           details: errData?.description ?? "Telegram setWebhook rejected",
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // 4c. Verify the webhook was actually registered with the correct URL.
     const webhookInfoResult = await callTelegram(telegramToken, "getWebhookInfo", {});
     const webhookInfo = webhookInfoResult.ok
-      ? (webhookInfoResult.data as any).result
+      ? (webhookInfoResult.data as { result: unknown }).result
       : null;
 
-    if (webhookInfo && webhookInfo.url !== webhookUrl) {
+    if (webhookInfo && (webhookInfo as { url?: string }).url !== webhookUrl) {
       console.error(
         "Webhook URL mismatch after setWebhook:",
         "expected:", webhookUrl,
-        "got:", webhookInfo.url
+        "got:", (webhookInfo as { url?: string }).url,
       );
       return new Response(
         JSON.stringify({
           error: "deploy_error.webhook_failed",
-          details: `Webhook URL mismatch: Telegram reports "${webhookInfo.url}" but expected "${webhookUrl}"`,
+          details: `Webhook URL mismatch: Telegram reports "${(webhookInfo as { url?: string }).url}" but expected "${webhookUrl}"`,
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    if (webhookInfo?.last_error_message) {
-      // Surface any last delivery error so the user knows the webhook URL
-      // was set but Telegram had trouble reaching it recently.
-      console.warn("Telegram webhook last_error:", webhookInfo.last_error_message);
+    if ((webhookInfo as { last_error_message?: string })?.last_error_message) {
+      console.warn("Telegram webhook last_error:", (webhookInfo as { last_error_message?: string }).last_error_message);
     }
 
     // ── 5. Persist agent metadata + activate ──────────────────────────────
+    // S1: Encrypt openai_api_key before storing in agents table
     const agentUpdateData: Record<string, unknown> = {
-      telegram_token:            telegramToken,
-      platform:                  "telegram",
-      is_active:                 true,
-      telegram_display_name:     displayName || null,
+      telegram_token:             encryptedTelegramToken,
+      platform:                   "telegram",
+      is_active:                  true,
+      telegram_display_name:      displayName || null,
       telegram_short_description: shortDescription || null,
-      telegram_about_text:       aboutText || null,
-      telegram_commands:         Array.isArray(commands) ? commands : [],
+      telegram_about_text:        aboutText || null,
+      telegram_commands:          Array.isArray(commands) ? commands : [],
     };
-    if (openaiApiKey && openaiApiKey.startsWith("sk-")) {
-      agentUpdateData.openai_api_key = openaiApiKey;
+    if (encryptedOpenaiKey) {
+      agentUpdateData.openai_api_key = encryptedOpenaiKey;
     }
 
     const { error: updateError } = await supabase
@@ -268,26 +275,26 @@ Deno.serve(async (req) => {
     if (updateError) {
       return new Response(
         JSON.stringify({ error: "Failed to update agent: " + updateError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     return new Response(
       JSON.stringify({
-        success:      true,
+        success:     true,
         botInfo,
         botId,
         webhookUrl,
-        webhookInfo,  // url, pending_update_count, last_error_message, etc.
-        message:      `Bot @${botInfo.username} is now live! Webhook set to ${webhookUrl}`,
+        webhookInfo,
+        message:     `Bot @${(botInfo as { username?: string }).username} is now live! Webhook set to ${webhookUrl}`,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });

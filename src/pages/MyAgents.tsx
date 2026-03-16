@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useI18n } from "@/hooks/useI18n";
 import { DeployWizard } from "@/components/DeployWizard";
+import { decryptKey } from "@/lib/crypto";
 
 const statusColor: Record<string, string> = {
   active: "bg-success/15 text-success border-success/20",
@@ -70,8 +71,17 @@ const MyAgents = () => {
     }
   };
 
-  const openEdit = (agent: any) => {
-    setEditAgent(agent);
+  const openEdit = async (agent: any) => {
+    // S1: Decrypt openai_api_key from DB before passing to wizard
+    let openaiKey = agent.openai_api_key || "";
+    if (openaiKey) {
+      try {
+        openaiKey = await decryptKey(openaiKey);
+      } catch {
+        // Legacy plaintext row — use as-is
+      }
+    }
+    setEditAgent({ ...agent, openai_api_key: openaiKey });
     setWizardOpen(true);
   };
 

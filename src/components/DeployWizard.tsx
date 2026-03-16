@@ -21,6 +21,7 @@ import { ChevronLeft, ChevronRight, Rocket, Loader2, Send } from "lucide-react";
 import { buildFullSystemPrompt } from "./wizard/promptBuilder";
 import { useI18n } from "@/hooks/useI18n";
 import { useConnectors } from "@/hooks/useConnectors";
+import { encryptKey } from "@/lib/crypto";
 
 interface DeployWizardProps {
   open: boolean;
@@ -240,6 +241,11 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
       const enrichedPrompt = getEnrichedPrompt();
 
+      // S1: Encrypt openai_api_key before storing to DB
+      const encryptedOpenaiKey = data.openai_api_key
+        ? await encryptKey(data.openai_api_key)
+        : null;
+
       await supabase.from("agents").update({
         name: data.bot_name,
         description: data.short_description,
@@ -252,7 +258,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         fallback_message: data.fallback_message,
         bot_avatar_url: data.bot_avatar_url,
         bot_type: data.bot_type,
-        openai_api_key: data.openai_api_key,
+        openai_api_key: encryptedOpenaiKey,
         telegram_display_name: data.telegram_display_name || data.bot_name,
         telegram_short_description: data.telegram_short_description || data.short_description,
         telegram_about_text: data.telegram_about_text || data.about_text,

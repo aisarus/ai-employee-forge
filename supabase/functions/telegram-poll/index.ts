@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { tryDecrypt } from "../_shared/crypto.ts";
 
 const TELEGRAM_API = "https://api.telegram.org";
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -77,10 +78,15 @@ Deno.serve(async () => {
     if (Date.now() - startTime > MAX_RUNTIME_MS) break;
 
     try {
-      const botToken: string = (agent.telegram_token || "").trim();
+      // S1/S2: Decrypt credentials stored encrypted in DB
+      const botToken: string = agent.telegram_token
+        ? (await tryDecrypt(agent.telegram_token)).trim()
+        : "";
       if (!botToken) continue;
 
-      const agentOpenaiKey: string = (agent.openai_api_key || "").trim();
+      const agentOpenaiKey: string = agent.openai_api_key
+        ? (await tryDecrypt(agent.openai_api_key)).trim()
+        : "";
 
       // Need at least one AI provider
       if (!agentOpenaiKey && !lovableKey) continue;
