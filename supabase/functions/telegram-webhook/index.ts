@@ -373,19 +373,101 @@ async function handleStart(
 }
 
 // ---------------------------------------------------------------------------
-// TW2: Persistent typing indicator — repeats every 4 s (Telegram resets after 5 s)
+// Telegram message helpers
 // ---------------------------------------------------------------------------
-function startTypingIndicator(token: string, chatId: number): () => void {
-  const sendTyping = () =>
-    fetch(`${TELEGRAM_API}/bot${token}/sendChatAction`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
-    }).catch(() => {}); // Non-critical — ignore failures
+async function sendTelegramMessage(
+  token: string,
+  chatId: number,
+  text: string,
+): Promise<{ result: { message_id: number } }> {
+  const res = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text }),
+  });
+  return res.json();
+}
 
-  sendTyping(); // fire immediately
-  const intervalId = setInterval(sendTyping, 4_000);
-  return () => clearInterval(intervalId);
+async function editTelegramMessage(
+  token: string,
+  chatId: number,
+  messageId: number,
+  text: string,
+): Promise<void> {
+  await fetch(`${TELEGRAM_API}/bot${token}/editMessageText`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text: text.slice(0, TG_MAX_CHARS) }),
+  }).catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
+// OpenAI streaming — sends interim edits every 800 ms, returns full text
+// ---------------------------------------------------------------------------
+async function callOpenAiStreaming(
+  messages: { role: string; content: string }[],
+  apiKey: string,
+  botToken: string,
+  chatId: number,
+  placeholderMsgId: number,
+): Promise<string | null> {
+  let res: Response;
+  try {
+    res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: OPENAI_MODEL, messages, temperature: 0.7, stream: true }),
+      signal: timeoutSignal(AI_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error("OpenAI streaming fetch error:", (err as Error).message);
+    return null;
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("OpenAI streaming error:", res.status, body);
+    return null;
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) return null;
+
+  let accumulated = "";
+  let lastEditAt = 0;
+  const decoder = new TextDecoder();
+
+  try {
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6);
+        if (data === "[DONE]") break outer;
+        try {
+          const json = JSON.parse(data);
+          const delta: string = json.choices?.[0]?.delta?.content ?? "";
+          if (delta) accumulated += delta;
+        } catch {
+          // Skip malformed SSE lines
+        }
+      }
+
+      const now = Date.now();
+      if (now - lastEditAt > 800 && accumulated.length > 0) {
+        await editTelegramMessage(botToken, chatId, placeholderMsgId, accumulated + " ✏️");
+        lastEditAt = now;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return accumulated || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -408,9 +490,16 @@ async function processMessage(
     return;
   }
 
-  // TW2: Start persistent typing indicator loop before any async work
   const botToken: string = (bot.telegram_token as string) ?? "";
-  const stopTyping = startTypingIndicator(botToken, chatId);
+
+  // Send placeholder immediately so user sees activity right away
+  let placeholderMsgId: number | null = null;
+  try {
+    const placeholderRes = await sendTelegramMessage(botToken, chatId, "...");
+    placeholderMsgId = placeholderRes?.result?.message_id ?? null;
+  } catch (e) {
+    console.error("Failed to send placeholder:", e);
+  }
 
   try {
 
@@ -482,23 +571,35 @@ async function processMessage(
   let reply: string | null = null;
 
   if (byokKey) {
-    // BYOK — detect provider from key prefix, no rate limit
     const provider = detectProvider(byokKey);
-    let result: { content: string | null; shouldFallback: boolean };
 
-    if (provider === "anthropic") {
-      result = await callAnthropic(messages, byokKey);
-    } else if (provider === "gemini") {
-      result = await callGemini(messages, byokKey);
+    if (provider === "openai" && placeholderMsgId) {
+      // OpenAI BYOK — real-time streaming with interim message edits
+      reply = await callOpenAiStreaming(messages, byokKey, botToken, chatId, placeholderMsgId);
+      if (!reply) {
+        // Streaming failed — fall back to non-streaming OpenAI then Lovable
+        const result = await callOpenAi(messages, byokKey);
+        reply = result.content;
+        if (!reply && result.shouldFallback && lovableKey) {
+          console.log("BYOK streaming failed for bot", botId, "— falling back to Lovable AI");
+          reply = await callLovableAi(messages, lovableKey);
+        }
+      }
     } else {
-      result = await callOpenAi(messages, byokKey);
-    }
-
-    reply = result.content;
-
-    if (!reply && result.shouldFallback && lovableKey) {
-      console.log("BYOK failed for bot", botId, "— falling back to Lovable AI");
-      reply = await callLovableAi(messages, lovableKey);
+      // Anthropic or Gemini — non-streaming
+      let result: { content: string | null; shouldFallback: boolean };
+      if (provider === "anthropic") {
+        result = await callAnthropic(messages, byokKey);
+      } else if (provider === "gemini") {
+        result = await callGemini(messages, byokKey);
+      } else {
+        result = await callOpenAi(messages, byokKey);
+      }
+      reply = result.content;
+      if (!reply && result.shouldFallback && lovableKey) {
+        console.log("BYOK failed for bot", botId, "— falling back to Lovable AI");
+        reply = await callLovableAi(messages, lovableKey);
+      }
     }
   } else if (lovableKey) {
     // TW4: Shared Lovable AI key — enforce per-bot hourly rate limit
@@ -522,12 +623,12 @@ async function processMessage(
     reply = reply.slice(0, TG_MAX_CHARS) + "...";
   }
 
-  // Send reply via Telegram
-  await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: reply }),
-  }).catch((e) => console.error("Telegram sendMessage error:", e));
+  // Edit placeholder with final reply (or send fresh message if placeholder failed)
+  if (placeholderMsgId) {
+    await editTelegramMessage(botToken, chatId, placeholderMsgId, reply);
+  } else {
+    await sendTelegramMessage(botToken, chatId, reply).catch((e) => console.error("Telegram sendMessage error:", e));
+  }
 
   // Store assistant reply
   const { error: replyInsertError } = await supabase.from("bot_chat_history").insert({
@@ -540,8 +641,8 @@ async function processMessage(
     console.error("Failed to save assistant reply:", replyInsertError.message);
   }
 
-  } finally {
-    stopTyping();
+  } catch (err) {
+    console.error("processMessage error:", (err as Error).message);
   }
 }
 
