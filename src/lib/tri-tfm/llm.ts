@@ -14,9 +14,10 @@ export async function callLlm(
 ): Promise<string> {
   const { temperature = 0.4, maxRetries = 3 } = opts;
 
-  const userOpenAiKey = localStorage.getItem("userOpenAiKey");
-  const useDirectOpenAi = userOpenAiKey && userOpenAiKey.startsWith("sk-");
-
+  const userApiKey = localStorage.getItem("userOpenAiKey");
+  const isOpenAi = userApiKey && userApiKey.startsWith("sk-") && !userApiKey.startsWith("sk-ant-");
+  const isAnthropic = userApiKey && userApiKey.startsWith("sk-ant-");
+  const isGemini = userApiKey && userApiKey.startsWith("AIza");
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -26,13 +27,13 @@ export async function callLlm(
     }
 
     try {
-      if (useDirectOpenAi) {
-        if (attempt === 0) console.log('[TRI-TFM] useDirectOpenAi=true, calling OpenAI directly');
+      if (isOpenAi) {
+        if (attempt === 0) console.log('[TRI-TFM] calling OpenAI directly');
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${userOpenAiKey}`,
+            "Authorization": `Bearer ${userApiKey}`,
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
@@ -48,13 +49,63 @@ export async function callLlm(
           const err = await response.json().catch(() => ({}));
           const msg = err?.error?.message || `OpenAI error ${response.status}`;
           console.error(`[TRI-TFM] OpenAI fetch error (attempt ${attempt + 1}):`, msg);
-          throw new Error(msg);
+          throw new Error(`OpenAI API Error: ${msg}`);
         }
 
         const json = await response.json();
         return json.choices?.[0]?.message?.content ?? "";
+      } else if (isAnthropic) {
+        if (attempt === 0) console.log('[TRI-TFM] calling Anthropic directly');
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": userApiKey!,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+            "anthropic-dangerous-direct-browser-access": "true",
+          },
+          body: JSON.stringify({
+            model: "claude-3-haiku-20240307",
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }],
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          const msg = err?.error?.message || `Anthropic error ${response.status}`;
+          console.error(`[TRI-TFM] Anthropic fetch error (attempt ${attempt + 1}):`, msg);
+          throw new Error(`Anthropic API Error: ${msg}`);
+        }
+
+        const data = await response.json();
+        return data.content?.[0]?.text ?? "";
+      } else if (isGemini) {
+        if (attempt === 0) console.log('[TRI-TFM] calling Gemini directly');
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${userApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          const msg = err?.error?.message || `Gemini error ${response.status}`;
+          console.error(`[TRI-TFM] Gemini fetch error (attempt ${attempt + 1}):`, msg);
+          throw new Error(`Gemini API Error: ${msg}`);
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
       } else {
-        if (attempt === 0) console.log('[TRI-TFM] useDirectOpenAi=false, calling llm-proxy edge function');
+        if (attempt === 0) console.log('[TRI-TFM] no BYOK key detected, calling llm-proxy edge function');
         const { data, error } = await supabase.functions.invoke("llm-proxy", {
           body: {
             messages: [
