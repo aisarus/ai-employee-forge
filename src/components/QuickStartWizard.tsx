@@ -324,7 +324,7 @@ export function QuickStartWizard() {
         aboutText: wizardData.telegram_about_text || wizardData.about_text,
         commands: wizardData.telegram_commands,
       };
-      if (wizardData.openai_api_key?.startsWith("sk-")) {
+      if (wizardData.openai_api_key) {
         body.openaiApiKey = wizardData.openai_api_key;
       }
 
@@ -740,8 +740,8 @@ export function QuickStartWizard() {
                     placeholder="sk-..."
                     className="bg-background/50 font-mono text-xs"
                   />
-                  {wizardData.openai_api_key && !wizardData.openai_api_key.startsWith("sk-") && (
-                    <p className="text-xs text-destructive">{lang === "ru" ? "Ключ должен начинаться с sk-" : "Key must start with sk-"}</p>
+                  {wizardData.openai_api_key && !wizardData.openai_api_key.startsWith("sk-") && !wizardData.openai_api_key.startsWith("sk-ant-") && !wizardData.openai_api_key.startsWith("AIza") && (
+                    <p className="text-xs text-destructive">{lang === "ru" ? "Ключ должен начинаться с sk-" : "Unsupported format. Use sk-... (OpenAI), sk-ant-... (Anthropic) or AIza... (Gemini)"}</p>
                   )}
                 </div>
 
@@ -861,7 +861,7 @@ export function QuickStartWizard() {
                       <span className="text-foreground">{tone}</span>
                       <span className="text-muted-foreground">AI</span>
                       <span className="text-foreground">
-                        {wizardData.openai_api_key?.startsWith("sk-") ? "OpenAI (BYOK)" : (lang === "ru" ? "Встроенный AI" : "Built-in AI")}
+                        {wizardData.openai_api_key?.startsWith("sk-") ? wizardData.openai_api_key.startsWith("sk-ant-") ? "Anthropic (BYOK)" : wizardData.openai_api_key.startsWith("AIza") ? "Gemini (BYOK)" : "OpenAI (BYOK)" : (lang === "ru" ? "Встроенный AI" : "Built-in AI")}
                       </span>
                       <span className="text-muted-foreground">Telegram</span>
                       <span className="text-foreground">{tokenState === "valid" ? `@${botUsername}` : "—"}</span>
@@ -933,4 +933,5 @@ export function QuickStartWizard() {
     </div>
   );
 }
+
 
