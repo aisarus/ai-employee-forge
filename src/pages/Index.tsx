@@ -12,6 +12,7 @@ import { GnomeAssembly } from "@/components/GnomeAssembly";
 import { QuickStartWizard } from "@/components/QuickStartWizard";
 import { runTriTfmPipeline } from "@/lib/tri-tfm";
 import { useI18n } from "@/hooks/useI18n";
+import { toast } from "sonner";
 
 type PageMode = "select" | "quick_start" | "advanced_input" | "advanced_loading";
 
@@ -42,6 +43,16 @@ const Index = () => {
   useEffect(() => {
     if (mode !== "advanced_loading") return;
 
+    let cancelled = false;
+
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        cancelled = true;
+        toast.error(lang === "ru" ? "Превышено время ожидания (60 с). Попробуйте снова." : "Generation timed out after 60s. Please try again.");
+        setMode("advanced_input");
+      }
+    }, 60_000);
+
     const runPipeline = async () => {
       try {
         const behaviorContext = `Bot name: ${botName || "AI Assistant"}\nTone: ${tone}\nResponse style: ${responseStyle}\n\nBusiness rules:\n${prompt}`;
@@ -51,6 +62,9 @@ const Index = () => {
           config: { maxIterations: 5, useProposerCriticVerifier: true, proposerCriticOnly: true },
           onProgress: (stage, detail) => setProgressMsg(detail || stage),
         });
+
+        if (cancelled) return;
+        clearTimeout(timeoutId);
 
         if (user) {
           const { data: insertedAgent } = await supabase.from("agents").insert({
@@ -70,11 +84,19 @@ const Index = () => {
         localStorage.setItem("botName", botName || "AI Assistant");
         navigate("/workspace");
       } catch (e) {
-        console.error("TRI-TFM pipeline error:", e);
-        navigate("/workspace");
+        clearTimeout(timeoutId);
+        if (!cancelled) {
+          console.error("TRI-TFM pipeline error:", e);
+          navigate("/workspace");
+        }
       }
     };
     runPipeline();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [mode]);
 
   // ── Mode: Quick Start ──────────────────────────────
