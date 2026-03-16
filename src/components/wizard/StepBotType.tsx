@@ -24,6 +24,7 @@ export function StepBotType({ data, onChange }: Props) {
             <button
               key={bt.id}
               onClick={() => onChange({ bot_type: bt.id })}
+              aria-label={`Select ${t(`bottype.${bt.id}` as any)} bot type`}
               className={cn(
                 "flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 hover:scale-[1.03]",
                 selected
