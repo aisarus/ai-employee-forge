@@ -44,11 +44,11 @@ export function StepApiKeys({ data, onChange }: Props) {
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20">
             <Brain className="h-4 w-4 text-primary shrink-0" />
           </div>
-          <h3 className="text-sm font-semibold text-foreground">{t("wizard.api_key_label")}</h3>
+          <h3 className="text-sm font-semibold text-foreground">AI API Key (OpenAI / Anthropic / Gemini)</h3>
         </div>
 
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1.5">
-          <p className="text-xs font-medium text-foreground">{t("wizard.api_key_providers_title")}</p>
+          <p className="text-xs font-medium text-foreground">Поддерживаемые провайдеры:</p>
           <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
             <li>
               <span className="font-medium text-foreground">OpenAI</span> — sk-...{" "}
@@ -58,7 +58,7 @@ export function StepApiKeys({ data, onChange }: Props) {
               </a>
             </li>
             <li>
-              <span className="font-medium text-foreground">Anthropic</span> — sk-ant-...{" "}
+              <span className="font-medium text-foreground">Anthropic Claude</span> — sk-ant-...{" "}
               <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener"
                 className="text-primary underline inline-flex items-center gap-0.5">
                 console.anthropic.com <ExternalLink className="h-3 w-3" />
