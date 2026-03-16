@@ -95,13 +95,6 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
           explanations.push(exp);
         }
 
-        // Early exit: high-quality score reached
-        if (criticResult.score >= 85) {
-          onProgress('pcv', `Iteration ${i}/${effectiveMaxIter}: High quality reached (score ${criticResult.score}/100), stopping early`);
-          convergedAtIter = i;
-          break;
-        }
-
         // Check convergence (no change from previous)
         if (currentPrompt === previousPrompt) {
           convergedAtIter = i;
