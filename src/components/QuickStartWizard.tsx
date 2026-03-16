@@ -70,6 +70,9 @@ export function QuickStartWizard() {
   const [tokenError, setTokenError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Guard: don't persist until we've finished restoring from localStorage
+  const [isRestored, setIsRestored] = useState(false);
+
   // ── Reset wizard (clear all localStorage and state) ──────────────────────
   const handleResetWizard = useCallback(() => {
     localStorage.removeItem("quickwizard_draft");
@@ -116,10 +119,13 @@ export function QuickStartWizard() {
       if (saved.wizardData)     setWizardData({ ...DEFAULT_WIZARD_DATA, ...saved.wizardData, bot_avatar_file: null });
       if (saved.step && STEPS.includes(saved.step)) setStep(saved.step);
     } catch {}
+    setIsRestored(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Persist state to localStorage on every relevant change ───────────────
+  // Guard with isRestored so we never overwrite the saved draft with defaults on mount.
   useEffect(() => {
+    if (!isRestored) return;
     try {
       const draft = {
         botDescription, botName, tone, responseStyle,
@@ -128,7 +134,20 @@ export function QuickStartWizard() {
       };
       localStorage.setItem("quickwizard_draft", JSON.stringify(draft));
     } catch {}
-  }, [botDescription, botName, tone, responseStyle, generatedBrain, brainGenerated, agentId, step, wizardData]);
+  }, [isRestored, botDescription, botName, tone, responseStyle, generatedBrain, brainGenerated, agentId, step, wizardData]);
+
+  // ── Warn before closing/refreshing mid-wizard ────────────────────────────
+  useEffect(() => {
+    if (deployed) return;
+    const hasProgress = !!(botDescription || botName || generatedBrain || agentId);
+    if (!hasProgress) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [deployed, botDescription, botName, generatedBrain, agentId]);
 
   // Token validation
   useEffect(() => {
