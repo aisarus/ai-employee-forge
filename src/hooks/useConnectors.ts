@@ -26,7 +26,7 @@ export function useConnectors() {
     if (!user) return;
 
     // 1. Delete all existing connectors for this agent (simple replace strategy)
-    const { error: delError } = await supabase
+    const { error: delError } = await (supabase as any)
       .from("bot_connectors")
       .delete()
       .eq("agent_id", agentId);

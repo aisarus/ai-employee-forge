@@ -94,6 +94,8 @@ const translations = {
   "agents.update_failed":  { en: "Failed to update agent",  ru: "Не удалось обновить агента" },
   "agents.delete_failed":  { en: "Failed to delete agent",  ru: "Не удалось удалить агента" },
   "agents.platform_none":  { en: "Not deployed",            ru: "Не развёрнут" },
+  "agents.no_results":     { en: "No results found",        ru: "Ничего не найдено" },
+  "agents.no_results_desc": { en: "Try a different search term.", ru: "Попробуйте другой запрос." },
   "status.active":         { en: "Active",                  ru: "Активен" },
   "status.draft":          { en: "Draft",                   ru: "Черновик" },
   "status.paused":         { en: "Paused",                  ru: "Приостановлен" },
