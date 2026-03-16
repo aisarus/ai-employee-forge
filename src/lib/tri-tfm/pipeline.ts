@@ -48,7 +48,7 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
 
   // ── Stage 1: Smart Queue ──────────────────────────────────
   if (config.smartQueueEnabled) {
-    onProgress('smart_queue', 'Analyzing prompt quality...');
+    onProgress('smart_queue', 'Analyzing prompt quality and complexity...');
     const sqResult = await runSmartQueue(currentPrompt, config, llmOpts);
 
     if (!sqResult.shouldOptimize) {
@@ -60,12 +60,12 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
 
   // ── Stage 2: PCV Pipeline ────────────────────────────────
   if (config.useProposerCriticVerifier || config.proposerCriticOnly) {
-    onProgress('pcv', 'Running Proposer-Critic-Verifier...');
+    onProgress('pcv', 'Starting Proposer-Critic pipeline...');
 
     if (config.proposerCriticOnly) {
       // Iterative PCV mode
       for (let i = 1; i <= effectiveMaxIter; i++) {
-        onProgress('pcv', `PCV iteration ${i}/${effectiveMaxIter}`);
+        onProgress('pcv', `Iteration ${i}/${effectiveMaxIter}: Decomposing prompt...`);
         totalIterations = i;
 
         const previousPrompt = currentPrompt;
@@ -73,6 +73,8 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
         // Proposer
         const proposed = await runProposer(currentPrompt, llmOpts);
         refineTokens += estimateTokens(proposed.improvedPrompt);
+
+        onProgress('pcv', `Iteration ${i}/${effectiveMaxIter}: Analyzing quality...`);
 
         // Critic
         const criticResult = await runCritic(currentPrompt, proposed.improvedPrompt, config, llmOpts);
@@ -88,8 +90,16 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
 
         // Explanation
         if (config.explainModeEnabled) {
+          onProgress('pcv', `Iteration ${i}/${effectiveMaxIter}: Generating explanation...`);
           const exp = await runExplain(previousPrompt, currentPrompt, i, llmOpts);
           explanations.push(exp);
+        }
+
+        // Early exit: high-quality score reached
+        if (criticResult.score >= 85) {
+          onProgress('pcv', `Iteration ${i}/${effectiveMaxIter}: High quality reached (score ${criticResult.score}/100), stopping early`);
+          convergedAtIter = i;
+          break;
         }
 
         // Check convergence (no change from previous)
@@ -176,7 +186,7 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
   }
 
   // ── Stage 4: Pairwise Judge ──────────────────────────────
-  onProgress('pairwise_judge', 'Evaluating quality...');
+  onProgress('pairwise_judge', 'Evaluating final prompt quality...');
   const pairwiseVotes = await runPairwiseJudge(originalPrompt, currentPrompt, llmOpts);
 
   // ── Build output ─────────────────────────────────────────

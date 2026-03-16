@@ -49,6 +49,7 @@ export function QuickStartWizard() {
   // Brain step
   const [generatedBrain, setGeneratedBrain] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingMsg, setGeneratingMsg] = useState("");
   const [isEditingBrain, setIsEditingBrain] = useState(false);
   const [copied, setCopied] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
@@ -182,15 +183,23 @@ export function QuickStartWizard() {
   const handleGenerateBrain = useCallback(async () => {
     if (!botDescription.trim()) return;
     setIsGenerating(true);
+    setGeneratingMsg("");
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), 180_000)
+    );
 
     try {
       const behaviorContext = `Bot name: ${botName || "AI Assistant"}\nTone: ${tone}\nResponse style: ${responseStyle}\n\nBusiness rules:\n${botDescription}`;
-      const result = await runTriTfmPipeline({
-        prompt: behaviorContext,
-        apiKey: "",
-        config: { maxIterations: 5, useProposerCriticVerifier: true, proposerCriticOnly: true },
-        onProgress: () => {},
-      });
+      const result = await Promise.race([
+        runTriTfmPipeline({
+          prompt: behaviorContext,
+          apiKey: "",
+          config: { maxIterations: 5, useProposerCriticVerifier: true, proposerCriticOnly: true },
+          onProgress: (_stage, detail) => setGeneratingMsg(detail || _stage),
+        }),
+        timeoutPromise,
+      ]);
 
       const brain = result.finalText || "";
       setGeneratedBrain(brain);
@@ -219,13 +228,18 @@ export function QuickStartWizard() {
 
       setBrainGenerated(true);
       setStep("brain_preview");
-    } catch (e) {
-      console.error("TRI-TFM error:", e);
-      toast.error(lang === "ru" ? "Ошибка генерации" : "Generation error");
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message === "timeout") {
+        toast.error(lang === "ru" ? "Превышено время ожидания (180 с). Попробуйте снова." : "Generation timed out after 180s. Please try again.");
+      } else {
+        console.error("TRI-TFM error:", e);
+        toast.error(lang === "ru" ? "Ошибка генерации" : "Generation error");
+      }
     } finally {
       setIsGenerating(false);
+      setGeneratingMsg("");
     }
-  }, [botDescription, botName, tone, responseStyle, user]);
+  }, [botDescription, botName, tone, responseStyle, user, lang]);
 
   const handleSendChat = async () => {
     if (!chatInput.trim() || isTyping) return;
@@ -359,7 +373,14 @@ export function QuickStartWizard() {
   };
 
   if (isGenerating) {
-    return <div className="flex flex-1 items-center justify-center"><GnomeAssembly /></div>;
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <GnomeAssembly />
+        {generatingMsg && (
+          <p className="text-sm text-muted-foreground animate-pulse max-w-xs text-center">{generatingMsg}</p>
+        )}
+      </div>
+    );
   }
 
   if (deployed) {

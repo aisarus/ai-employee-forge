@@ -48,10 +48,10 @@ const Index = () => {
     const timeoutId = setTimeout(() => {
       if (!cancelled) {
         cancelled = true;
-        toast.error(lang === "ru" ? "Превышено время ожидания (60 с). Попробуйте снова." : "Generation timed out after 60s. Please try again.");
+        toast.error(lang === "ru" ? "Превышено время ожидания (180 с). Попробуйте снова." : "Generation timed out after 180s. Please try again.");
         setMode("advanced_input");
       }
-    }, 60_000);
+    }, 180_000);
 
     const runPipeline = async () => {
       try {
@@ -106,7 +106,14 @@ const Index = () => {
 
   // ── Mode: Advanced Loading ─────────────────────────
   if (mode === "advanced_loading") {
-    return <div className="flex flex-1 items-center justify-center"><GnomeAssembly /></div>;
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <GnomeAssembly />
+        {progressMsg && (
+          <p className="text-sm text-muted-foreground animate-pulse max-w-xs text-center">{progressMsg}</p>
+        )}
+      </div>
+    );
   }
 
   // ── Mode: Advanced Input ───────────────────────────
