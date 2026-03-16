@@ -127,7 +127,7 @@ export function StepWorkflowLogic({ data, onChange }: Props) {
                     placeholder={t("field.step_title")}
                   />
                   <Select value={step.action_type} onValueChange={(v) => updateStep(step.id, { action_type: v })}>
-                    <SelectTrigger className="h-8 text-xs bg-background/50">
+                    <SelectTrigger className="h-8 text-xs bg-background/50" aria-label="Select action type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

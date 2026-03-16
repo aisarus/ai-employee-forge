@@ -167,7 +167,7 @@ export function StepTelegramConfig({ data, onChange }: Props) {
         <div className="space-y-2">
           <Label className="text-sm">{t("wizard.webhook_mode")}</Label>
           <Select value={data.webhook_mode} onValueChange={(v) => onChange({ webhook_mode: v })}>
-            <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="bg-background/50" aria-label="Select webhook mode"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Auto-generate webhook URL">{t("wizard.webhook_auto")}</SelectItem>
               <SelectItem value="Use custom webhook URL">{t("wizard.webhook_custom")}</SelectItem>

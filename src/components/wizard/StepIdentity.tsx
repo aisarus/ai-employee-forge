@@ -153,7 +153,7 @@ export function StepIdentity({ data, onChange, onAvatarUpload, onAvatarRemove }:
           🌐 {t("wizard.language")} *
         </Label>
         <Select value={data.default_language} onValueChange={(v) => onChange({ default_language: v })}>
-          <SelectTrigger className="bg-background/50 w-48">
+          <SelectTrigger className="bg-background/50 w-48" aria-label="Select language">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

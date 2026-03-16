@@ -144,7 +144,7 @@ export function StepTriggers({ data, onChange }: Props) {
           <div className="grid grid-cols-2 gap-2">
             <Input value={newTrigName} onChange={(e) => setNewTrigName(e.target.value)} placeholder={t("wizard.trig_name_ph")} className="h-8 text-xs bg-background/50" />
             <Select value={newTrigWhen} onValueChange={(v) => setNewTrigWhen(v)}>
-              <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs bg-background/50" aria-label="Select trigger condition"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {TRIGGER_WHEN_OPTIONS.map((w) => (
                   <SelectItem key={w} value={w}>{WHEN_KEYS[w] ? t(WHEN_KEYS[w] as any) : w}</SelectItem>
@@ -152,7 +152,7 @@ export function StepTriggers({ data, onChange }: Props) {
               </SelectContent>
             </Select>
             <Select value={newTrigAction} onValueChange={setNewTrigAction}>
-              <SelectTrigger className="h-8 text-xs bg-background/50"><SelectValue placeholder={t("wizard.trig_action_ph")} /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs bg-background/50" aria-label="Select trigger action"><SelectValue placeholder={t("wizard.trig_action_ph")} /></SelectTrigger>
               <SelectContent>
                 {TRIGGER_ACTIONS.map((a) => (
                   <SelectItem key={a} value={a}>{ACTION_KEYS[a] ? t(ACTION_KEYS[a] as any) : a}</SelectItem>
@@ -162,7 +162,7 @@ export function StepTriggers({ data, onChange }: Props) {
             <div className="flex gap-1">
               {writeDestinations.length > 0 ? (
                 <Select value={newTrigDest} onValueChange={setNewTrigDest}>
-                  <SelectTrigger className="h-8 text-xs bg-background/50 flex-1"><SelectValue placeholder={t("wizard.trig_dest_ph")} /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs bg-background/50 flex-1" aria-label="Select destination"><SelectValue placeholder={t("wizard.trig_dest_ph")} /></SelectTrigger>
                   <SelectContent>
                     {writeDestinations.map((ds) => (
                       <SelectItem key={ds.id} value={ds.name}>{ds.name}</SelectItem>
@@ -176,7 +176,7 @@ export function StepTriggers({ data, onChange }: Props) {
           </div>
           <div className="flex gap-2 items-center">
             <Select value={newTrigPolicy} onValueChange={(v) => setNewTrigPolicy(v as ActionTrigger["confirmation_policy"])}>
-              <SelectTrigger className="h-8 text-xs bg-background/50 w-40"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs bg-background/50 w-40" aria-label="Select confirmation policy"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(["ask_before_send", "automatic", "draft_only"] as const).map((p) => (
                   <SelectItem key={p} value={p}>{POLICY_KEYS[p] ? t(POLICY_KEYS[p] as any) : p}</SelectItem>

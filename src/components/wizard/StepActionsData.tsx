@@ -160,7 +160,7 @@ export function StepActionsData({ data, onChange }: Props) {
                     placeholder={t("field.name_placeholder")}
                   />
                   <Select value={field.type} onValueChange={(v) => updateField(field.id, { type: v as DataField["type"] })}>
-                    <SelectTrigger className="h-8 text-xs bg-background/50">
+                    <SelectTrigger className="h-8 text-xs bg-background/50" aria-label="Select field type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
