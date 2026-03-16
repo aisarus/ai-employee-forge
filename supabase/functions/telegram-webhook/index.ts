@@ -135,6 +135,45 @@ Deno.serve(async (req: Request) => {
   }
 
   // ------------------------------------------------------------------
+  // 3b. Handle /start — send welcome message + starter buttons keyboard
+  // ------------------------------------------------------------------
+  if (userText === "/start") {
+    const welcomeText: string = (bot.welcome_message as string | null)?.trim() ?? "";
+    const starterButtons: { text: string }[] = (() => {
+      const raw = bot.starter_buttons;
+      if (!Array.isArray(raw) || raw.length === 0) return [];
+      // Each item may be { text, action_type } or just a string
+      return raw.map((b: unknown) =>
+        typeof b === "string" ? { text: b } : { text: (b as { text: string }).text }
+      );
+    })();
+
+    const replyMarkup = starterButtons.length > 0
+      ? {
+          keyboard: starterButtons.reduce<{ text: string }[][]>((rows, btn, i) => {
+            if (i % 2 === 0) rows.push([]);
+            rows[rows.length - 1].push(btn);
+            return rows;
+          }, []),
+          resize_keyboard: true,
+          one_time_keyboard: false,
+        }
+      : { remove_keyboard: true };
+
+    await fetch(`${TELEGRAM_API}/bot${bot.telegram_token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: welcomeText || "👋 Hello! How can I help you?",
+        reply_markup: replyMarkup,
+      }),
+    }).catch((e) => console.error("Telegram /start sendMessage error:", e));
+
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }
+
+  // ------------------------------------------------------------------
   // 4. Deduplicate: skip if we already processed this update_id
   // ------------------------------------------------------------------
   if (updateId != null) {
@@ -217,7 +256,8 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!reply) {
-    reply = "⚠️ AI is temporarily unavailable. Please try again later.";
+    const customFallback = (bot.fallback_message as string | null)?.trim();
+    reply = customFallback || "⚠️ AI is temporarily unavailable. Please try again later.";
   }
 
   // ------------------------------------------------------------------

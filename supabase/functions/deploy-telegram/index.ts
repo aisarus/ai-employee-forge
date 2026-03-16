@@ -61,6 +61,9 @@ Deno.serve(async (req) => {
       shortDescription,
       aboutText,
       commands,
+      welcomeMessage,
+      fallbackMessage,
+      starterButtons,
     } = await req.json();
 
     // ── Validate inputs ────────────────────────────────────────────────────
@@ -125,27 +128,27 @@ Deno.serve(async (req) => {
     // ── 3. Upsert bot row in `bots` table (webhook receiver) ──────────────
     const webhookSecret = generateWebhookSecret();
 
-    const botUpsertData = {
-      user_id:       user.id,
-      agent_id:      agentId,
-      name:          displayName || botInfo.first_name || "",
-      system_prompt: "", // will be populated from agents.system_prompt below
-      telegram_token: telegramToken,
-      openai_api_key: (openaiApiKey && openaiApiKey.startsWith("sk-")) ? openaiApiKey : null,
-      webhook_secret: webhookSecret,
-      is_active:     true,
-    };
-
-    // Fetch system_prompt from agents for the bots row
+    // Fetch system_prompt and welcome experience fields from agents
     const { data: agentFull } = await supabase
       .from("agents")
-      .select("system_prompt")
+      .select("system_prompt, welcome_message, fallback_message")
       .eq("id", agentId)
       .single();
 
-    if (agentFull?.system_prompt) {
-      botUpsertData.system_prompt = agentFull.system_prompt;
-    }
+    const botUpsertData: Record<string, unknown> = {
+      user_id:          user.id,
+      agent_id:         agentId,
+      name:             displayName || botInfo.first_name || "",
+      system_prompt:    agentFull?.system_prompt ?? "",
+      telegram_token:   telegramToken,
+      openai_api_key:   (openaiApiKey && openaiApiKey.startsWith("sk-")) ? openaiApiKey : null,
+      webhook_secret:   webhookSecret,
+      is_active:        true,
+      // Welcome experience — prefer body params, fall back to what's saved in agents table
+      welcome_message:  welcomeMessage  ?? agentFull?.welcome_message  ?? "",
+      fallback_message: fallbackMessage ?? agentFull?.fallback_message ?? "",
+      starter_buttons:  Array.isArray(starterButtons) ? starterButtons : [],
+    };
 
     const { data: botRow, error: botUpsertError } = await supabase
       .from("bots")

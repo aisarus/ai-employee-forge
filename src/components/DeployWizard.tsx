@@ -256,6 +256,9 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
           shortDescription: data.telegram_short_description || data.short_description,
           aboutText: data.telegram_about_text || data.about_text,
           commands: data.telegram_commands,
+          welcomeMessage: data.welcome_message,
+          fallbackMessage: data.fallback_message,
+          starterButtons: data.starter_buttons,
         },
       });
 
