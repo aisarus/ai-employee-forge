@@ -374,7 +374,13 @@ export function QuickStartWizard() {
     <div className="flex flex-1 flex-col animate-fade-in h-full w-full overflow-hidden">
       {/* Progress */}
       <div className="px-6 pt-4 pb-3 border-b border-border/50 bg-background/80 backdrop-blur-xl shrink-0 space-y-2.5">
-        <div className="flex items-center gap-1 max-w-3xl mx-auto">
+        <div
+          className="flex items-center gap-1 max-w-3xl mx-auto"
+          role="progressbar"
+          aria-valuenow={stepIdx + 1}
+          aria-valuemax={STEPS.length}
+          aria-label="Wizard progress"
+        >
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center flex-1">
               <button
