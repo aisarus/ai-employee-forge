@@ -76,12 +76,9 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
 
         onProgress('pcv', `Iteration ${i}/${effectiveMaxIter}: Analyzing quality...`);
 
-        // Critic
-        const criticResult = await runCritic(currentPrompt, proposed.improvedPrompt, config, llmOpts);
-
-        if (criticResult.approved) {
-          currentPrompt = proposed.improvedPrompt;
-        }
+        // Critic — always accept the improved prompt; the proposer structures raw input
+        await runCritic(currentPrompt, proposed.improvedPrompt, config, llmOpts);
+        currentPrompt = proposed.improvedPrompt;
 
         // Versioning
         if (config.versioningEnabled) {
@@ -113,10 +110,9 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
       const proposed = await runProposer(currentPrompt, llmOpts);
       refineTokens += estimateTokens(proposed.improvedPrompt);
 
-      const criticResult = await runCritic(currentPrompt, proposed.improvedPrompt, config, llmOpts);
-      if (criticResult.approved) {
-        currentPrompt = proposed.improvedPrompt;
-      }
+      // Critic — always accept the improved prompt; the proposer structures raw input
+      await runCritic(currentPrompt, proposed.improvedPrompt, config, llmOpts);
+      currentPrompt = proposed.improvedPrompt;
 
       if (config.versioningEnabled) {
         versionLog.push(createVersion(currentPrompt, 1, originalId, originalPrompt));

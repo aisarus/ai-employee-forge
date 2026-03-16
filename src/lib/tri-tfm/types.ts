@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG: TriTfmConfig = {
   useErikson: true,
   useProposerCriticVerifier: false,
   proposerCriticOnly: false,
-  smartQueueEnabled: true,
+  smartQueueEnabled: false,
   explainModeEnabled: true,
   versioningEnabled: true,
 };
