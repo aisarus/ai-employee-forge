@@ -225,14 +225,22 @@ Deno.serve(async (req) => {
 
     if (!webhookResult.ok) {
       const errData = webhookResult.data as { description?: string };
-      console.error("setWebhook failed:", JSON.stringify(errData));
-      return new Response(
-        JSON.stringify({
-          error: "deploy_error.webhook_failed",
-          details: errData?.description ?? "Telegram setWebhook rejected",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      // DT3: Telegram may return a non-ok response with "webhook was already set"
+      // when a previous deployment registered the same URL. This is not an error —
+      // the webhook is already pointing at us, so treat it as success.
+      const isAlreadySet = errData?.description?.toLowerCase().includes("webhook was already set");
+      if (isAlreadySet) {
+        console.warn("DT3: setWebhook — webhook was already set, treating as success.");
+      } else {
+        console.error("setWebhook failed:", JSON.stringify(errData));
+        return new Response(
+          JSON.stringify({
+            error: "deploy_error.webhook_failed",
+            details: errData?.description ?? "Telegram setWebhook rejected",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     const webhookInfoResult = await callTelegram(telegramToken, "getWebhookInfo", {});
