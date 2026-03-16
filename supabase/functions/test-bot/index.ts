@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const LOVABLE_MODEL = "google/gemini-3-flash-preview";
+const LOVABLE_MODEL = "google/gemini-2.0-flash-exp";
 const BYOK_FALLBACK_STATUSES = new Set([402, 403, 429]);
 
 // DT2/S4: Restrict CORS to configured frontend origin.
@@ -51,6 +51,19 @@ Deno.serve(async (req) => {
 
   try {
     const { messages, systemPrompt, openaiKey } = await req.json();
+
+    if (!Array.isArray(messages)) {
+      return new Response(JSON.stringify({ error: "messages must be an array" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (typeof systemPrompt !== "string") {
+      return new Response(JSON.stringify({ error: "systemPrompt must be a string" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const apiMessages = [
       { role: "system", content: systemPrompt },
