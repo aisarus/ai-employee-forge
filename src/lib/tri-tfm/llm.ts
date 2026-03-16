@@ -14,6 +14,9 @@ export async function callLlm(
 ): Promise<string> {
   const { temperature = 0.4, maxRetries = 3 } = opts;
 
+  const userOpenAiKey = localStorage.getItem("userOpenAiKey");
+  const useDirectOpenAi = userOpenAiKey && userOpenAiKey.startsWith("sk-");
+
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -23,20 +26,46 @@ export async function callLlm(
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke("llm-proxy", {
-        body: {
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          temperature,
-        },
-      });
+      if (useDirectOpenAi) {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${userOpenAiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature,
+          }),
+        });
 
-      if (error) throw new Error(error.message || "Edge function error");
-      if (data?.error) throw new Error(data.error);
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err?.error?.message || `OpenAI error ${response.status}`);
+        }
 
-      return data?.content ?? "";
+        const json = await response.json();
+        return json.choices?.[0]?.message?.content ?? "";
+      } else {
+        const { data, error } = await supabase.functions.invoke("llm-proxy", {
+          body: {
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature,
+          },
+        });
+
+        if (error) throw new Error(error.message || "Edge function error");
+        if (data?.error) throw new Error(data.error);
+
+        return data?.content ?? "";
+      }
     } catch (e: any) {
       lastError = e;
       if (attempt < maxRetries) continue;
