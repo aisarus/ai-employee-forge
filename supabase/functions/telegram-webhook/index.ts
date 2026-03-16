@@ -217,6 +217,22 @@ async function handleStart(
 }
 
 // ---------------------------------------------------------------------------
+// TW2: Persistent typing indicator — repeats every 4 s (Telegram resets after 5 s)
+// ---------------------------------------------------------------------------
+function startTypingIndicator(token: string, chatId: number): () => void {
+  const sendTyping = () =>
+    fetch(`${TELEGRAM_API}/bot${token}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+    }).catch(() => {}); // Non-critical — ignore failures
+
+  sendTyping(); // fire immediately
+  const intervalId = setInterval(sendTyping, 4_000);
+  return () => clearInterval(intervalId);
+}
+
+// ---------------------------------------------------------------------------
 // Core message processing — runs in background via EdgeRuntime.waitUntil()
 // TW1: This function is called after Telegram already received 200 OK.
 // ---------------------------------------------------------------------------
@@ -235,13 +251,11 @@ async function processMessage(
     return;
   }
 
-  // TW2: Send typing indicator so the user sees '...' while AI generates
+  // TW2: Start persistent typing indicator loop before any async work
   const botToken: string = (bot.telegram_token as string) ?? "";
-  await fetch(`${TELEGRAM_API}/bot${botToken}/sendChatAction`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, action: "typing" }),
-  }).catch(() => {}); // Non-critical — ignore failures
+  const stopTyping = startTypingIndicator(botToken, chatId);
+
+  try {
 
   // Deduplicate: skip already-processed update_ids
   if (updateId != null) {
@@ -351,6 +365,10 @@ async function processMessage(
   });
   if (replyInsertError) {
     console.error("Failed to save assistant reply:", replyInsertError.message);
+  }
+
+  } finally {
+    stopTyping();
   }
 }
 
