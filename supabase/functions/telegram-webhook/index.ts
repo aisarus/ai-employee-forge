@@ -85,23 +85,74 @@ const BOT_CACHE_TTL_MS = 5 * 60 * 1_000;
 
 interface CachedBot {
   data: Record<string, unknown>;
+  agent: Record<string, unknown> | null;
   cachedAt: number;
 }
 
 const botCache = new Map<string, CachedBot>();
 
-function getCachedBot(botId: string): Record<string, unknown> | null {
+function getCachedBot(botId: string): { data: Record<string, unknown>; agent: Record<string, unknown> | null } | null {
   const entry = botCache.get(botId);
   if (!entry) return null;
   if (Date.now() - entry.cachedAt > BOT_CACHE_TTL_MS) {
     botCache.delete(botId);
     return null;
   }
-  return entry.data;
+  return { data: entry.data, agent: entry.agent };
 }
 
-function setCachedBot(botId: string, data: Record<string, unknown>): void {
-  botCache.set(botId, { data, cachedAt: Date.now() });
+function setCachedBot(botId: string, data: Record<string, unknown>, agent: Record<string, unknown> | null): void {
+  botCache.set(botId, { data, agent, cachedAt: Date.now() });
+}
+
+// ---------------------------------------------------------------------------
+// Layer 2: Build wizard config section from bot + agent data
+// ---------------------------------------------------------------------------
+function buildWizardConfig(
+  bot: Record<string, unknown>,
+  agent: Record<string, unknown> | null,
+): string {
+  const name: string =
+    (agent?.telegram_display_name as string | null)?.trim() ||
+    (agent?.name as string | null)?.trim() ||
+    (bot.name as string | null)?.trim() ||
+    "";
+
+  const description: string =
+    (agent?.telegram_about_text as string | null)?.trim() ||
+    (agent?.about_text as string | null)?.trim() ||
+    (agent?.telegram_short_description as string | null)?.trim() ||
+    (agent?.description as string | null)?.trim() ||
+    "";
+
+  const tone: string = (agent?.tone as string | null)?.trim() || "";
+
+  const rawCommands = agent?.telegram_commands ?? bot.telegram_commands;
+  const commands: { command: string; description: string }[] = Array.isArray(rawCommands)
+    ? rawCommands.map((c: unknown) => {
+        if (typeof c === "object" && c !== null) {
+          const obj = c as Record<string, unknown>;
+          return {
+            command: String(obj.command ?? ""),
+            description: String(obj.description ?? ""),
+          };
+        }
+        return { command: String(c), description: "" };
+      })
+    : [];
+
+  const lines: string[] = ["## YOUR IDENTITY"];
+  if (name) lines.push(`Name: ${name}`);
+  if (description) lines.push(`Description: ${description}`);
+  if (tone) lines.push(`Tone: ${tone}`);
+  if (commands.length > 0) {
+    lines.push("Available commands:");
+    for (const cmd of commands) {
+      lines.push(cmd.description ? `  /${cmd.command} — ${cmd.description}` : `  /${cmd.command}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -245,6 +296,7 @@ function startTypingIndicator(token: string, chatId: number): () => void {
 async function processMessage(
   supabase: ReturnType<typeof createClient>,
   bot: Record<string, unknown>,
+  agent: Record<string, unknown> | null,
   botId: string,
   chatId: number,
   userText: string,
@@ -306,13 +358,19 @@ async function processMessage(
 
   // Greeting fix: tell the model explicitly whether this is a new conversation
   const introRule = history.length === 0
-    ? "\nThis is the START of the conversation — you may introduce yourself briefly."
-    : "\nDo NOT introduce yourself — this conversation is already in progress.";
+    ? "This is the START of the conversation — you may introduce yourself briefly."
+    : "Do NOT introduce yourself — this conversation is already in progress.";
 
+  // 3-layer system prompt assembly:
+  // Layer 1: BOT_SHELL_TEMPLATE — behavioral rules
+  // Layer 2: Wizard config — identity, name, description, commands
+  // Layer 3: User system prompt — custom role & knowledge
+  const wizardConfig = buildWizardConfig(bot, agent);
   const finalSystemPrompt =
     BOT_SHELL_TEMPLATE +
-    introRule +
-    "\n\n## YOUR SPECIFIC ROLE AND KNOWLEDGE:\n" +
+    "\n\n" + introRule +
+    "\n\n" + wizardConfig +
+    "\n\n## YOUR ROLE AND KNOWLEDGE:\n" +
     systemPrompt;
 
   const messages: { role: string; content: string }[] = [
@@ -402,9 +460,16 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   // ------------------------------------------------------------------
-  // 1. Load bot config (cache-first)
+  // 1. Load bot config (cache-first) + linked agent for wizard config
   // ------------------------------------------------------------------
-  let bot: Record<string, unknown> | null = getCachedBot(botId);
+  let bot: Record<string, unknown> | null = null;
+  let agent: Record<string, unknown> | null = null;
+
+  const cached = getCachedBot(botId);
+  if (cached) {
+    bot = cached.data;
+    agent = cached.agent;
+  }
 
   if (!bot) {
     const { data: freshBot, error: botError } = await supabase
@@ -429,7 +494,18 @@ Deno.serve(async (req: Request) => {
       mutable.openai_api_key = await tryDecrypt(mutable.openai_api_key as string);
     }
 
-    setCachedBot(botId, mutable);
+    // Load linked agent (has identity/wizard config: name, description, commands, tone)
+    const agentId = mutable.agent_id as string | null;
+    if (agentId) {
+      const { data: freshAgent } = await supabase
+        .from("agents")
+        .select("name, description, about_text, telegram_display_name, telegram_short_description, telegram_about_text, telegram_commands, tone")
+        .eq("id", agentId)
+        .maybeSingle();
+      agent = (freshAgent as Record<string, unknown> | null) ?? null;
+    }
+
+    setCachedBot(botId, mutable, agent);
     bot = mutable;
   }
 
@@ -495,7 +571,7 @@ Deno.serve(async (req: Request) => {
   // TW1: Respond immediately to Telegram (< 1 s), process in background.
   // EdgeRuntime.waitUntil() keeps the function alive until processing completes.
   // ------------------------------------------------------------------
-  const bgWork = processMessage(supabase, bot, botId, chatId, userText, updateId, lovableKey);
+  const bgWork = processMessage(supabase, bot, agent, botId, chatId, userText, updateId, lovableKey);
 
   // @ts-ignore — EdgeRuntime is a Supabase/Deno edge-runtime global
   if (typeof EdgeRuntime !== "undefined") {
