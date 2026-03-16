@@ -173,7 +173,11 @@ Deno.serve(async (req) => {
 
     // S1/S2/DT1/DT6: Encrypt credentials before storing to DB
     const encryptedTelegramToken = await encryptValue(telegramToken);
-    const cleanOpenaiKey = openaiApiKey && openaiApiKey.startsWith("sk-") ? openaiApiKey : null;
+    // Accept OpenAI (sk-), Anthropic (sk-ant-), and Gemini (AIza) keys
+    const cleanOpenaiKey = openaiApiKey && (
+      openaiApiKey.startsWith("sk-") ||
+      openaiApiKey.startsWith("AIza")
+    ) ? openaiApiKey.trim() : null;
     const encryptedOpenaiKey = cleanOpenaiKey ? await encryptValue(cleanOpenaiKey) : null;
 
     const botUpsertData: Record<string, unknown> = {

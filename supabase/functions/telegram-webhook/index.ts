@@ -567,7 +567,11 @@ async function processMessage(
   ];
 
   // Generate AI reply (BYOK → Lovable fallback)
-  const byokKey: string = ((bot.openai_api_key as string) ?? "").trim();
+  // Check bot table first, then fall back to agent table (some keys stored in agents)
+  const byokKey: string = (
+    ((bot.openai_api_key as string) ?? "").trim() ||
+    ((agent?.openai_api_key as string) ?? "").trim()
+  );
   let reply: string | null = null;
 
   if (byokKey) {
@@ -712,7 +716,15 @@ Deno.serve(async (req: Request) => {
         .select("name, description, about_text, telegram_display_name, telegram_short_description, telegram_about_text, telegram_commands, tone")
         .eq("id", agentId)
         .maybeSingle();
-      agent = (freshAgent as Record<string, unknown> | null) ?? null;
+      if (freshAgent) {
+        const mutableAgent = { ...freshAgent } as Record<string, unknown>;
+        if (mutableAgent.openai_api_key) {
+          mutableAgent.openai_api_key = await tryDecrypt(mutableAgent.openai_api_key as string);
+        }
+        agent = mutableAgent;
+      } else {
+        agent = null;
+      }
     }
 
     setCachedBot(botId, mutable, agent);
