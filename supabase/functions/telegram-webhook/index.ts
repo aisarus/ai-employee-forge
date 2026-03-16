@@ -125,11 +125,42 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
   }
 
+  // ------------------------------------------------------------------
+  // 3a. Handle callback_query (inline keyboard button press)
+  //     Must answer immediately to dismiss the Telegram loading spinner,
+  //     then treat the callback data as a regular user message.
+  // ------------------------------------------------------------------
+  if (update?.callback_query) {
+    const cq = update.callback_query;
+    // Always acknowledge — never leave a callback_query unanswered
+    await fetch(`${TELEGRAM_API}/bot${bot.telegram_token}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: cq.id }),
+    }).catch((e) => console.error("answerCallbackQuery error:", e));
+
+    // Re-route as a regular text message using the button's callback_data
+    const cbChatId: number | undefined = cq.message?.chat?.id;
+    const cbText: string | undefined = cq.data;
+    if (!cbChatId || !cbText) {
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+    // Synthesize a message-like object so the rest of the handler works unchanged
+    update = {
+      update_id: update.update_id,
+      message: {
+        chat: { id: cbChatId },
+        text: cbText,
+        message_id: cq.message?.message_id,
+      },
+    };
+  }
+
   const chatId: number | undefined = update?.message?.chat?.id;
   const userText: string | undefined = update?.message?.text;
   const updateId: number | undefined = update?.update_id;
 
-  // Ignore non-text messages silently
+  // Ignore non-text messages (photos, documents, stickers, etc.) silently
   if (!chatId || !userText) {
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   }

@@ -121,9 +121,29 @@ Deno.serve(async (req) => {
     if (aboutText) {
       await callTelegram(telegramToken, "setMyDescription", { description: aboutText });
     }
-    if (Array.isArray(commands) && commands.length > 0) {
-      await callTelegram(telegramToken, "setMyCommands", { commands });
-    }
+
+    // Normalize commands: Telegram requires no leading slash and lowercase letters.
+    // Strip "/" prefix that the wizard adds for display purposes, then lowercase.
+    const normalizedCommands = Array.isArray(commands)
+      ? commands
+          .map((c: { command: string; description: string }) => ({
+            command: c.command.replace(/^\/+/, "").toLowerCase().replace(/[^a-z0-9_]/g, ""),
+            description: (c.description || c.command).slice(0, 256),
+          }))
+          .filter((c) => c.command.length >= 1 && c.command.length <= 32)
+      : [];
+
+    // Always call setMyCommands — even with an empty array — so that a
+    // re-deploy with no commands correctly clears previously registered ones.
+    await callTelegram(telegramToken, "setMyCommands", { commands: normalizedCommands });
+
+    // Configure the bot's menu button: show the command list when there are
+    // commands, otherwise hide it with a plain "default" button.
+    await callTelegram(telegramToken, "setChatMenuButton", {
+      menu_button: normalizedCommands.length > 0
+        ? { type: "commands" }
+        : { type: "default" },
+    });
 
     // ── 3. Upsert bot row in `bots` table (webhook receiver) ──────────────
     const webhookSecret = generateWebhookSecret();
