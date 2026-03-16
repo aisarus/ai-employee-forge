@@ -137,6 +137,41 @@ const Index = () => {
 
           <div className="space-y-4 rounded-2xl border border-border bg-card/60 p-6 backdrop-blur-xl shadow-lg shadow-black/20">
             <div className="space-y-2">
+              <Label htmlFor="apiKey" className="flex items-center gap-1.5 text-sm font-medium">
+                <Key className="h-3.5 w-3.5 text-primary" />
+                Your AI API Key (OpenAI, Anthropic, or Google Gemini)
+                <span className="text-red-400 ml-0.5">*</span>
+              </Label>
+              <p className="text-xs text-muted-foreground -mt-1">
+                sk-... for OpenAI · sk-ant-... for Anthropic · AIza... for Gemini
+              </p>
+              <div className="relative">
+                <Input
+                  id="apiKey"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Paste your API key here"
+                  className="bg-background/50 border-border pr-36"
+                />
+                {apiKey && (
+                  <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium pointer-events-none ${
+                    apiKey.startsWith("sk-ant-") ? "text-orange-400" :
+                    apiKey.startsWith("sk-") ? "text-green-400" :
+                    apiKey.startsWith("AIza") ? "text-blue-400" :
+                    "text-muted-foreground"
+                  }`}>
+                    {apiKey.startsWith("sk-ant-") ? "Anthropic detected ✓" :
+                     apiKey.startsWith("sk-") ? "OpenAI detected ✓" :
+                     apiKey.startsWith("AIza") ? "Gemini detected ✓" :
+                     "Unknown format"}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-amber-500/80">Required for brain generation — your key is stored locally only.</p>
+            </div>
+
+            <div className="space-y-2">
               <Label className="text-sm font-medium">{t("create.instructions_label")} *</Label>
               <Textarea
                 rows={5}
