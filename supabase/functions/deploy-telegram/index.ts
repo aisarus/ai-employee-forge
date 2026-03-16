@@ -164,6 +164,13 @@ Deno.serve(async (req) => {
       .eq("id", agentId)
       .single();
 
+    // DT7: Guard against blank system_prompt — deployed bot must have a personality
+    const DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant. Be concise and friendly.";
+    const systemPrompt = agentFull?.system_prompt?.trim() || DEFAULT_SYSTEM_PROMPT;
+    if (!agentFull?.system_prompt?.trim()) {
+      console.warn(`DT7: Agent ${agentId} has no system_prompt — using default.`);
+    }
+
     // S1/S2/DT1/DT6: Encrypt credentials before storing to DB
     const encryptedTelegramToken = await encryptValue(telegramToken);
     const cleanOpenaiKey = openaiApiKey && openaiApiKey.startsWith("sk-") ? openaiApiKey : null;
@@ -173,7 +180,7 @@ Deno.serve(async (req) => {
       user_id:          user.id,
       agent_id:         agentId,
       name:             displayName || (botInfo as { first_name?: string }).first_name || "",
-      system_prompt:    agentFull?.system_prompt ?? "",
+      system_prompt:    systemPrompt,
       telegram_token:   encryptedTelegramToken,
       openai_api_key:   encryptedOpenaiKey,
       webhook_secret:   webhookSecret,
