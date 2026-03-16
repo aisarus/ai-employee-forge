@@ -7,7 +7,10 @@
  * Security: Telegram sends X-Telegram-Bot-Api-Secret-Token which must match
  * bots.webhook_secret stored in the database.
  *
- * AI: Uses the bot's BYOK openai_api_key (gpt-4o-mini).
+ * AI: BYOK with multi-provider support — detects provider from key prefix:
+ *   - sk-ant-*  → Anthropic (claude-haiku-4-5)
+ *   - AIza*     → Google Gemini (gemini-1.5-flash)
+ *   - sk-*      → OpenAI (gpt-4o-mini)
  * Fallback: if BYOK key is absent, errors, or times out, falls back to Lovable AI gateway.
  *
  * Context: last 30 turns from bot_chat_history for the (bot, chat) pair.
@@ -24,6 +27,10 @@ import { tryDecrypt } from "../_shared/crypto.ts";
 
 const TELEGRAM_API = "https://api.telegram.org";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION = "2023-06-01";
+const ANTHROPIC_MODEL = "claude-haiku-4-5";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const LOVABLE_MODEL = "google/gemini-2.0-flash-exp";
 const OPENAI_MODEL = "gpt-4o-mini";
@@ -163,6 +170,16 @@ function timeoutSignal(ms: number): AbortSignal {
   return AbortSignal.timeout(ms);
 }
 
+type Provider = "openai" | "anthropic" | "gemini";
+
+function detectProvider(apiKey: string): Provider | null {
+  if (!apiKey) return null;
+  if (apiKey.startsWith("sk-ant-")) return "anthropic";
+  if (apiKey.startsWith("AIza")) return "gemini";
+  if (apiKey.startsWith("sk-")) return "openai";
+  return null;
+}
+
 async function callOpenAi(
   messages: { role: string; content: string }[],
   apiKey: string,
@@ -188,6 +205,88 @@ async function callOpenAi(
 
   const data = await res.json().catch(() => ({}));
   const content: string | null = data?.choices?.[0]?.message?.content ?? null;
+  return { content, shouldFallback: content === null };
+}
+
+async function callAnthropic(
+  messages: { role: string; content: string }[],
+  apiKey: string,
+): Promise<{ content: string | null; shouldFallback: boolean }> {
+  const systemMsg = messages.find((m) => m.role === "system");
+  const chatMessages = messages.filter((m) => m.role !== "system");
+
+  let res: Response;
+  try {
+    res = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": ANTHROPIC_VERSION,
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: 1024,
+        system: systemMsg?.content ?? "",
+        messages: chatMessages,
+      }),
+      signal: timeoutSignal(AI_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error("Anthropic fetch error:", (err as Error).message);
+    return { content: null, shouldFallback: true };
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("Anthropic error:", res.status, body);
+    return { content: null, shouldFallback: res.status !== 400 };
+  }
+
+  const data = await res.json().catch(() => ({}));
+  const content: string | null = data?.content?.[0]?.text ?? null;
+  return { content, shouldFallback: content === null };
+}
+
+async function callGemini(
+  messages: { role: string; content: string }[],
+  apiKey: string,
+): Promise<{ content: string | null; shouldFallback: boolean }> {
+  const systemMsg = messages.find((m) => m.role === "system");
+  const chatMessages = messages.filter((m) => m.role !== "system");
+
+  const contents = chatMessages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const requestBody: Record<string, unknown> = { contents };
+  if (systemMsg) {
+    requestBody.systemInstruction = { parts: [{ text: systemMsg.content }] };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${GEMINI_URL}${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+      signal: timeoutSignal(AI_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error("Gemini fetch error:", (err as Error).message);
+    return { content: null, shouldFallback: true };
+  }
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.error("Gemini error:", res.status, errBody);
+    return { content: null, shouldFallback: res.status !== 400 };
+  }
+
+  const data = await res.json().catch(() => ({}));
+  const content: string | null =
+    data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
   return { content, shouldFallback: content === null };
 }
 
@@ -383,8 +482,18 @@ async function processMessage(
   let reply: string | null = null;
 
   if (byokKey) {
-    // BYOK — no rate limit
-    const result = await callOpenAi(messages, byokKey);
+    // BYOK — detect provider from key prefix, no rate limit
+    const provider = detectProvider(byokKey);
+    let result: { content: string | null; shouldFallback: boolean };
+
+    if (provider === "anthropic") {
+      result = await callAnthropic(messages, byokKey);
+    } else if (provider === "gemini") {
+      result = await callGemini(messages, byokKey);
+    } else {
+      result = await callOpenAi(messages, byokKey);
+    }
+
     reply = result.content;
 
     if (!reply && result.shouldFallback && lovableKey) {
