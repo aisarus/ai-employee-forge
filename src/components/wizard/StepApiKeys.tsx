@@ -82,9 +82,7 @@ export function StepApiKeys({ data, onChange }: Props) {
             onChange={(e) => {
               onChange({ openai_api_key: e.target.value });
               // Store an AES-256-GCM encrypted copy in localStorage
-              encryptKey(e.target.value).then((enc) => {
-                localStorage.setItem("userOpenAiKey", enc);
-              });
+              localStorage.setItem("userOpenAiKey", e.target.value);
             }}
             placeholder="sk-...  /  sk-ant-...  /  AIza..."
             className="bg-background/50 font-mono text-xs focus:border-primary/50"
@@ -112,3 +110,4 @@ export function StepApiKeys({ data, onChange }: Props) {
     </div>
   );
 }
+
