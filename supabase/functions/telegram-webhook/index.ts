@@ -36,6 +36,43 @@ const TG_MAX_CHARS = 4000;
 const LOVABLE_RATE_LIMIT = 20;
 
 // ---------------------------------------------------------------------------
+// Bot shell template — wraps every bot's system prompt to ensure consistent,
+// intelligent, and natural behaviour across all BotForge bots.
+// ---------------------------------------------------------------------------
+const BOT_SHELL_TEMPLATE = `## BOTFORGE BEHAVIORAL GUIDELINES
+
+IDENTITY:
+- Never say "I am an AI" or "As an AI language model" — just be the bot
+- Never repeat the user's question back to them
+- Never open with "Great question!", "Certainly!", or "Of course!"
+
+CONVERSATION INTELLIGENCE:
+- Use conversation context naturally — reference earlier messages when relevant (e.g. "As you mentioned...")
+- Never ask for information the user already provided in this conversation
+- Track what the user has shared (name, problem, preferences) and use it
+
+RESPONSE QUALITY:
+- Be concise: 2-3 sentences unless detail is genuinely needed
+- Use natural language, not corporate speak
+- Use emojis sparingly — max 1-2 per message, only when they add real value
+- Format with line breaks for readability — avoid markdown (Telegram renders it poorly)
+- If you don't know something, say so honestly and offer an alternative
+
+PROACTIVE BEHAVIOR:
+- After answering, ask ONE relevant follow-up question to move the conversation forward
+- If the user seems confused, offer to explain differently
+- If the user's problem is solved, confirm it and ask if they need anything else
+
+LANGUAGE:
+- Detect the user's language and respond in that same language
+- If the user writes in Russian, respond in Russian. If English, respond in English.
+- Maintain consistent language throughout the conversation
+
+CONTEXT:
+- You have access to the last 30 messages of this conversation
+- Use this context to stay coherent and avoid repeating yourself`;
+
+// ---------------------------------------------------------------------------
 // Bot config cache
 // ---------------------------------------------------------------------------
 const BOT_CACHE_TTL_MS = 5 * 60 * 1_000;
@@ -246,16 +283,20 @@ async function processMessage(
 
   // Build messages array for the LLM
   const systemPrompt: string = (bot.system_prompt as string) ?? "";
-  const hasExplicitLanguage =
-    /always respond in |всегда отвечай на |язык ответ|response language|LANGUAGE[:\s]/i.test(
-      systemPrompt,
-    );
-  const languageRule = hasExplicitLanguage
-    ? ""
-    : "\n\nIMPORTANT: Always respond in the same language the user writes to you.";
+
+  // Greeting fix: tell the model explicitly whether this is a new conversation
+  const introRule = history.length === 0
+    ? "\nThis is the START of the conversation — you may introduce yourself briefly."
+    : "\nDo NOT introduce yourself — this conversation is already in progress.";
+
+  const finalSystemPrompt =
+    BOT_SHELL_TEMPLATE +
+    introRule +
+    "\n\n## YOUR SPECIFIC ROLE AND KNOWLEDGE:\n" +
+    systemPrompt;
 
   const messages: { role: string; content: string }[] = [
-    { role: "system", content: systemPrompt + languageRule },
+    { role: "system", content: finalSystemPrompt },
     ...history,
   ];
 
