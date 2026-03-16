@@ -84,7 +84,7 @@ export async function callLlm(
       } else if (isGemini) {
         if (attempt === 0) console.log('[TRI-TFM] calling Gemini directly');
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${userApiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${userApiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -150,3 +150,4 @@ export function parseLlmJson<T>(raw: string, fallback: T): T {
     return fallback;
   }
 }
+
