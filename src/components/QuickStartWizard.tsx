@@ -233,7 +233,8 @@ export function QuickStartWizard() {
         toast.error(lang === "ru" ? "Превышено время ожидания (180 с). Попробуйте снова." : "Generation timed out after 180s. Please try again.");
       } else {
         console.error("TRI-TFM error:", e);
-        toast.error(lang === "ru" ? "Ошибка генерации" : "Generation error");
+        const msg = e instanceof Error ? e.message : String(e);
+        toast.error(lang === "ru" ? `Ошибка генерации: ${msg}` : `Generation error: ${msg}`);
       }
     } finally {
       setIsGenerating(false);

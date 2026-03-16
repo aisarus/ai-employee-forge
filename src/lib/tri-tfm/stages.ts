@@ -120,16 +120,13 @@ The output IS the system prompt, not a description of it.
 
 Return JSON only: {"improvedPrompt": "string", "improvements": ["string"]}`;
 
-  try {
-    const raw = await callLlm(systemPrompt, prompt, llmOpts);
-    const result = parseLlmJson<ProposerResult>(raw, { improvedPrompt: prompt, improvements: [] });
-    if (!result.improvedPrompt || result.improvedPrompt.trim().length === 0) {
-      return { improvedPrompt: prompt, improvements: [] };
-    }
-    return result;
-  } catch {
-    return { improvedPrompt: prompt, improvements: [] };
+  const raw = await callLlm(systemPrompt, prompt, llmOpts);
+  const result = parseLlmJson<ProposerResult>(raw, { improvedPrompt: prompt, improvements: [] });
+  if (!result.improvedPrompt || result.improvedPrompt.trim().length === 0) {
+    console.error('[TRI-TFM] Proposer returned empty improvedPrompt, raw response:', raw);
+    throw new Error('Proposer returned an empty prompt');
   }
+  return result;
 }
 
 // ─── Critic ────────────────────────────────────────────────────

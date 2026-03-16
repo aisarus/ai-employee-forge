@@ -27,6 +27,7 @@ export async function callLlm(
 
     try {
       if (useDirectOpenAi) {
+        if (attempt === 0) console.log('[TRI-TFM] useDirectOpenAi=true, calling OpenAI directly');
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -45,12 +46,15 @@ export async function callLlm(
 
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
-          throw new Error(err?.error?.message || `OpenAI error ${response.status}`);
+          const msg = err?.error?.message || `OpenAI error ${response.status}`;
+          console.error(`[TRI-TFM] OpenAI fetch error (attempt ${attempt + 1}):`, msg);
+          throw new Error(msg);
         }
 
         const json = await response.json();
         return json.choices?.[0]?.message?.content ?? "";
       } else {
+        if (attempt === 0) console.log('[TRI-TFM] useDirectOpenAi=false, calling llm-proxy edge function');
         const { data, error } = await supabase.functions.invoke("llm-proxy", {
           body: {
             messages: [
@@ -61,14 +65,23 @@ export async function callLlm(
           },
         });
 
-        if (error) throw new Error(error.message || "Edge function error");
-        if (data?.error) throw new Error(data.error);
+        if (error) {
+          console.error(`[TRI-TFM] llm-proxy edge function error (attempt ${attempt + 1}):`, error.message);
+          throw new Error(error.message || "Edge function error");
+        }
+        if (data?.error) {
+          console.error(`[TRI-TFM] llm-proxy returned error (attempt ${attempt + 1}):`, data.error);
+          throw new Error(data.error);
+        }
 
         return data?.content ?? "";
       }
     } catch (e: any) {
       lastError = e;
-      if (attempt < maxRetries) continue;
+      if (attempt < maxRetries) {
+        console.warn(`[TRI-TFM] LLM call failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying:`, e.message);
+        continue;
+      }
     }
   }
 
