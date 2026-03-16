@@ -15,6 +15,7 @@ import Integrations from "./pages/Integrations";
 import Billing from "./pages/Billing";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -29,7 +30,7 @@ function AppRoutes() {
   if (!user) {
     return (
       <Routes>
-        <Route path="/auth" element={<Auth />} />
+        <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
         <Route path="*" element={<Navigate to="/auth" replace />} />
       </Routes>
     );
@@ -43,13 +44,13 @@ function AppRoutes() {
           <AppHeader />
           <main className="flex-1 flex flex-col">
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/workspace" element={<WorkspacePage />} />
-              <Route path="/agents" element={<MyAgents />} />
-              <Route path="/integrations" element={<Integrations />} />
-              <Route path="/billing" element={<Billing />} />
+              <Route path="/" element={<ErrorBoundary><Index /></ErrorBoundary>} />
+              <Route path="/workspace" element={<ErrorBoundary><WorkspacePage /></ErrorBoundary>} />
+              <Route path="/agents" element={<ErrorBoundary><MyAgents /></ErrorBoundary>} />
+              <Route path="/integrations" element={<ErrorBoundary><Integrations /></ErrorBoundary>} />
+              <Route path="/billing" element={<ErrorBoundary><Billing /></ErrorBoundary>} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
-              <Route path="*" element={<NotFound />} />
+              <Route path="*" element={<ErrorBoundary><NotFound /></ErrorBoundary>} />
             </Routes>
           </main>
         </div>
