@@ -7,18 +7,19 @@
  * `saveConnectors` upserts all connectors for an agent in a single batch.
  * `loadConnectors` returns the stored connectors for an agent.
  *
- * Auth values are stored as-is; in a production environment you should
- * encrypt them server-side (e.g. via a Supabase Edge Function) before
- * persisting, and decrypt on read.
+ * Auth values are encrypted with AES-256-GCM (client-side, via crypto.ts)
+ * before being persisted, and decrypted on read.
  */
 
 import { supabase } from "@/integrations/supabase/client";
 import { ConnectorConfig } from "@/components/wizard/types";
+import { encryptKey, decryptKey } from "@/lib/crypto";
 
 export function useConnectors() {
   /**
    * Persist all connectors for the given agent.
    * Deletes removed connectors and upserts current ones.
+   * auth_value is encrypted before storing.
    */
   async function saveConnectors(agentId: string, connectors: ConnectorConfig[]): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
@@ -36,17 +37,19 @@ export function useConnectors() {
 
     if (connectors.length === 0) return;
 
-    // 2. Insert new set
-    const rows = connectors.map((c) => ({
-      agent_id:       agentId,
-      user_id:        user.id,
-      connector_type: c.type,
-      display_name:   c.display_name,
-      status:         c.status,
-      auth_value:     c.auth_value || null,
-      capabilities:   c.capabilities,
-      config:         (c.config ?? {}) as Record<string, string>,
-    }));
+    // 2. Encrypt auth_value for each connector, then insert
+    const rows = await Promise.all(
+      connectors.map(async (c) => ({
+        agent_id:       agentId,
+        user_id:        user.id,
+        connector_type: c.type,
+        display_name:   c.display_name,
+        status:         c.status,
+        auth_value:     c.auth_value ? await encryptKey(c.auth_value) : null,
+        capabilities:   c.capabilities,
+        config:         (c.config ?? {}) as Record<string, string>,
+      }))
+    );
 
     const { error: insError } = await supabase
       .from("bot_connectors")
@@ -59,6 +62,8 @@ export function useConnectors() {
 
   /**
    * Load connectors for a given agent and map them to ConnectorConfig[].
+   * auth_value is decrypted on read; falls back to empty string if decryption fails
+   * (e.g. legacy plaintext rows).
    */
   async function loadConnectors(agentId: string): Promise<ConnectorConfig[]> {
     const { data, error } = await supabase
@@ -68,15 +73,28 @@ export function useConnectors() {
 
     if (error || !data) return [];
 
-    return data.map((row) => ({
-      id:           row.id,
-      type:         row.connector_type,
-      display_name: row.display_name,
-      status:       row.status as ConnectorConfig["status"],
-      auth_value:   row.auth_value ?? "",
-      capabilities: (row.capabilities ?? []) as ("read" | "write")[],
-      config:       (row.config ?? {}) as Record<string, string>,
-    }));
+    return Promise.all(
+      data.map(async (row) => {
+        let auth_value = "";
+        if (row.auth_value) {
+          try {
+            auth_value = await decryptKey(row.auth_value);
+          } catch {
+            // Legacy plaintext row — return as-is
+            auth_value = row.auth_value;
+          }
+        }
+        return {
+          id:           row.id,
+          type:         row.connector_type,
+          display_name: row.display_name,
+          status:       row.status as ConnectorConfig["status"],
+          auth_value,
+          capabilities: (row.capabilities ?? []) as ("read" | "write")[],
+          config:       (row.config ?? {}) as Record<string, string>,
+        };
+      })
+    );
   }
 
   return { saveConnectors, loadConnectors };
