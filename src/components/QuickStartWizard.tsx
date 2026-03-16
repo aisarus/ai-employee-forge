@@ -70,12 +70,43 @@ export function QuickStartWizard() {
   const [tokenError, setTokenError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Reset wizard (clear all localStorage and state) ──────────────────────
+  const handleResetWizard = useCallback(() => {
+    localStorage.removeItem("quickwizard_draft");
+    localStorage.removeItem("botName");
+    localStorage.removeItem("generatedPrompt");
+    localStorage.removeItem("tfmData");
+    localStorage.removeItem("currentAgentId");
+    
+    setBotDescription("");
+    setBotName("");
+    setTone("Friendly");
+    setResponseStyle("Concise");
+    setGeneratedBrain("");
+    setBrainGenerated(false);
+    setAgentId(null);
+    setChatMessages([]);
+    setChatInput("");
+    setWizardData({ ...DEFAULT_WIZARD_DATA });
+    setStep("describe");
+    setDeployed(false);
+    setBotUsername("");
+    setTokenState("idle");
+    
+    toast.success(lang === "ru" ? "Состояние очищено" : "State cleared");
+  }, [lang]);
+
   // ── Restore state from localStorage on mount ──────────────────────────────
   useEffect(() => {
     try {
       const raw = localStorage.getItem("quickwizard_draft");
       if (!raw) return;
       const saved = JSON.parse(raw);
+      // Only restore if wizard is not already completed
+      if (saved.deployed) {
+        localStorage.removeItem("quickwizard_draft");
+        return;
+      }
       if (saved.botDescription) setBotDescription(saved.botDescription);
       if (saved.botName)        setBotName(saved.botName);
       if (saved.tone)           setTone(saved.tone);
@@ -805,9 +836,21 @@ export function QuickStartWizard() {
 
       {/* Footer */}
       <div className="px-6 py-4 border-t border-border/50 bg-background/80 backdrop-blur-xl flex items-center justify-between shrink-0">
-        <Button variant="outline" onClick={goBack} disabled={stepIdx === 0} className="gap-1">
-          <ChevronLeft className="h-4 w-4" /> {lang === "ru" ? "Назад" : "Back"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={goBack} disabled={stepIdx === 0} className="gap-1">
+            <ChevronLeft className="h-4 w-4" /> {lang === "ru" ? "Назад" : "Back"}
+          </Button>
+          {stepIdx > 0 && (
+            <Button 
+              variant="ghost" 
+              onClick={handleResetWizard}
+              className="gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+              title={lang === "ru" ? "Очистить всё и начать заново" : "Clear all and start over"}
+            >
+              <X className="h-4 w-4" /> {lang === "ru" ? "Сброс" : "Reset"}
+            </Button>
+          )}
+        </div>
 
         {step === "describe" ? (
           <button
