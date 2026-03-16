@@ -26,6 +26,36 @@ const HISTORY_LIMIT = 30;
 const AI_TIMEOUT_MS = 20_000;
 
 // ---------------------------------------------------------------------------
+// Bot config cache
+// Deno Edge Function instances are warm for ~5–10 minutes between requests.
+// Caching bot rows avoids a DB round-trip on every Telegram message while
+// still picking up config changes within BOT_CACHE_TTL_MS.
+// ---------------------------------------------------------------------------
+const BOT_CACHE_TTL_MS = 5 * 60 * 1_000; // 5 minutes
+
+interface CachedBot {
+  data: Record<string, unknown>;
+  cachedAt: number;
+}
+
+/** Module-level map — persists across requests within the same warm instance */
+const botCache = new Map<string, CachedBot>();
+
+function getCachedBot(botId: string): Record<string, unknown> | null {
+  const entry = botCache.get(botId);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > BOT_CACHE_TTL_MS) {
+    botCache.delete(botId);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCachedBot(botId: string, data: Record<string, unknown>): void {
+  botCache.set(botId, { data, cachedAt: Date.now() });
+}
+
+// ---------------------------------------------------------------------------
 // AI helpers
 // ---------------------------------------------------------------------------
 
@@ -117,19 +147,26 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   // ------------------------------------------------------------------
-  // 1. Load bot config
+  // 1. Load bot config (cache-first: avoids DB round-trip on warm instances)
   // ------------------------------------------------------------------
-  const { data: bot, error: botError } = await supabase
-    .from("bots")
-    .select("*")
-    .eq("id", botId)
-    .eq("is_active", true)
-    .maybeSingle();
+  let bot: Record<string, unknown> | null = getCachedBot(botId);
 
-  if (botError || !bot) {
-    console.error("Bot not found or inactive:", botId, botError?.message);
-    // Always respond 200 to Telegram so it doesn't retry endlessly
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  if (!bot) {
+    const { data: freshBot, error: botError } = await supabase
+      .from("bots")
+      .select("*")
+      .eq("id", botId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (botError || !freshBot) {
+      console.error("Bot not found or inactive:", botId, botError?.message);
+      // Always respond 200 to Telegram so it doesn't retry endlessly
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+
+    setCachedBot(botId, freshBot);
+    bot = freshBot;
   }
 
   // ------------------------------------------------------------------
