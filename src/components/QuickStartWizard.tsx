@@ -22,7 +22,7 @@ import {
 
 type QuickStep = "describe" | "brain_preview" | "identity" | "api_key" | "deploy";
 
-const STEPS: QuickStep[] = ["describe", "brain_preview", "identity", "api_key", "deploy"];
+const STEPS: QuickStep[] = ["api_key", "describe", "brain_preview", "identity", "deploy"];
 
 const STEP_LABELS: Record<QuickStep, { en: string; ru: string }> = {
   describe:      { en: "Describe Your Bot", ru: "Опишите бота" },
@@ -37,7 +37,7 @@ export function QuickStartWizard() {
   const { t, lang } = useI18n();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<QuickStep>("describe");
+  const [step, setStep] = useState<QuickStep>("api_key");
   const stepIdx = STEPS.indexOf(step);
 
   // Describe step
