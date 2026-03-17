@@ -109,6 +109,14 @@
   .section-label {
     @apply text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60;
   }
+  /* Very subtle primary fill for hint blocks */
+  .bg-primary-soft {
+    background-color: hsl(var(--primary) / 0.08);
+  }
+  /* Transition duration 250ms */
+  .duration-250 {
+    transition-duration: 250ms;
+  }
 }
 
 /* Gnome assembly animations */
@@ -149,17 +157,57 @@
 .animate-bot-build { animation: bot-build 4s ease-out forwards; }
 .animate-hammer { animation: hammer-bounce 0.4s ease-in-out infinite; }
 
-/* Wizard step slide transitions */
-@keyframes wizard-slide-forward {
-  from { opacity: 0; transform: translateX(28px); }
-  to   { opacity: 1; transform: translateX(0); }
+/* Wizard step transitions — spring scale + slide */
+@keyframes wizard-enter-forward {
+  from { opacity: 0; transform: translateX(44px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0)    scale(1);    }
 }
-@keyframes wizard-slide-back {
-  from { opacity: 0; transform: translateX(-28px); }
-  to   { opacity: 1; transform: translateX(0); }
+@keyframes wizard-enter-back {
+  from { opacity: 0; transform: translateX(-44px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0)     scale(1);    }
 }
-.animate-wizard-forward { animation: wizard-slide-forward 0.22s ease-out; }
-.animate-wizard-back    { animation: wizard-slide-back    0.22s ease-out; }
+.animate-wizard-forward { animation: wizard-enter-forward 0.38s cubic-bezier(0.34, 1.12, 0.64, 1) both; }
+.animate-wizard-back    { animation: wizard-enter-back    0.38s cubic-bezier(0.34, 1.12, 0.64, 1) both; }
+
+/* Wizard animated progress bar */
+.wizard-prog-track {
+  height: 3px;
+  background: hsl(var(--border));
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.wizard-prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(263 70% 58%), hsl(210 90% 55%), hsl(290 65% 60%));
+  background-size: 200% 100%;
+  border-radius: 999px;
+  transition: width 0.5s cubic-bezier(0.34, 1.1, 0.64, 1);
+  animation: shimmer 2.4s ease-in-out infinite;
+  position: relative;
+}
+
+/* Active step dot ring */
+@keyframes step-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px hsl(var(--primary)/0.2), 0 0 12px hsl(var(--primary)/0.5); }
+  50%       { box-shadow: 0 0 0 5px hsl(var(--primary)/0.12), 0 0 22px hsl(var(--primary)/0.7); }
+}
+.step-dot-active { animation: step-ring-pulse 2s ease-in-out infinite; }
+
+/* Bot type card selection pop */
+@keyframes card-select-pop {
+  0%   { transform: scale(1);    }
+  45%  { transform: scale(1.07); }
+  100% { transform: scale(1.03); }
+}
+.animate-card-pop { animation: card-select-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Wizard deploy button throb */
+@keyframes deploy-throb {
+  0%, 100% { box-shadow: 0 0 20px hsl(var(--primary)/.5), 0 4px 24px hsl(var(--primary)/.3); transform: scale(1); }
+  50%       { box-shadow: 0 0 36px hsl(var(--primary)/.8), 0 8px 40px hsl(var(--primary)/.5); transform: scale(1.02); }
+}
+.deploy-throb { animation: deploy-throb 1.8s ease-in-out infinite; }
 
 /* Primary gradient button with shimmer */
 .btn-gradient {
