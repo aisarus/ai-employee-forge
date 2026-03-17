@@ -112,6 +112,9 @@ export interface WizardData {
   action_triggers: ActionTrigger[];
   integration_rules: IntegrationRule[];
 
+  // Prompt block ordering (drag-and-drop customisation)
+  prompt_block_order?: string[];
+
   // Telegram Config
   telegram_bot_token: string;
   telegram_display_name: string;
@@ -292,6 +295,7 @@ export const DEFAULT_WIZARD_DATA: WizardData = {
   ],
   webhook_mode: "Auto-generate webhook URL",
   custom_webhook_url: "",
+  prompt_block_order: undefined,
 };
 
 // ── Bot type presets (i18n keys resolved at apply time) ───────────────────────
