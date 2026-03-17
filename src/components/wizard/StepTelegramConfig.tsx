@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { WizardData, BotCommand } from "./types";
+import { WizardData } from "./types";
 import { Plus, X, Key, Send, Terminal, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 

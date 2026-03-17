@@ -3,7 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { WizardData, StarterButton, BOT_TYPE_PRESETS } from "./types";
+import { WizardData } from "./types";
 import { Plus, X, MessageSquare, Hand, Sparkles } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 

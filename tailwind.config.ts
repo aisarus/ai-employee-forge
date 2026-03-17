@@ -103,6 +103,10 @@ export default {
           "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0)" },
           "50%": { boxShadow: "0 0 20px 4px hsl(var(--primary) / 0.4)" },
         },
+        "caret-blink": {
+          "0%,70%,100%": { opacity: "1" },
+          "20%,50%": { opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -112,6 +116,7 @@ export default {
         "slide-left": "slide-left 0.22s ease-out",
         "slide-right": "slide-right 0.22s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "caret-blink": "caret-blink 1.25s ease-out infinite",
       },
     },
   },

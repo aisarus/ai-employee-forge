@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useI18n } from "@/hooks/useI18n";
 import { DeployWizard } from "@/components/DeployWizard";
@@ -34,7 +33,6 @@ const MyAgents = () => {
   const [editAgent, setEditAgent] = useState<any | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { t } = useI18n();
 
   const fetchAgents = async () => {

@@ -127,8 +127,6 @@ export async function runTriTfmPipeline(input: PipelineInput): Promise<TriTfmOut
 
   // ── Stage 3: D-S Loop ────────────────────────────────────
   if (!config.proposerCriticOnly) {
-    const dsInput = currentPrompt;
-
     for (let i = 1; i <= effectiveMaxIter; i++) {
       const iterNum = totalIterations + i;
       onProgress('ds_loop', `D-S iteration ${i}/${effectiveMaxIter}`);

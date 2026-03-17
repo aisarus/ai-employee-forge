@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,7 +42,7 @@ const STEP_LABELS: Record<QuickStep, { en: string; ru: string }> = {
 
 export function QuickStartWizard() {
   const { user } = useAuth();
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<QuickStep>("api_key");

@@ -3,7 +3,6 @@ import { Label } from "@/components/ui/label";
 import { WizardData } from "./types";
 import { Brain, ExternalLink, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
-import { encryptKey } from "@/lib/crypto";
 
 interface Props {
   data: WizardData;

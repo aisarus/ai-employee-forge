@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WizardData, DataSource, FieldMapping, TRANSFORM_OPTIONS } from "./types";
-import { Plus, X, ArrowRight, Database, FileOutput, Link2, GripVertical } from "lucide-react";
+import { Plus, X, ArrowRight, Database, FileOutput, Link2 } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 
 interface Props {

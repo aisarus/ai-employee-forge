@@ -170,7 +170,7 @@ export function Workspace() {
             <CardTitle className="text-sm font-semibold">{t("workspace.live_sandbox")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
-            <div className="flex-1 space-y-4 overflow-auto p-4 bg-dot-pattern">
+            <div className="flex-1 space-y-4 overflow-auto p-4">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
