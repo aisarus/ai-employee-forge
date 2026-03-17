@@ -25,16 +25,26 @@ function getCorsHeaders(req: Request): Record<string, string> {
   };
 }
 
+const TELEGRAM_CALL_TIMEOUT_MS = 10_000;
+
 async function callTelegram(
   token: string,
   method: string,
   body: Record<string, unknown>,
 ): Promise<{ ok: boolean; data: unknown }> {
-  const res = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(TELEGRAM_CALL_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Telegram ${method} network error:`, msg);
+    return { ok: false, data: { description: `Network error: ${msg}` } };
+  }
   const data = await res.json();
   if (!res.ok) {
     console.error(`Telegram ${method} failed:`, JSON.stringify(data));
@@ -220,27 +230,50 @@ Deno.serve(async (req) => {
       console.warn("deleteWebhook returned non-ok (continuing):", JSON.stringify(deleteResult.data));
     }
 
-    const webhookResult = await callTelegram(telegramToken, "setWebhook", {
+    // ── Helper: mark bot inactive in DB on webhook failure ────────────────
+    async function rollbackBotActive(): Promise<void> {
+      const { error: rbErr } = await supabase
+        .from("bots")
+        .update({ is_active: false })
+        .eq("id", botId);
+      if (rbErr) console.error("Rollback failed:", rbErr.message);
+    }
+
+    // ── Try setWebhook (with one retry on transient network errors) ────────
+    let webhookResult = await callTelegram(telegramToken, "setWebhook", {
       url: webhookUrl,
       secret_token: webhookSecret,
-      allowed_updates: ["message", "callback_query"],
+      max_connections: 40,
+      allowed_updates: ["message", "edited_message", "callback_query", "channel_post"],
       drop_pending_updates: true,
     });
 
     if (!webhookResult.ok) {
       const errData = webhookResult.data as { description?: string };
-      // DT3: Telegram may return a non-ok response with "webhook was already set"
-      // when a previous deployment registered the same URL. This is not an error —
-      // the webhook is already pointing at us, so treat it as success.
-      const isAlreadySet = errData?.description?.toLowerCase().includes("webhook was already set");
-      if (isAlreadySet) {
-        console.warn("DT3: setWebhook — webhook was already set, treating as success.");
-      } else {
-        console.error("setWebhook failed:", JSON.stringify(errData));
+      const desc = errData?.description ?? "";
+
+      // DT3: "webhook was already set" — can happen in race conditions.
+      // Delete and re-register with the NEW secret so there's no secret mismatch.
+      if (desc.toLowerCase().includes("webhook was already set")) {
+        console.warn("DT3: setWebhook — webhook already set, forcing re-registration with new secret.");
+        await callTelegram(telegramToken, "deleteWebhook", { drop_pending_updates: true });
+        webhookResult = await callTelegram(telegramToken, "setWebhook", {
+          url: webhookUrl,
+          secret_token: webhookSecret,
+          max_connections: 40,
+          allowed_updates: ["message", "edited_message", "callback_query", "channel_post"],
+          drop_pending_updates: true,
+        });
+      }
+
+      // If still failing — rollback bot to inactive and return error
+      if (!webhookResult.ok) {
+        console.error("setWebhook failed permanently:", JSON.stringify(webhookResult.data));
+        await rollbackBotActive();
         return new Response(
           JSON.stringify({
             error: "deploy_error.webhook_failed",
-            details: errData?.description ?? "Telegram setWebhook rejected",
+            details: (webhookResult.data as { description?: string })?.description ?? "Telegram setWebhook rejected",
           }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
@@ -258,6 +291,7 @@ Deno.serve(async (req) => {
         "expected:", webhookUrl,
         "got:", (webhookInfo as { url?: string }).url,
       );
+      await rollbackBotActive();
       return new Response(
         JSON.stringify({
           error: "deploy_error.webhook_failed",
