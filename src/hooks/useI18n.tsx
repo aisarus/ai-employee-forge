@@ -145,6 +145,11 @@ const translations = {
   "billing.dedicated_manager": { en: "Dedicated account manager", ru: "Персональный менеджер" },
   "billing.sla": { en: "SLA guarantee", ru: "Гарантия SLA" },
 
+  // Paywall / limits
+  "limit.reached_title": { en: "Bot limit reached", ru: "Лимит ботов исчерпан" },
+  "limit.reached_desc": { en: "Your current plan allows 1 bot. Upgrade to create more.", ru: "Ваш текущий тариф ($10) позволяет создать 1 бота. Обновите тариф, чтобы создавать больше." },
+  "limit.upgrade_cta": { en: "Upgrade plan", ru: "Обновить тариф" },
+
   // 404
   "notfound.title": { en: "Oops! Page not found", ru: "Страница не найдена" },
   "notfound.link": { en: "Return to Home", ru: "На главную" },

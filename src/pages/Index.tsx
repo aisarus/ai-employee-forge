@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Key, Bot, ChevronDown, ChevronUp, Settings2, ArrowRight, MessageSquare, Zap, Send, Rocket, Wrench } from "lucide-react";
+import { Sparkles, Key, Bot, ChevronDown, ChevronUp, Settings2, ArrowRight, MessageSquare, Zap, Send, Rocket, Wrench, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -16,11 +16,14 @@ import { toast } from "sonner";
 
 type PageMode = "select" | "quick_start" | "advanced_input" | "advanced_loading";
 
+const FREE_BOT_LIMIT = 1;
+
 const Index = () => {
   const { user } = useAuth();
   const { t, lang } = useI18n();
   const navigate = useNavigate();
   const [mode, setMode] = useState<PageMode>("select");
+  const [agentCount, setAgentCount] = useState<number | null>(null);
 
   // Advanced mode state
   const [botName, setBotName] = useState("");
@@ -35,10 +38,19 @@ const Index = () => {
     localStorage.setItem("userOpenAiKey", apiKey);
   }, [apiKey]);
 
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("agents")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => setAgentCount(count ?? 0));
+  }, [user]);
+
   const handleAdvancedGenerate = useCallback(() => {
     if (!prompt.trim()) return;
+    if (agentCount !== null && agentCount >= FREE_BOT_LIMIT) return;
     setMode("advanced_loading");
-  }, [prompt]);
+  }, [prompt, agentCount]);
 
   useEffect(() => {
     if (mode !== "advanced_loading") return;
@@ -242,6 +254,8 @@ const Index = () => {
   }
 
   // ── Mode: Select (default) ─────────────────────────
+  const atLimit = agentCount !== null && agentCount >= FREE_BOT_LIMIT;
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center p-4 sm:p-6 animate-fade-in dot-grid">
       <div className="w-full max-w-2xl space-y-10">
@@ -259,25 +273,49 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        {/* Paywall banner */}
+        {atLimit && (
+          <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+            <Lock className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-300">{t("limit.reached_title")}</p>
+              <p className="text-xs text-amber-400/80 mt-0.5">{t("limit.reached_desc")}</p>
+            </div>
+            <button
+              onClick={() => navigate("/billing")}
+              className="shrink-0 text-xs font-semibold text-amber-300 hover:text-amber-200 underline underline-offset-2 whitespace-nowrap"
+            >
+              {t("limit.upgrade_cta")} →
+            </button>
+          </div>
+        )}
+
+        <div className={`grid sm:grid-cols-2 gap-4 ${atLimit ? "pointer-events-none" : ""}`}>
           {/* Quick Start */}
           <button
-            onClick={() => setMode("quick_start")}
-            className="group relative flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card/60 p-6 text-left transition-all duration-200 hover:border-primary/60 hover:bg-primary/5 hover:shadow-[0_0_40px_hsl(var(--primary)/0.18)] hover:scale-[1.02] overflow-hidden"
+            onClick={() => !atLimit && setMode("quick_start")}
+            disabled={atLimit}
+            className={`group relative flex flex-col items-start gap-4 rounded-2xl border-2 p-6 text-left transition-all duration-200 overflow-hidden ${
+              atLimit
+                ? "border-border/40 bg-card/30 opacity-40 cursor-not-allowed"
+                : "border-border bg-card/60 hover:border-primary/60 hover:bg-primary/5 hover:shadow-[0_0_40px_hsl(var(--primary)/0.18)] hover:scale-[1.02]"
+            }`}
           >
             {/* Subtle gradient overlay on hover */}
             <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-cyan-400/5 transition-all duration-300 pointer-events-none rounded-2xl" />
             <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 group-hover:bg-primary/25 transition-colors">
-              <Rocket className="h-6 w-6 text-primary" />
+              {atLimit ? <Lock className="h-6 w-6 text-muted-foreground" /> : <Rocket className="h-6 w-6 text-primary" />}
             </div>
             <div className="relative space-y-1.5">
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-foreground">
                   {lang === "ru" ? "Быстрый старт" : "Quick Start"}
                 </h3>
-                <span className="text-[10px] font-semibold text-primary bg-primary/15 border border-primary/25 px-2 py-0.5 rounded-full">
-                  {lang === "ru" ? "Рекомендуем" : "Recommended"}
-                </span>
+                {!atLimit && (
+                  <span className="text-[10px] font-semibold text-primary bg-primary/15 border border-primary/25 px-2 py-0.5 rounded-full">
+                    {lang === "ru" ? "Рекомендуем" : "Recommended"}
+                  </span>
+                )}
               </div>
               <p className="text-sm text-primary/80 font-medium leading-snug">
                 {lang === "ru"
@@ -290,19 +328,26 @@ const Index = () => {
                   : "Best for first-time users or simple bots"}
               </p>
             </div>
-            <div className="relative mt-auto pt-2 flex items-center gap-1 text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              {lang === "ru" ? "Начать" : "Get started"} <ArrowRight className="h-3.5 w-3.5" />
-            </div>
+            {!atLimit && (
+              <div className="relative mt-auto pt-2 flex items-center gap-1 text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {lang === "ru" ? "Начать" : "Get started"} <ArrowRight className="h-3.5 w-3.5" />
+              </div>
+            )}
           </button>
 
           {/* Advanced */}
           <button
-            onClick={() => setMode("advanced_input")}
-            className="group relative flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card/60 p-6 text-left transition-all duration-200 hover:border-border/80 hover:bg-card/80 hover:shadow-lg hover:scale-[1.02] overflow-hidden"
+            onClick={() => !atLimit && setMode("advanced_input")}
+            disabled={atLimit}
+            className={`group relative flex flex-col items-start gap-4 rounded-2xl border-2 p-6 text-left transition-all duration-200 overflow-hidden ${
+              atLimit
+                ? "border-border/40 bg-card/30 opacity-40 cursor-not-allowed"
+                : "border-border bg-card/60 hover:border-border/80 hover:bg-card/80 hover:shadow-lg hover:scale-[1.02]"
+            }`}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-transparent to-transparent group-hover:from-muted/20 transition-all duration-300 pointer-events-none rounded-2xl" />
             <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-muted group-hover:bg-primary/15 transition-colors">
-              <Wrench className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+              {atLimit ? <Lock className="h-6 w-6 text-muted-foreground" /> : <Wrench className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />}
             </div>
             <div className="relative space-y-1.5">
               <h3 className="text-lg font-bold text-foreground">
@@ -319,9 +364,11 @@ const Index = () => {
                   : "For users who want full control"}
               </p>
             </div>
-            <div className="relative mt-auto pt-2 flex items-center gap-1 text-xs font-semibold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              {lang === "ru" ? "Настроить" : "Configure"} <ArrowRight className="h-3.5 w-3.5" />
-            </div>
+            {!atLimit && (
+              <div className="relative mt-auto pt-2 flex items-center gap-1 text-xs font-semibold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {lang === "ru" ? "Настроить" : "Configure"} <ArrowRight className="h-3.5 w-3.5" />
+              </div>
+            )}
           </button>
         </div>
       </div>

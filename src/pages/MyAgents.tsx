@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bot, MoreVertical, Power, Pencil, Trash2, Plus, Search, MessageSquare, Zap, Send } from "lucide-react";
+import { Bot, MoreVertical, Power, Pencil, Trash2, Plus, Search, MessageSquare, Zap, Send, Lock } from "lucide-react";
 import { BOT_TYPES } from "@/components/wizard/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { useI18n } from "@/hooks/useI18n";
 import { DeployWizard } from "@/components/DeployWizard";
 import { decryptKey } from "@/lib/crypto";
+
+const FREE_BOT_LIMIT = 1;
 
 const statusColor: Record<string, string> = {
   active: "bg-success/15 text-success border-success/20",
@@ -149,6 +151,8 @@ const MyAgents = () => {
     );
   }
 
+  const atLimit = agents.length >= FREE_BOT_LIMIT;
+
   return (
     <div className="flex-1 p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-up" style={{ animationDelay: "0ms" }}>
@@ -156,10 +160,38 @@ const MyAgents = () => {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("agents.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("agents.subtitle")}</p>
         </div>
-        <Button className="gap-2 shrink-0 btn-gradient text-primary-foreground border-0" onClick={() => navigate("/")}>
-          <Plus className="h-4 w-4 relative z-10" /> <span className="relative z-10">{t("agents.create_new")}</span>
-        </Button>
+        {atLimit ? (
+          <Button
+            className="gap-2 shrink-0 border border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+            variant="outline"
+            onClick={() => navigate("/billing")}
+          >
+            <Lock className="h-4 w-4" />
+            <span>{t("limit.upgrade_cta")}</span>
+          </Button>
+        ) : (
+          <Button className="gap-2 shrink-0 btn-gradient text-primary-foreground border-0" onClick={() => navigate("/")}>
+            <Plus className="h-4 w-4 relative z-10" /> <span className="relative z-10">{t("agents.create_new")}</span>
+          </Button>
+        )}
       </div>
+
+      {/* Limit banner */}
+      {atLimit && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3 animate-fade-up" style={{ animationDelay: "40ms" }}>
+          <Lock className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-300">{t("limit.reached_title")}</p>
+            <p className="text-xs text-amber-400/80 mt-0.5">{t("limit.reached_desc")}</p>
+          </div>
+          <button
+            onClick={() => navigate("/billing")}
+            className="shrink-0 text-xs font-semibold text-amber-300 hover:text-amber-200 underline underline-offset-2 whitespace-nowrap"
+          >
+            {t("limit.upgrade_cta")} →
+          </button>
+        </div>
+      )}
 
       <div className="relative max-w-sm animate-fade-up" style={{ animationDelay: "80ms" }}>
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
