@@ -67,6 +67,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const { t } = useI18n();
   const { saveConnectors } = useConnectors();
   const [step, setStep] = useState(0);
+  const [maxVisitedStep, setMaxVisitedStep] = useState(0);
   const [data, setData] = useState<WizardData>({ ...DEFAULT_WIZARD_DATA, ...initialData });
   const [confirmed, setConfirmed] = useState(false);
   const [deploying, setDeploying] = useState(false);
@@ -82,7 +83,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   // ── Restore from localStorage on open ──────────────────────────────────────
   useEffect(() => {
     if (open) {
-      setStep(0);
       setDeployed(false);
       setConfirmed(false);
       const storedKey = localStorage.getItem("userOpenAiKey") || "";
@@ -103,9 +103,14 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         telegram_about_text: initialData?.about_text || draft.telegram_about_text || "",
       };
       setData(merged);
-      if (draft.bot_type && !initialData) {
+      if (agentId) {
         const savedStep = Number(localStorage.getItem(`wizard_step_${agentId}`) || 0);
+        const savedMax = Number(localStorage.getItem(`wizard_max_step_${agentId}`) || savedStep);
         setStep(Math.max(0, savedStep));
+        setMaxVisitedStep(Math.max(0, savedMax));
+      } else {
+        setStep(0);
+        setMaxVisitedStep(0);
       }
     }
   }, [open, initialData]);
@@ -161,6 +166,10 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     setDirection(dir);
     setStepKey(k => k + 1);
     setStep(n);
+    if (n > maxVisitedStep) {
+      setMaxVisitedStep(n);
+      if (agentId) localStorage.setItem(`wizard_max_step_${agentId}`, String(n));
+    }
   };
 
   /**
@@ -197,7 +206,9 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     }
     const next = step + 1;
     goToStep(next, "forward");
-    if (agentId) localStorage.setItem(`wizard_step_${agentId}`, String(next));
+    if (agentId) {
+      localStorage.setItem(`wizard_step_${agentId}`, String(next));
+    }
   };
 
   const goBack = () => {
@@ -310,6 +321,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
       localStorage.removeItem(`wizard_draft_${agentId}`);
       localStorage.removeItem(`wizard_step_${agentId}`);
+      localStorage.removeItem(`wizard_max_step_${agentId}`);
       setBotUsername(deployRes?.botInfo?.username || "");
       setDeployed(true);
       toast.success(deployRes?.message || t("wizard.deployed"));
@@ -381,44 +393,56 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
 
           {/* Step dots + connectors */}
           <div className="flex items-center gap-0">
-            {activeSteps.map((sid, i) => (
-              <div key={sid} className="flex items-center flex-1 min-w-0">
-                <button
-                  onClick={() => i < step && goToStep(i, "back")}
-                  title={t(STEP_I18N[sid] as any) || sid}
-                  className={`
-                    flex shrink-0 items-center justify-center rounded-full font-bold transition-all duration-300
-                    ${activeSteps.length > 9 ? "h-4 w-4 text-[8px]" : "h-6 w-6 text-[10px]"}
-                    ${i === step
-                      ? "bg-primary text-primary-foreground shadow-[0_0_14px_hsl(var(--primary)/0.65)] scale-125 ring-2 ring-primary/20"
-                      : i < step
-                        ? "bg-primary/25 text-primary cursor-pointer hover:bg-primary/45 hover:scale-110"
-                        : "bg-muted/70 text-muted-foreground/50"
-                    }
-                  `}
-                >
-                  {i < step ? (
-                    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="1.5,5 4,7.5 8.5,2" />
-                    </svg>
-                  ) : activeSteps.length > 9 ? (
-                    i + 1
-                  ) : (
-                    STEP_ICONS[sid] ? (
-                      <span className="text-[9px]">{i + 1}</span>
-                    ) : (
+            {activeSteps.map((sid, i) => {
+              const isActive = i === step;
+              const isCompleted = i < step;
+              const isVisited = i > step && i <= maxVisitedStep;
+              const isClickable = isCompleted || isVisited;
+              return (
+                <div key={sid} className="flex items-center flex-1 min-w-0">
+                  <button
+                    onClick={() => {
+                      if (isClickable) goToStep(i, i > step ? "forward" : "back");
+                    }}
+                    title={t(STEP_I18N[sid] as any) || sid}
+                    className={`
+                      flex shrink-0 items-center justify-center rounded-full font-bold transition-all duration-300
+                      ${activeSteps.length > 9 ? "h-4 w-4 text-[8px]" : "h-6 w-6 text-[10px]"}
+                      ${isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_14px_hsl(var(--primary)/0.65)] scale-125 ring-2 ring-primary/20"
+                        : isCompleted
+                          ? "bg-primary/25 text-primary cursor-pointer hover:bg-primary/45 hover:scale-110"
+                          : isVisited
+                            ? "bg-primary/15 text-primary/70 cursor-pointer hover:bg-primary/30 hover:scale-110 ring-1 ring-primary/25"
+                            : "bg-muted/70 text-muted-foreground/50 cursor-default"
+                      }
+                    `}
+                  >
+                    {isCompleted ? (
+                      <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="1.5,5 4,7.5 8.5,2" />
+                      </svg>
+                    ) : activeSteps.length > 9 ? (
                       i + 1
-                    )
+                    ) : (
+                      STEP_ICONS[sid] ? (
+                        <span className="text-[9px]">{i + 1}</span>
+                      ) : (
+                        i + 1
+                      )
+                    )}
+                  </button>
+                  {i < activeSteps.length - 1 && (
+                    <div className={`
+                      flex-1 h-px mx-0.5 transition-all duration-500
+                      ${i < step ? "bg-gradient-to-r from-primary/50 to-primary/30"
+                        : i < maxVisitedStep ? "bg-gradient-to-r from-primary/20 to-primary/10"
+                        : "bg-border/60"}
+                    `} />
                   )}
-                </button>
-                {i < activeSteps.length - 1 && (
-                  <div className={`
-                    flex-1 h-px mx-0.5 transition-all duration-500
-                    ${i < step ? "bg-gradient-to-r from-primary/50 to-primary/30" : "bg-border/60"}
-                  `} />
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
 
           {/* Step info row */}

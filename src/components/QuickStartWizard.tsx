@@ -47,6 +47,7 @@ export function QuickStartWizard() {
 
   const [step, setStep] = useState<QuickStep>("api_key");
   const stepIdx = STEPS.indexOf(step);
+  const [maxVisitedStepIdx, setMaxVisitedStepIdx] = useState(0);
 
   // Describe step
   const [botDescription, setBotDescription] = useState("");
@@ -101,6 +102,7 @@ export function QuickStartWizard() {
     setChatInput("");
     setWizardData({ ...DEFAULT_WIZARD_DATA });
     setStep("describe");
+    setMaxVisitedStepIdx(0);
     setDeployed(false);
     setBotUsername("");
     setTokenState("idle");
@@ -127,6 +129,8 @@ export function QuickStartWizard() {
       if (saved.agentId)        setAgentId(saved.agentId);
       if (saved.wizardData)     setWizardData({ ...DEFAULT_WIZARD_DATA, ...saved.wizardData, bot_avatar_file: null });
       if (saved.step && STEPS.includes(saved.step)) setStep(saved.step);
+      if (typeof saved.maxVisitedStepIdx === "number") setMaxVisitedStepIdx(saved.maxVisitedStepIdx);
+      else if (saved.step && STEPS.includes(saved.step)) setMaxVisitedStepIdx(STEPS.indexOf(saved.step));
     } catch {}
     setIsRestored(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -138,12 +142,12 @@ export function QuickStartWizard() {
     try {
       const draft = {
         botDescription, botName, tone, responseStyle,
-        generatedBrain, brainGenerated, agentId, step,
+        generatedBrain, brainGenerated, agentId, step, maxVisitedStepIdx,
         wizardData: { ...wizardData, bot_avatar_file: null },
       };
       localStorage.setItem("quickwizard_draft", JSON.stringify(draft));
     } catch {}
-  }, [isRestored, botDescription, botName, tone, responseStyle, generatedBrain, brainGenerated, agentId, step, wizardData]);
+  }, [isRestored, botDescription, botName, tone, responseStyle, generatedBrain, brainGenerated, agentId, step, maxVisitedStepIdx, wizardData]);
 
   // ── Warn before closing/refreshing mid-wizard ────────────────────────────
   useEffect(() => {
@@ -477,13 +481,25 @@ CONSTRAINTS:
   };
 
   const goNext = () => {
-    const next = STEPS[stepIdx + 1];
-    if (next) setStep(next);
+    const nextIdx = stepIdx + 1;
+    const next = STEPS[nextIdx];
+    if (next) {
+      setStep(next);
+      if (nextIdx > maxVisitedStepIdx) setMaxVisitedStepIdx(nextIdx);
+    }
   };
 
   const goBack = () => {
     const prev = STEPS[stepIdx - 1];
     if (prev) setStep(prev);
+  };
+
+  const goToStepByIdx = (i: number) => {
+    const target = STEPS[i];
+    if (target) {
+      setStep(target);
+      if (i > maxVisitedStepIdx) setMaxVisitedStepIdx(i);
+    }
   };
 
   /* ── GENERATING: Radar animation ───────────────────────────────────────── */
@@ -611,20 +627,29 @@ CONSTRAINTS:
             aria-valuenow={stepIdx + 1}
             aria-valuemax={STEPS.length}
           >
-            {STEPS.map((s, i) => (
-              <button
-                key={s}
-                onClick={() => i < stepIdx && setStep(STEPS[i])}
-                className={`transition-all duration-300 rounded-full ${
-                  i === stepIdx
-                    ? "w-8 h-2.5 bg-primary shadow-[0_0_12px_hsl(var(--primary)/.7)]"
-                    : i < stepIdx
-                      ? "w-2.5 h-2.5 bg-primary/55 cursor-pointer hover:bg-primary/80"
-                      : "w-2.5 h-2.5 bg-muted-foreground/18"
-                }`}
-                aria-label={STEP_LABELS[s][lang]}
-              />
-            ))}
+            {STEPS.map((s, i) => {
+              const isActive = i === stepIdx;
+              const isCompleted = i < stepIdx;
+              const isVisited = i > stepIdx && i <= maxVisitedStepIdx;
+              const isClickable = isCompleted || isVisited;
+              return (
+                <button
+                  key={s}
+                  onClick={() => isClickable && goToStepByIdx(i)}
+                  title={STEP_LABELS[s][lang]}
+                  aria-label={STEP_LABELS[s][lang]}
+                  className={`transition-all duration-300 rounded-full ${
+                    isActive
+                      ? "w-8 h-2.5 bg-primary shadow-[0_0_12px_hsl(var(--primary)/.7)]"
+                      : isCompleted
+                        ? "w-2.5 h-2.5 bg-primary/55 cursor-pointer hover:bg-primary/80"
+                        : isVisited
+                          ? "w-2.5 h-2.5 bg-primary/30 cursor-pointer hover:bg-primary/55 ring-1 ring-primary/30"
+                          : "w-2.5 h-2.5 bg-muted-foreground/18 cursor-default"
+                  }`}
+                />
+              );
+            })}
           </div>
           <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/50">
             {STEP_LABELS[step][lang]} · {stepIdx + 1}/{STEPS.length}
