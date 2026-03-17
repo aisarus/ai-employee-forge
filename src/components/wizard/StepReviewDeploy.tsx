@@ -1,3 +1,4 @@
+import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WizardData, BOT_TYPES } from "./types";
 import { Bot, Send, CheckCircle2, AlertCircle, Zap, Workflow, Plug, Brain, Key } from "lucide-react";
@@ -9,9 +10,9 @@ interface Props {
   onConfirmChange: (v: boolean) => void;
 }
 
-function ReviewCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function ReviewCard({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
-    <div className={`rounded-xl border border-border bg-card/30 p-4 space-y-2 ${className}`}>
+    <div className={`rounded-xl border border-border bg-card/30 p-4 space-y-2 ${className}`} style={style}>
       {children}
     </div>
   );
@@ -37,13 +38,13 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="text-center space-y-1">
+      <div className="text-center space-y-1 animate-fade-up" style={{ animationDelay: "0ms" }}>
         <h2 className="text-xl font-bold text-foreground">{t("wizard.review_title")}</h2>
         <p className="text-sm text-muted-foreground">{t("wizard.review_desc")}</p>
       </div>
 
       {/* Identity */}
-      <ReviewCard>
+      <ReviewCard className="animate-fade-up" style={{ animationDelay: "60ms" } as React.CSSProperties}>
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Bot className="h-4 w-4 text-primary" /> {t("wizard.identity_section")}
         </h3>
@@ -65,7 +66,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
 
       {/* Actions & data */}
       {(data.bot_actions.length > 0 || data.data_fields.length > 0) && (
-        <ReviewCard>
+        <ReviewCard className="animate-fade-up" style={{ animationDelay: "120ms" }}>
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Zap className="h-4 w-4 text-primary" /> {t("wizard.actions_data_section")}
           </h3>
@@ -88,7 +89,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
 
       {/* Logic & workflow */}
       {(data.workflow_steps.length > 0 || data.logic_rules.length > 0) && (
-        <ReviewCard>
+        <ReviewCard className="animate-fade-up" style={{ animationDelay: "180ms" }}>
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Workflow className="h-4 w-4 text-primary" /> {t("wizard.logic_workflow_section")}
           </h3>
@@ -111,7 +112,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
 
       {/* Integrations */}
       {(data.connectors.length > 0 || data.action_triggers.length > 0) && (
-        <ReviewCard>
+        <ReviewCard className="animate-fade-up" style={{ animationDelay: "240ms" }}>
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Plug className="h-4 w-4 text-primary" /> {t("wizard.connections")}
           </h3>
@@ -133,7 +134,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
       )}
 
       {/* API Keys status */}
-      <ReviewCard>
+      <ReviewCard className="animate-fade-up" style={{ animationDelay: "300ms" }}>
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Brain className="h-4 w-4 text-primary" /> {t("wizard.review_keys_section")}
         </h3>
@@ -170,7 +171,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
       </ReviewCard>
 
       {/* Telegram settings */}
-      <ReviewCard>
+      <ReviewCard className="animate-fade-up" style={{ animationDelay: "360ms" }}>
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Send className="h-4 w-4 text-primary" /> {t("wizard.telegram_section")}
         </h3>
@@ -185,7 +186,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
       </ReviewCard>
 
       {/* Deployment checklist */}
-      <ReviewCard>
+      <ReviewCard className="animate-fade-up" style={{ animationDelay: "420ms" }}>
         <h3 className="text-sm font-semibold text-foreground">{t("wizard.checklist")}</h3>
         <div className="space-y-1.5">
           {checks.map((c) => (
@@ -200,7 +201,7 @@ export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
       </ReviewCard>
 
       {/* Confirm checkbox */}
-      <div className="flex items-start gap-3 rounded-xl border border-border p-4 bg-card/30">
+      <div className="flex items-start gap-3 rounded-xl border border-border p-4 bg-card/30 animate-fade-up" style={{ animationDelay: "480ms" }}>
         <Checkbox
           id="confirm"
           checked={confirmed}

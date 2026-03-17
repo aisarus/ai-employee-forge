@@ -284,3 +284,52 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ═══════════════════════════════════════════════
+   AI Brain — Context Assembly Log Animations
+   ═══════════════════════════════════════════════ */
+
+/* Single log line slides in from left */
+@keyframes log-appear {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-log-appear {
+  animation: log-appear 0.28s ease-out both;
+}
+
+/* Terminal cursor blink */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.animate-cursor-blink {
+  animation: cursor-blink 0.9s step-end infinite;
+}
+
+/* Brain icon pulse glow */
+@keyframes brain-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px hsl(263 70% 58% / 0.5)); }
+  50%       { filter: drop-shadow(0 0 18px hsl(263 70% 58% / 0.9)); }
+}
+.animate-brain-pulse {
+  animation: brain-pulse 2s ease-in-out infinite;
+}
+
+/* Progress bar fill */
+@keyframes progress-fill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+.animate-progress-fill {
+  animation: progress-fill linear both;
+}
+
+/* Page/section stagger fade-up */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.35s ease-out both;
+}

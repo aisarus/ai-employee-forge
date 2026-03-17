@@ -150,8 +150,8 @@ const MyAgents = () => {
   }
 
   return (
-    <div className="flex-1 p-6 space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex-1 p-6 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-up" style={{ animationDelay: "0ms" }}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("agents.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("agents.subtitle")}</p>
@@ -161,7 +161,7 @@ const MyAgents = () => {
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
+      <div className="relative max-w-sm animate-fade-up" style={{ animationDelay: "80ms" }}>
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder={t("agents.search")}
@@ -172,13 +172,14 @@ const MyAgents = () => {
       </div>
 
       <div className="grid gap-3">
-        {filtered.map((agent) => {
+        {filtered.map((agent, idx) => {
           const status = getStatusKey(agent);
           const botTypeDef = BOT_TYPES.find((bt) => bt.id === agent.bot_type);
           return (
             <div
               key={agent.id}
-              className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card/40 transition-all duration-150 hover:border-border hover:bg-card/70 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/40"
+              className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card/40 transition-all duration-150 hover:border-border hover:bg-card/70 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/40 animate-fade-up"
+              style={{ animationDelay: `${idx * 60}ms` }}
             >
               {/* Avatar / icon */}
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 overflow-hidden">

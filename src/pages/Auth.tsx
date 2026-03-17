@@ -80,16 +80,23 @@ const Auth = () => {
                         "Choose a new password for your account.";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background dot-grid p-6">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card/80 backdrop-blur-2xl p-8 shadow-2xl shadow-black/40 animate-fade-in">
+    <div className="min-h-screen flex items-center justify-center bg-background dot-grid p-6 overflow-hidden">
+      {/* Aurora background */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="aurora-orb aurora-orb-1" />
+        <div className="aurora-orb aurora-orb-2" />
+        <div className="aurora-orb aurora-orb-3" />
+      </div>
+
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card/80 backdrop-blur-2xl p-8 shadow-2xl shadow-black/40 animate-step-enter relative z-10">
         <div className="text-center space-y-3 mb-6">
-          <div className="flex justify-center">
+          <div className="flex justify-center animate-fade-up" style={{ animationDelay: "60ms" }}>
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-[0_0_20px_hsl(var(--primary)/0.4)]">
               <Hammer className="h-6 w-6 text-primary-foreground" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-          <p className="text-sm text-muted-foreground">{desc}</p>
+          <h1 className="text-2xl font-bold text-foreground animate-fade-up" style={{ animationDelay: "120ms" }}>{title}</h1>
+          <p className="text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: "160ms" }}>{desc}</p>
         </div>
 
         {/* ── Forgot password: success state ── */}
@@ -108,7 +115,7 @@ const Auth = () => {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 animate-fade-up" style={{ animationDelay: "200ms" }}>
             {/* Email — shown on login, signup, forgot */}
             {mode !== "reset" && (
               <div className="space-y-2">
