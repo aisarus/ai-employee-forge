@@ -24,6 +24,11 @@
  *   - OpenAI: 1 retry on timeout/network error and on 5xx transient errors
  *   - OpenAI 401 (invalid key): surface error to user, do NOT fall back to Lovable
  *   - system_prompt: read from agents table as fallback when bots.system_prompt is empty
+ * TW6 fix: Smart typing indicators:
+ *   - sendChatAction(typing) fired immediately on message receipt (before DB work)
+ *   - Streaming (OpenAI/Gemini BYOK): editMessageText every 800 ms shows live output
+ *   - Non-streaming (Anthropic, Lovable): keepTyping() resends action every 4 s while
+ *     LLM is thinking, ensuring the indicator never expires mid-generation
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -829,6 +834,25 @@ async function editTelegramMessage(
   }).catch(() => {});
 }
 
+/**
+ * Periodically resend the Telegram 'typing' chat action every 4 s
+ * (the indicator auto-disappears after ~5 s, so 4 s keeps it alive).
+ * Call without await to run in background; abort via the AbortController.
+ */
+async function keepTyping(token: string, chatId: number, signal: AbortSignal): Promise<void> {
+  while (!signal.aborted) {
+    fetch(`${TELEGRAM_API}/bot${token}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+    }).catch(() => {});
+    await new Promise<void>((resolve) => {
+      const t = setTimeout(resolve, 4_000);
+      signal.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // OpenAI streaming — sends interim edits every 800 ms, returns full text
 // ---------------------------------------------------------------------------
@@ -1136,8 +1160,10 @@ async function processMessage(
         }
       }
     } else {
-      // Anthropic or Gemini (no placeholder) — non-streaming
-      let result: { content: string | null; shouldFallback: boolean };
+      // Anthropic or Gemini/OpenAI without streaming — keep typing indicator alive
+      const typingAbort = new AbortController();
+      keepTyping(botToken, chatId, typingAbort.signal);
+      let result: { content: string | null; shouldFallback: boolean } = { content: null, shouldFallback: true };
       if (provider === "anthropic") {
         result = await callAnthropic(messages, byokKey);
       } else if (provider === "gemini") {
@@ -1145,10 +1171,14 @@ async function processMessage(
       } else {
         result = await callOpenAi(messages, byokKey);
       }
+      typingAbort.abort();
       reply = result.content;
       if (!reply && result.shouldFallback && lovableKey) {
         console.log("BYOK failed for bot", botId, "— falling back to Lovable AI");
+        const fallbackTypingAbort = new AbortController();
+        keepTyping(botToken, chatId, fallbackTypingAbort.signal);
         reply = await callLovableAi(messages, lovableKey);
+        fallbackTypingAbort.abort();
       }
     }
   } else if (lovableKey) {
@@ -1159,7 +1189,10 @@ async function processMessage(
         "⚠️ This bot has reached its free message limit (20 messages/hour). " +
         "To keep chatting without limits, the bot owner needs to add their own OpenAI API key.";
     } else {
+      const typingAbort = new AbortController();
+      keepTyping(botToken, chatId, typingAbort.signal);
       reply = await callLovableAi(messages, lovableKey);
+      typingAbort.abort();
     }
   }
 
@@ -1354,6 +1387,16 @@ Deno.serve(async (req: Request) => {
   // TW1: Respond immediately to Telegram (< 1 s), process in background.
   // EdgeRuntime.waitUntil() keeps the function alive until processing completes.
   // ------------------------------------------------------------------
+
+  // Show typing indicator immediately — before any DB work starts (fire-and-forget)
+  if (userText !== "/start") {
+    fetch(`${TELEGRAM_API}/bot${bot.telegram_token}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+    }).catch(() => {});
+  }
+
   const bgWork = processMessage(supabase, bot, agent, connectors, botId, chatId, userText, updateId, lovableKey, supabaseUrl, serviceKey);
 
   // @ts-ignore — EdgeRuntime is a Supabase/Deno edge-runtime global
