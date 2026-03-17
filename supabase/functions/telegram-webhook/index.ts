@@ -574,18 +574,10 @@ async function processMessage(
 
   const botToken: string = (bot.telegram_token as string) ?? "";
 
-  // Send placeholder immediately so user sees activity right away
-  let placeholderMsgId: number | null = null;
-  try {
-    const placeholderRes = await sendTelegramMessage(botToken, chatId, "...");
-    placeholderMsgId = placeholderRes?.result?.message_id ?? null;
-  } catch (e) {
-    console.error("Failed to send placeholder:", e);
-  }
-
   try {
 
-  // Deduplicate: skip already-processed update_ids
+  // Deduplicate: skip already-processed update_ids — check BEFORE sending placeholder
+  // to avoid orphaned "..." messages in chat
   if (updateId != null) {
     const { data: existing } = await supabase
       .from("bot_chat_history")
@@ -598,6 +590,15 @@ async function processMessage(
       console.log("Duplicate update_id", updateId, "for bot", botId, "— skipping");
       return;
     }
+  }
+
+  // Send placeholder immediately so user sees activity right away
+  let placeholderMsgId: number | null = null;
+  try {
+    const placeholderRes = await sendTelegramMessage(botToken, chatId, "...");
+    placeholderMsgId = placeholderRes?.result?.message_id ?? null;
+  } catch (e) {
+    console.error("Failed to send placeholder:", e);
   }
 
   // Store incoming user message
@@ -613,13 +614,17 @@ async function processMessage(
   }
 
   // Load last 30 messages for context
-  const { data: rawHistory } = await supabase
+  const { data: rawHistory, error: historyError } = await supabase
     .from("bot_chat_history")
     .select("role, content")
     .eq("bot_id", botId)
     .eq("chat_id", chatId)
     .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
+
+  if (historyError) {
+    console.error("Failed to load history for bot", botId, "chat", chatId, ":", historyError.message);
+  }
 
   const history: { role: string; content: string }[] = (rawHistory ?? []).reverse();
 
@@ -807,7 +812,7 @@ Deno.serve(async (req: Request) => {
     if (agentId) {
       const { data: freshAgent } = await supabase
         .from("agents")
-        .select("name, description, about_text, telegram_display_name, telegram_short_description, telegram_about_text, telegram_commands, tone")
+        .select("name, description, about_text, telegram_display_name, telegram_short_description, telegram_about_text, telegram_commands, tone, openai_api_key")
         .eq("id", agentId)
         .maybeSingle();
       if (freshAgent) {
