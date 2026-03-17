@@ -19,6 +19,11 @@
  *          via EdgeRuntime.waitUntil() to stay well within the 15 s deadline.
  * TW3 fix: Truncate AI responses > 4000 chars to avoid Telegram sendMessage crash.
  * TW4 fix: Lovable AI (shared key) is rate-limited to 20 messages / hour per bot.
+ * TW5 fix: Stable history + reliable BYOK:
+ *   - Guarantee current user message in LLM context even if DB insert fails
+ *   - OpenAI: 1 retry on timeout/network error and on 5xx transient errors
+ *   - OpenAI 401 (invalid key): surface error to user, do NOT fall back to Lovable
+ *   - system_prompt: read from agents table as fallback when bots.system_prompt is empty
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -590,6 +595,7 @@ function detectProvider(apiKey: string): Provider | null {
 async function callOpenAi(
   messages: { role: string; content: string }[],
   apiKey: string,
+  retries = 1,
 ): Promise<{ content: string | null; shouldFallback: boolean }> {
   let res: Response;
   try {
@@ -600,13 +606,28 @@ async function callOpenAi(
       signal: timeoutSignal(AI_TIMEOUT_MS),
     });
   } catch (err) {
-    console.error("OpenAI fetch error:", (err as Error).message);
+    console.error("OpenAI fetch error (timeout/network):", (err as Error).message);
+    // Retry once on timeout/network error before falling back
+    if (retries > 0) {
+      console.log("OpenAI: retrying after network error...");
+      return callOpenAi(messages, apiKey, retries - 1);
+    }
     return { content: null, shouldFallback: true };
   }
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error("OpenAI error:", res.status, body);
+    console.error("OpenAI error:", res.status, body.slice(0, 200));
+    // 401 = invalid API key (permanent) — surface as error, don't fallback to Lovable
+    if (res.status === 401) {
+      return { content: "⚠️ OpenAI API key is invalid or expired. Please update your key in bot settings.", shouldFallback: false };
+    }
+    // 5xx = transient server error — retry once
+    if (res.status >= 500 && retries > 0) {
+      console.log(`OpenAI 5xx (${res.status}), retrying...`);
+      return callOpenAi(messages, apiKey, retries - 1);
+    }
+    // 400 = bad request (wrong model, bad payload) — don't fallback
     return { content: null, shouldFallback: res.status !== 400 };
   }
 
@@ -1037,8 +1058,18 @@ async function processMessage(
 
   const history: { role: string; content: string }[] = (rawHistory ?? []).reverse();
 
+  // TW5: Guarantee current user message is in context even if DB insert failed above.
+  // If the last message in history is not the user's current message, append it manually.
+  const lastHistoryMsg = history[history.length - 1];
+  if (!lastHistoryMsg || lastHistoryMsg.role !== "user" || lastHistoryMsg.content !== userText) {
+    history.push({ role: "user", content: userText });
+  }
+
   // Build messages array for the LLM
-  const systemPrompt: string = (bot.system_prompt as string) ?? "";
+  // Prefer bot-level system_prompt; fall back to agent-level if bot has none
+  const systemPrompt: string =
+    ((bot.system_prompt as string) ?? "").trim() ||
+    ((agent?.system_prompt as string) ?? "").trim();
 
   // Greeting fix: tell the model explicitly whether this is a new conversation
   const introRule = history.length === 0
@@ -1240,7 +1271,7 @@ Deno.serve(async (req: Request) => {
     if (agentId) {
       const { data: freshAgent } = await supabase
         .from("agents")
-        .select("name, description, about_text, telegram_display_name, telegram_short_description, telegram_about_text, telegram_commands, tone, openai_api_key")
+        .select("name, description, about_text, telegram_display_name, telegram_short_description, telegram_about_text, telegram_commands, tone, openai_api_key, system_prompt")
         .eq("id", agentId)
         .maybeSingle();
       if (freshAgent) {
