@@ -40,6 +40,9 @@ const Index = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [lang]);
 
+  const [masterPassInput, setMasterPassInput] = useState("");
+  const [showMasterInput, setShowMasterInput] = useState(false);
+
   // Advanced mode state
   const [botName, setBotName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -271,8 +274,59 @@ const Index = () => {
   // ── Mode: Select (default) ─────────────────────────
   const atLimit = agentCount !== null && agentCount >= FREE_BOT_LIMIT && !masterUnlocked;
 
+  const handleMasterSubmit = () => {
+    if (masterPassInput === "Oggnomix228!") {
+      localStorage.setItem("master_pass", "Oggnomix228!");
+      setMasterUnlocked(true);
+      setShowMasterInput(false);
+      toast.success(lang === "ru" ? "Режим бога активирован. Безлимитные боты разблокированы. 👑" : "God mode activated. Unlimited bots unlocked. 👑");
+    } else {
+      toast.error(lang === "ru" ? "Неверный пароль" : "Invalid password");
+    }
+    setMasterPassInput("");
+  };
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center p-4 sm:p-6 animate-fade-in dot-grid">
+    <div className="relative flex flex-1 flex-col items-center justify-center p-4 sm:p-6 animate-fade-in dot-grid">
+      {/* Master Password Toggle */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+        {showMasterInput ? (
+          <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-1 animate-in fade-in slide-in-from-right-2">
+            <Input 
+              type="password" 
+              placeholder="Master password..." 
+              value={masterPassInput}
+              onChange={(e) => setMasterPassInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleMasterSubmit()}
+              className="h-8 w-40 text-xs"
+              autoFocus
+            />
+            <button 
+              onClick={handleMasterSubmit}
+              className="h-8 px-3 bg-primary text-primary-foreground text-xs font-semibold rounded-md hover:bg-primary/90"
+            >
+              Unlock
+            </button>
+            <button 
+              onClick={() => setShowMasterInput(false)}
+              className="h-8 px-2 text-muted-foreground hover:text-foreground text-xs"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          !masterUnlocked && (
+            <button 
+              onClick={() => setShowMasterInput(true)}
+              className="p-2 text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+              title="Unlock limits"
+            >
+              <Key className="h-4 w-4" />
+            </button>
+          )
+        )}
+      </div>
+
       <div className="w-full max-w-2xl space-y-10">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
