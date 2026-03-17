@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { WizardData, ConnectorConfig, AVAILABLE_CONNECTORS } from "./types";
 import {
   Plug, CheckCircle2, X, Wifi, WifiOff, ChevronDown, ChevronUp,
-  ExternalLink, Zap, Loader2, AlertCircle, FileSpreadsheet,
+  ExternalLink, Zap, Loader2, AlertCircle, FileSpreadsheet, KeyRound, LogIn,
+  RefreshCw,
 } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 
@@ -49,9 +50,44 @@ const CAT_COLORS: Record<string, string> = {
   Advanced:      "text-primary bg-primary/10 border-primary/20",
 };
 
+// ── Auth-mode toggle ──────────────────────────────────────────────────────────
+
+type AuthMode = "api_key" | "oauth";
+
+interface AuthModeTabsProps {
+  value: AuthMode;
+  onChange: (m: AuthMode) => void;
+}
+
+function AuthModeTabs({ value, onChange }: AuthModeTabsProps) {
+  return (
+    <div className="flex gap-1 p-0.5 bg-background/60 rounded-lg border border-border/50 w-fit">
+      {(["api_key", "oauth"] as AuthMode[]).map((mode) => (
+        <button
+          key={mode}
+          onClick={() => onChange(mode)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+            value === mode
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {mode === "api_key" ? (
+            <><KeyRound className="h-2.5 w-2.5" /> API Key</>
+          ) : (
+            <><LogIn className="h-2.5 w-2.5" /> OAuth</>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── Google Sheets specific config form ───────────────────────────────────────
 
 interface GoogleSheetsFormProps {
+  authMode: AuthMode;
+  onAuthModeChange: (m: AuthMode) => void;
   authInputs: Record<string, string>;
   configInputs: Record<string, string>;
   onAuthChange: (val: string) => void;
@@ -60,12 +96,24 @@ interface GoogleSheetsFormProps {
   onSkip: () => void;
   testing: boolean;
   testResult: "ok" | "error" | null;
+  // OAuth-specific
+  oauthEmail: string | null;
+  oauthLoading: boolean;
+  onOAuthConnect: () => void;
 }
 
 function GoogleSheetsForm({
+  authMode, onAuthModeChange,
   authInputs, configInputs, onAuthChange, onConfigChange,
   onConnect, onSkip, testing, testResult,
+  oauthEmail, oauthLoading, onOAuthConnect,
 }: GoogleSheetsFormProps) {
+  const apiKey        = authInputs["google_sheets"] || "";
+  const spreadsheetId = configInputs["spreadsheet_id"] || "";
+  const canConnect    = authMode === "api_key"
+    ? apiKey.trim() !== "" && spreadsheetId.trim() !== ""
+    : oauthEmail !== null && spreadsheetId.trim() !== "";
+
   return (
     <div className="space-y-3">
       {/* Header */}
@@ -82,30 +130,98 @@ function GoogleSheetsForm({
         </a>
       </div>
 
-      {/* API Key */}
+      {/* Auth mode toggle */}
       <div className="space-y-1">
-        <label className="text-[11px] font-medium text-muted-foreground">
-          API Key <span className="text-destructive">*</span>
-        </label>
-        <Input
-          autoFocus
-          value={authInputs["google_sheets"] || ""}
-          onChange={(e) => onAuthChange(e.target.value)}
-          placeholder="AIza..."
-          className="bg-background/60 font-mono text-xs h-8"
-        />
-        <p className="text-[10px] text-muted-foreground">
-          Google Cloud Console → APIs & Services → Credentials
-        </p>
+        <label className="text-[11px] font-medium text-muted-foreground">Auth method</label>
+        <AuthModeTabs value={authMode} onChange={onAuthModeChange} />
       </div>
 
-      {/* Spreadsheet ID */}
+      {/* ── API Key mode ── */}
+      {authMode === "api_key" && (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">
+              API Key <span className="text-destructive">*</span>
+            </label>
+            <Input
+              autoFocus
+              value={apiKey}
+              onChange={(e) => onAuthChange(e.target.value)}
+              placeholder="AIza..."
+              className="bg-background/60 font-mono text-xs h-8"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Google Cloud Console → APIs &amp; Services → Credentials
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── OAuth mode ── */}
+      {authMode === "oauth" && (
+        <div className="space-y-3">
+          {/* OAuth Client ID */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">
+              OAuth Client ID <span className="text-destructive">*</span>
+            </label>
+            <Input
+              autoFocus
+              value={configInputs["client_id"] || ""}
+              onChange={(e) => onConfigChange("client_id", e.target.value)}
+              placeholder="123456789-abc.apps.googleusercontent.com"
+              className="bg-background/60 font-mono text-xs h-8"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Google Cloud Console → OAuth 2.0 Client IDs → Web application.
+              Add <code className="bg-muted px-0.5 rounded">{window.location.origin}/oauth/callback</code> to Authorized redirect URIs.
+            </p>
+          </div>
+
+          {/* Connect button / status */}
+          {oauthEmail ? (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-success/10 border border-success/30">
+              <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
+              <span className="text-[11px] text-success font-medium truncate">{oauthEmail}</span>
+              <button
+                onClick={onOAuthConnect}
+                className="ml-auto p-0.5 text-muted-foreground hover:text-foreground rounded transition-colors"
+                title="Re-authenticate"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onOAuthConnect}
+              disabled={!configInputs["client_id"]?.trim() || oauthLoading}
+              className="h-8 w-full gap-2 text-xs border-border/60 hover:border-primary/50"
+            >
+              {oauthLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <svg className="h-3.5 w-3.5" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+                  <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/>
+                </svg>
+              )}
+              {oauthLoading ? "Waiting for Google…" : "Connect with Google"}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* ── Shared fields (both modes) ── */}
       <div className="space-y-1">
         <label className="text-[11px] font-medium text-muted-foreground">
           Spreadsheet ID <span className="text-destructive">*</span>
         </label>
         <Input
-          value={configInputs["spreadsheet_id"] || ""}
+          value={spreadsheetId}
           onChange={(e) => onConfigChange("spreadsheet_id", e.target.value)}
           placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
           className="bg-background/60 font-mono text-xs h-8"
@@ -115,11 +231,8 @@ function GoogleSheetsForm({
         </p>
       </div>
 
-      {/* Sheet Name */}
       <div className="space-y-1">
-        <label className="text-[11px] font-medium text-muted-foreground">
-          Sheet / Tab Name
-        </label>
+        <label className="text-[11px] font-medium text-muted-foreground">Sheet / Tab Name</label>
         <Input
           value={configInputs["sheet_name"] || ""}
           onChange={(e) => onConfigChange("sheet_name", e.target.value)}
@@ -128,11 +241,8 @@ function GoogleSheetsForm({
         />
       </div>
 
-      {/* Range */}
       <div className="space-y-1">
-        <label className="text-[11px] font-medium text-muted-foreground">
-          Range (optional)
-        </label>
+        <label className="text-[11px] font-medium text-muted-foreground">Range (optional)</label>
         <Input
           value={configInputs["range"] || ""}
           onChange={(e) => onConfigChange("range", e.target.value)}
@@ -151,7 +261,7 @@ function GoogleSheetsForm({
       {testResult === "error" && (
         <div className="flex items-center gap-1.5 text-[11px] text-destructive">
           <AlertCircle className="h-3.5 w-3.5" />
-          Could not reach the sheet. Check your API key and ID.
+          Could not reach the sheet. Check your credentials and Spreadsheet ID.
         </div>
       )}
 
@@ -160,7 +270,7 @@ function GoogleSheetsForm({
         <Button
           size="sm"
           onClick={onConnect}
-          disabled={!authInputs["google_sheets"]?.trim() || !configInputs["spreadsheet_id"]?.trim() || testing}
+          disabled={!canConnect || testing}
           className="h-7 px-3 text-xs gap-1"
         >
           {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
@@ -216,50 +326,218 @@ function GenericConnectorForm({ connId, authHint, authInputs, onAuthChange, onCo
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Real Google Sheets API connection test. */
+async function testGoogleSheetsApi(
+  spreadsheetId: string,
+  opts: { apiKey?: string; accessToken?: string },
+): Promise<boolean> {
+  if (!spreadsheetId.trim()) return false;
+  try {
+    const url = opts.accessToken
+      ? `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=spreadsheetId`
+      : `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?key=${encodeURIComponent(opts.apiKey ?? "")}&fields=spreadsheetId`;
+
+    const headers: HeadersInit = opts.accessToken
+      ? { Authorization: `Bearer ${opts.accessToken}` }
+      : {};
+
+    const res = await fetch(url, { headers });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Fetch Google account email from access token. */
+async function fetchGoogleEmail(accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Build Google OAuth 2.0 implicit-grant URL. */
+function buildGoogleOAuthUrl(clientId: string, redirectUri: string): string {
+  const params = new URLSearchParams({
+    response_type: "token",
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/userinfo.email",
+    ].join(" "),
+    access_type: "online",
+    prompt: "consent",
+  });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function StepConnections({ data, onChange }: Props) {
   const { t } = useI18n();
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [authInputs, setAuthInputs]   = useState<Record<string, string>>({});
-  const [configInputs, setConfigInputs] = useState<Record<string, string>>({});
-  const [testing, setTesting]   = useState(false);
-  const [testResult, setTestResult] = useState<"ok" | "error" | null>(null);
+  const [expandedId,    setExpandedId]    = useState<string | null>(null);
+  const [authInputs,    setAuthInputs]    = useState<Record<string, string>>({});
+  const [configInputs,  setConfigInputs]  = useState<Record<string, string>>({});
+  const [testing,       setTesting]       = useState(false);
+  const [testResult,    setTestResult]    = useState<"ok" | "error" | null>(null);
+
+  // Google Sheets OAuth state
+  const [authMode,      setAuthMode]      = useState<AuthMode>("api_key");
+  const [oauthToken,    setOauthToken]    = useState<string | null>(null);
+  const [oauthEmail,    setOauthEmail]    = useState<string | null>(null);
+  const [oauthLoading,  setOauthLoading]  = useState(false);
+
+  // Ref to the message event listener so we can clean it up
+  const oauthListenerRef = useRef<((e: MessageEvent) => void) | null>(null);
+
+  // Clean up listener on unmount
+  useEffect(() => {
+    return () => {
+      if (oauthListenerRef.current) {
+        window.removeEventListener("message", oauthListenerRef.current);
+      }
+    };
+  }, []);
 
   const connectedIds = new Set(data.connectors.map((c) => c.type));
 
   const toggleExpand = (connId: string) => {
     if (connectedIds.has(connId)) return;
     setExpandedId((prev) => {
-      if (prev !== connId) setTestResult(null);
+      if (prev !== connId) {
+        setTestResult(null);
+        // Reset OAuth state when switching connectors
+        setOauthToken(null);
+        setOauthEmail(null);
+      }
       return prev === connId ? null : connId;
     });
   };
 
-  // Simulate a connection test (stub — replace with real API call later)
-  const testGoogleSheetsConnection = (): Promise<boolean> =>
-    new Promise((resolve) => {
-      // Stub: always succeeds if both key and spreadsheet_id are non-empty
-      setTimeout(() => {
-        const ok =
-          !!authInputs["google_sheets"]?.trim() &&
-          !!configInputs["spreadsheet_id"]?.trim();
-        resolve(ok);
-      }, 900);
+  // ── Google OAuth popup flow ────────────────────────────────────────────────
+
+  const handleGoogleOAuth = () => {
+    const clientId = configInputs["client_id"]?.trim();
+    if (!clientId) return;
+
+    // Remove any previous listener
+    if (oauthListenerRef.current) {
+      window.removeEventListener("message", oauthListenerRef.current);
+    }
+
+    const redirectUri = `${window.location.origin}/oauth/callback`;
+    const authUrl     = buildGoogleOAuthUrl(clientId, redirectUri);
+
+    // Open popup (600×700 centered)
+    const left   = Math.max(0, (window.screenX ?? 0) + (window.outerWidth  - 600) / 2);
+    const top    = Math.max(0, (window.screenY ?? 0) + (window.outerHeight - 700) / 2);
+    const popup  = window.open(authUrl, "google_oauth", `width=600,height=700,left=${left},top=${top}`);
+
+    if (!popup) {
+      alert("Popup blocked — please allow popups for this site and try again.");
+      return;
+    }
+
+    setOauthLoading(true);
+
+    const listener = async (event: MessageEvent) => {
+      // Only accept messages from our own origin
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.type !== "GOOGLE_OAUTH_CALLBACK") return;
+
+      window.removeEventListener("message", listener);
+      oauthListenerRef.current = null;
+
+      const { token, error } = event.data as { token?: string; error?: string };
+
+      if (error || !token) {
+        setOauthLoading(false);
+        setTestResult("error");
+        return;
+      }
+
+      // Fetch user email to display
+      const email = await fetchGoogleEmail(token);
+      setOauthToken(token);
+      setOauthEmail(email);
+      setAuthInputs((prev) => ({ ...prev, google_sheets: token }));
+      setConfigInputs((prev) => ({ ...prev, oauth_email: email ?? "" }));
+      setOauthLoading(false);
+    };
+
+    oauthListenerRef.current = listener;
+    window.addEventListener("message", listener);
+
+    // Detect if the popup was closed manually before auth completes
+    const pollClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(pollClosed);
+        if (oauthListenerRef.current) {
+          window.removeEventListener("message", oauthListenerRef.current);
+          oauthListenerRef.current = null;
+          setOauthLoading(false);
+        }
+      }
+    }, 500);
+  };
+
+  // ── Auth mode change ────────────────────────────────────────────────────────
+
+  const handleAuthModeChange = (mode: AuthMode) => {
+    setAuthMode(mode);
+    setTestResult(null);
+    // Clear credentials when switching modes
+    setAuthInputs((prev) => ({ ...prev, google_sheets: "" }));
+    setOauthToken(null);
+    setOauthEmail(null);
+    setConfigInputs((prev) => {
+      const next = { ...prev };
+      delete next["client_id"];
+      delete next["oauth_email"];
+      return next;
     });
+  };
+
+  // ── Real connection test ────────────────────────────────────────────────────
+
+  const testGoogleSheetsConnection = async (): Promise<boolean> => {
+    const spreadsheetId = configInputs["spreadsheet_id"]?.trim() ?? "";
+    if (authMode === "oauth" && oauthToken) {
+      return testGoogleSheetsApi(spreadsheetId, { accessToken: oauthToken });
+    }
+    const apiKey = authInputs["google_sheets"]?.trim() ?? "";
+    return testGoogleSheetsApi(spreadsheetId, { apiKey });
+  };
+
+  // ── Connect / Skip / Disconnect ────────────────────────────────────────────
 
   const connectService = async (connectorDef: typeof AVAILABLE_CONNECTORS[number]) => {
-    const authVal   = authInputs[connectorDef.id] || "";
-    const config    = connectorDef.id === "google_sheets" ? { ...configInputs } : {};
+    const authVal = authInputs[connectorDef.id] || "";
+    const config  = connectorDef.id === "google_sheets"
+      ? { ...configInputs, auth_mode: authMode }
+      : {};
 
-    // For Google Sheets: run test before marking connected
-    if (connectorDef.id === "google_sheets" && authVal && configInputs["spreadsheet_id"]) {
-      setTesting(true);
-      const ok = await testGoogleSheetsConnection();
-      setTesting(false);
-      setTestResult(ok ? "ok" : "error");
-      if (!ok) return;
+    // For Google Sheets: run real API test before marking connected
+    if (connectorDef.id === "google_sheets") {
+      const hasCredential = authMode === "oauth" ? !!oauthToken : !!authVal;
+      if (hasCredential && configInputs["spreadsheet_id"]) {
+        setTesting(true);
+        const ok = await testGoogleSheetsConnection();
+        setTesting(false);
+        setTestResult(ok ? "ok" : "error");
+        if (!ok) return;
+      }
     }
 
     const connector: ConnectorConfig = {
@@ -276,6 +554,9 @@ export function StepConnections({ data, onChange }: Props) {
     setConfigInputs({});
     setExpandedId(null);
     setTestResult(null);
+    setOauthToken(null);
+    setOauthEmail(null);
+    setAuthMode("api_key");
   };
 
   const skipConnect = (connectorDef: typeof AVAILABLE_CONNECTORS[number]) => {
@@ -378,6 +659,8 @@ export function StepConnections({ data, onChange }: Props) {
                   <div className="px-3 pb-3 border-t border-border/50 pt-3 animate-fade-in">
                     {conn.id === "google_sheets" ? (
                       <GoogleSheetsForm
+                        authMode={authMode}
+                        onAuthModeChange={handleAuthModeChange}
                         authInputs={authInputs}
                         configInputs={configInputs}
                         onAuthChange={(v) => setAuthInputs((p) => ({ ...p, google_sheets: v }))}
@@ -386,6 +669,9 @@ export function StepConnections({ data, onChange }: Props) {
                         onSkip={() => skipConnect(conn)}
                         testing={testing}
                         testResult={testResult}
+                        oauthEmail={oauthEmail}
+                        oauthLoading={oauthLoading}
+                        onOAuthConnect={handleGoogleOAuth}
                       />
                     ) : (
                       <GenericConnectorForm
@@ -418,6 +704,7 @@ export function StepConnections({ data, onChange }: Props) {
           <div className="space-y-2">
             {data.connectors.map((conn) => {
               const def = AVAILABLE_CONNECTORS.find((c) => c.id === conn.type);
+              const isOAuth = conn.config?.auth_mode === "oauth";
               return (
                 <div
                   key={conn.id}
@@ -440,20 +727,39 @@ export function StepConnections({ data, onChange }: Props) {
                             ? t("wizard.conn_read")
                             : t("wizard.conn_write")}
                       </span>
-                      {/* Show spreadsheet_id badge for Google Sheets */}
-                      {conn.type === "google_sheets" && conn.config?.spreadsheet_id && (
+                      {/* Auth mode badge */}
+                      {conn.type === "google_sheets" && (
+                        <span className={`inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded border ${
+                          isOAuth
+                            ? "text-blue-400 bg-blue-400/10 border-blue-400/20"
+                            : "text-muted-foreground bg-muted/30 border-border/50"
+                        }`}>
+                          {isOAuth ? <><LogIn className="h-2.5 w-2.5" /> OAuth</> : <><KeyRound className="h-2.5 w-2.5" /> API Key</>}
+                        </span>
+                      )}
+                      {/* Email badge for OAuth */}
+                      {conn.type === "google_sheets" && isOAuth && conn.config?.oauth_email && (
+                        <span className="text-[10px] text-blue-400 truncate max-w-[140px]" title={conn.config.oauth_email}>
+                          {conn.config.oauth_email}
+                        </span>
+                      )}
+                      {/* Spreadsheet ID badge for API key mode */}
+                      {conn.type === "google_sheets" && !isOAuth && conn.config?.spreadsheet_id && (
                         <span className="text-[10px] font-mono text-emerald-400 truncate max-w-[120px]" title={conn.config.spreadsheet_id}>
                           {conn.config.spreadsheet_id.slice(0, 14)}…
                         </span>
                       )}
                     </div>
                   </div>
-                  <Input
-                    value={conn.auth_value}
-                    onChange={(e) => updateAuth(conn.id, e.target.value)}
-                    placeholder={def?.auth_hint || "API Key / URL"}
-                    className="w-32 h-7 text-[11px] bg-background/60 font-mono border-border/60"
-                  />
+                  {/* Only show auth edit field for non-OAuth connectors */}
+                  {(!isOAuth || conn.type !== "google_sheets") && (
+                    <Input
+                      value={conn.auth_value}
+                      onChange={(e) => updateAuth(conn.id, e.target.value)}
+                      placeholder={def?.auth_hint || "API Key / URL"}
+                      className="w-32 h-7 text-[11px] bg-background/60 font-mono border-border/60"
+                    />
+                  )}
                   <button
                     onClick={() => disconnectService(conn.id)}
                     className="shrink-0 p-1 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all"

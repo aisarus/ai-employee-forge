@@ -15,6 +15,7 @@ import Integrations from "./pages/Integrations";
 import Billing from "./pages/Billing";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import OAuthCallback from "./pages/OAuthCallback";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 
@@ -31,6 +32,8 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
+        {/* OAuth popup callback — must work without auth */}
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
         <Route path="*" element={<Navigate to="/auth" replace />} />
       </Routes>
     );
@@ -49,6 +52,7 @@ function AppRoutes() {
               <Route path="/agents" element={<ErrorBoundary><MyAgents /></ErrorBoundary>} />
               <Route path="/integrations" element={<ErrorBoundary><Integrations /></ErrorBoundary>} />
               <Route path="/billing" element={<ErrorBoundary><Billing /></ErrorBoundary>} />
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="*" element={<ErrorBoundary><NotFound /></ErrorBoundary>} />
             </Routes>
