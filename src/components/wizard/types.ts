@@ -161,7 +161,9 @@ export function getWizardSteps(botType: string): readonly string[] {
 
 export const AVAILABLE_CONNECTORS = [
   { id: "google_sheets", name: "Google Sheets", icon: "📊", category: "Spreadsheet", auth_hint: "API Key", caps: ["read", "write"] as const },
+  { id: "notion", name: "Notion", icon: "📝", category: "Database", auth_hint: "Integration Token", caps: ["read", "write"] as const },
   { id: "airtable", name: "Airtable", icon: "🗄️", category: "Database", auth_hint: "API Key", caps: ["read", "write"] as const },
+  { id: "hubspot", name: "HubSpot CRM", icon: "🧲", category: "CRM", auth_hint: "API Key", caps: ["read", "write"] as const },
   { id: "google_calendar", name: "Google Calendar", icon: "📅", category: "Calendar", auth_hint: "API Key", caps: ["read", "write"] as const },
   { id: "telegram_admin", name: "Telegram Admin", icon: "📢", category: "Messaging", auth_hint: "Chat ID", caps: ["write"] as const },
   { id: "email", name: "Email (SMTP)", icon: "📧", category: "Notifications", auth_hint: "SMTP / API Key", caps: ["write"] as const },

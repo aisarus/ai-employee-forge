@@ -91,26 +91,432 @@ CONTEXT:
 // ---------------------------------------------------------------------------
 const BOT_CACHE_TTL_MS = 5 * 60 * 1_000;
 
+interface ConnectorRow {
+  id: string;
+  connector_type: string;
+  display_name: string;
+  status: string;
+  auth_value: string;
+  capabilities: string[];
+  config: Record<string, string>;
+}
+
 interface CachedBot {
   data: Record<string, unknown>;
   agent: Record<string, unknown> | null;
+  connectors: ConnectorRow[];
   cachedAt: number;
 }
 
 const botCache = new Map<string, CachedBot>();
 
-function getCachedBot(botId: string): { data: Record<string, unknown>; agent: Record<string, unknown> | null } | null {
+function getCachedBot(botId: string): { data: Record<string, unknown>; agent: Record<string, unknown> | null; connectors: ConnectorRow[] } | null {
   const entry = botCache.get(botId);
   if (!entry) return null;
   if (Date.now() - entry.cachedAt > BOT_CACHE_TTL_MS) {
     botCache.delete(botId);
     return null;
   }
-  return { data: entry.data, agent: entry.agent };
+  return { data: entry.data, agent: entry.agent, connectors: entry.connectors };
 }
 
-function setCachedBot(botId: string, data: Record<string, unknown>, agent: Record<string, unknown> | null): void {
-  botCache.set(botId, { data, agent, cachedAt: Date.now() });
+function setCachedBot(
+  botId: string,
+  data: Record<string, unknown>,
+  agent: Record<string, unknown> | null,
+  connectors: ConnectorRow[],
+): void {
+  botCache.set(botId, { data, agent, connectors, cachedAt: Date.now() });
+}
+
+// ---------------------------------------------------------------------------
+// Connector helpers
+// ---------------------------------------------------------------------------
+
+/** Load and decrypt all connected connectors for an agent. */
+async function loadConnectors(
+  supabase: ReturnType<typeof createClient>,
+  agentId: string,
+): Promise<ConnectorRow[]> {
+  const { data, error } = await supabase
+    .from("bot_connectors")
+    .select("id, connector_type, display_name, status, auth_value, capabilities, config")
+    .eq("agent_id", agentId)
+    .eq("status", "connected");
+
+  if (error || !data) return [];
+
+  return Promise.all(
+    (data as any[]).map(async (row: any) => {
+      let auth_value = "";
+      if (row.auth_value) {
+        try { auth_value = await tryDecrypt(row.auth_value); } catch { auth_value = row.auth_value; }
+      }
+      return {
+        id: row.id,
+        connector_type: row.connector_type,
+        display_name: row.display_name,
+        status: row.status,
+        auth_value,
+        capabilities: row.capabilities ?? [],
+        config: (row.config ?? {}) as Record<string, string>,
+      };
+    }),
+  );
+}
+
+/**
+ * Fetch read data from Google Sheets for a connector.
+ * Returns up to 20 rows as a formatted string, or null on error.
+ */
+async function fetchGoogleSheetsData(
+  connector: ConnectorRow,
+  supabaseUrl: string,
+  serviceKey: string,
+): Promise<string | null> {
+  const cfg = connector.config;
+  const spreadsheetId = cfg.spreadsheet_id;
+  if (!spreadsheetId) return null;
+
+  const sheetName = cfg.sheet_name || "Sheet1";
+  const range = `${sheetName}!A1:Z20`;
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/google-sheets-connector`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        action: "read",
+        spreadsheetId,
+        range,
+        ...(cfg.auth_mode === "oauth"
+          ? { accessToken: connector.auth_value }
+          : { apiKey: connector.auth_value }),
+      }),
+      signal: AbortSignal.timeout(3_000),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.success || !data.rows?.length) return null;
+
+    // Format rows as text (first row assumed to be header)
+    const rows: string[][] = data.rows;
+    const header = rows[0] ?? [];
+    const dataRows = rows.slice(1, 11); // max 10 data rows injected
+
+    if (dataRows.length === 0) return `(No entries yet — spreadsheet is empty)`;
+
+    const lines = dataRows.map((row: string[]) => {
+      const pairs = header.map((h: string, i: number) => `${h}: ${row[i] ?? ""}`)
+        .filter((p: string) => !p.endsWith(": "));
+      return "• " + pairs.join(", ");
+    });
+
+    return lines.join("\n");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch recent entries from a Notion database for a connector.
+ * Returns up to 5 pages as a formatted string, or null on error.
+ */
+async function fetchNotionData(
+  connector: ConnectorRow,
+  supabaseUrl: string,
+  serviceKey: string,
+): Promise<string | null> {
+  const cfg = connector.config;
+  const databaseId = cfg.database_id;
+  if (!databaseId) return null;
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/notion-connector`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        action: "query",
+        databaseId,
+        integrationToken: connector.auth_value,
+        pageSize: 5,
+      }),
+      signal: AbortSignal.timeout(3_000),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.success || !data.results?.length) return null;
+
+    const lines = (data.results as any[]).map((r: any) => {
+      const props = Object.entries(r.properties as Record<string, string>)
+        .slice(0, 4)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(", ");
+      return `• ${props}`;
+    });
+
+    return lines.join("\n");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build the CONNECTED INTEGRATIONS section for the system prompt.
+ * Includes read data fetched from connected sources.
+ */
+async function buildConnectorContext(
+  connectors: ConnectorRow[],
+  supabaseUrl: string,
+  serviceKey: string,
+): Promise<string> {
+  if (connectors.length === 0) return "";
+
+  const sections: string[] = ["## CONNECTED INTEGRATIONS"];
+
+  for (const c of connectors) {
+    const caps = (c.capabilities ?? []).join(" + ") || "read+write";
+    const cfg = c.config ?? {};
+
+    if (c.connector_type === "google_sheets") {
+      sections.push(`\n📊 Google Sheets (${caps})`);
+      if (cfg.spreadsheet_id) sections.push(`Spreadsheet ID: ${cfg.spreadsheet_id}`);
+      if (cfg.sheet_name) sections.push(`Sheet: ${cfg.sheet_name}`);
+
+      if (c.capabilities.includes("read")) {
+        const data = await fetchGoogleSheetsData(c, supabaseUrl, serviceKey);
+        if (data) {
+          sections.push("Current data (last entries):\n" + data);
+        }
+      }
+
+      if (c.capabilities.includes("write")) {
+        sections.push(
+          "\nWRITE INSTRUCTIONS — Google Sheets:\n" +
+          "When you have collected ALL required data and the user confirms, append this tag EXACTLY at the end of your response (it will be stripped before sending to user):\n" +
+          "[SAVE:google_sheets:field1=value1|field2=value2|field3=value3]\n" +
+          "Example: [SAVE:google_sheets:name=John Smith|phone=+1234567890|date=2024-01-20]\n" +
+          "ONLY include the [SAVE:...] tag when the user has explicitly confirmed and ALL fields are collected.",
+        );
+      }
+    }
+
+    if (c.connector_type === "notion") {
+      sections.push(`\n📝 Notion (${caps})`);
+      if (cfg.database_id) sections.push(`Database ID: ${cfg.database_id}`);
+      if (cfg.database_name) sections.push(`Database: ${cfg.database_name}`);
+
+      if (c.capabilities.includes("read")) {
+        const data = await fetchNotionData(c, supabaseUrl, serviceKey);
+        if (data) {
+          sections.push("Recent entries:\n" + data);
+        }
+      }
+
+      if (c.capabilities.includes("write")) {
+        sections.push(
+          "\nWRITE INSTRUCTIONS — Notion:\n" +
+          "When you have collected ALL required data and the user confirms, append this tag EXACTLY at the end of your response:\n" +
+          "[SAVE:notion:field1=value1|field2=value2|field3=value3]\n" +
+          "Example: [SAVE:notion:Name=John Smith|Status=Active|Phone=+1234567890]\n" +
+          "ONLY include the [SAVE:...] tag when the user has explicitly confirmed and ALL fields are collected.",
+        );
+      }
+    }
+
+    if (c.connector_type === "airtable") {
+      sections.push(`\n🗄️ Airtable (${caps})`);
+      if (cfg.base_id) sections.push(`Base: ${cfg.base_id}`);
+      if (cfg.table_name) sections.push(`Table: ${cfg.table_name}`);
+      if (c.capabilities.includes("write")) {
+        sections.push(
+          "\nWRITE INSTRUCTIONS — Airtable:\n" +
+          "When data is ready: [SAVE:airtable:field1=value1|field2=value2]",
+        );
+      }
+    }
+
+    if (c.connector_type === "webhook" || c.connector_type === "custom_api") {
+      sections.push(`\n🔗 ${c.display_name} (${caps})`);
+      if (c.capabilities.includes("write")) {
+        sections.push(
+          `When action is required: [SAVE:webhook:field1=value1|field2=value2]`,
+        );
+      }
+    }
+  }
+
+  return sections.join("\n");
+}
+
+/** Regex to find [SAVE:connector_type:key=val|...] tags in AI response. */
+const SAVE_TAG_RE = /\[SAVE:(\w+):([^\]]+)\]/g;
+
+/**
+ * Parse [SAVE:...] tags from the AI reply, execute the connector writes,
+ * and return the clean reply (tags stripped) plus a status line.
+ */
+async function executeConnectorWrites(
+  reply: string,
+  connectors: ConnectorRow[],
+  supabaseUrl: string,
+  serviceKey: string,
+): Promise<{ cleanReply: string; savedLines: string[] }> {
+  const savedLines: string[] = [];
+  const matches = [...reply.matchAll(SAVE_TAG_RE)];
+
+  if (matches.length === 0) {
+    return { cleanReply: reply, savedLines };
+  }
+
+  for (const match of matches) {
+    const connectorType = match[1];
+    const rawPairs = match[2];
+
+    // Parse key=value|key=value pairs (value may contain = signs)
+    const fields: Record<string, string> = {};
+    for (const pair of rawPairs.split("|")) {
+      const eqIdx = pair.indexOf("=");
+      if (eqIdx === -1) continue;
+      const k = pair.slice(0, eqIdx).trim();
+      const v = pair.slice(eqIdx + 1).trim();
+      if (k) fields[k] = v;
+    }
+
+    const connector = connectors.find((c) => c.connector_type === connectorType);
+    if (!connector) continue;
+
+    const cfg = connector.config ?? {};
+
+    // ── Google Sheets write ────────────────────────────────────────────────
+    if (connectorType === "google_sheets") {
+      const spreadsheetId = cfg.spreadsheet_id;
+      if (!spreadsheetId) continue;
+
+      const sheetName = cfg.sheet_name || "Sheet1";
+      const row = Object.values(fields);
+
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/google-sheets-connector`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            action: "append",
+            spreadsheetId,
+            sheetName,
+            values: [row],
+            ...(cfg.auth_mode === "oauth"
+              ? { accessToken: connector.auth_value }
+              : { apiKey: connector.auth_value }),
+          }),
+          signal: AbortSignal.timeout(5_000),
+        });
+
+        const result = await res.json().catch(() => ({}));
+        if (result.success) {
+          savedLines.push(`✅ Saved to Google Sheets (${sheetName})`);
+          console.log(`[connector] Appended row to Google Sheets for agent, row: ${JSON.stringify(fields)}`);
+        } else {
+          console.error(`[connector] Google Sheets write failed: ${result.error}`);
+          savedLines.push(`⚠️ Failed to save to Google Sheets`);
+        }
+      } catch (e) {
+        console.error(`[connector] Google Sheets fetch error: ${(e as Error).message}`);
+      }
+    }
+
+    // ── Notion write ───────────────────────────────────────────────────────
+    if (connectorType === "notion") {
+      const databaseId = cfg.database_id;
+      if (!databaseId) continue;
+
+      // Build Notion properties from flat key=value pairs
+      // We build simple title/rich_text properties
+      const notionProperties: Record<string, unknown> = {};
+      const entries = Object.entries(fields);
+
+      for (let i = 0; i < entries.length; i++) {
+        const [key, value] = entries[i];
+        if (i === 0) {
+          // First field → title property
+          notionProperties[key] = {
+            title: [{ text: { content: value } }],
+          };
+        } else {
+          // Rest → rich_text
+          notionProperties[key] = {
+            rich_text: [{ text: { content: value } }],
+          };
+        }
+      }
+
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/notion-connector`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            action: "create_page",
+            databaseId,
+            integrationToken: connector.auth_value,
+            properties: notionProperties,
+          }),
+          signal: AbortSignal.timeout(5_000),
+        });
+
+        const result = await res.json().catch(() => ({}));
+        if (result.success) {
+          savedLines.push(`✅ Saved to Notion`);
+          console.log(`[connector] Created Notion page, id: ${result.pageId}`);
+        } else {
+          console.error(`[connector] Notion write failed: ${result.error}`);
+          savedLines.push(`⚠️ Failed to save to Notion`);
+        }
+      } catch (e) {
+        console.error(`[connector] Notion fetch error: ${(e as Error).message}`);
+      }
+    }
+
+    // ── Webhook / Custom API write ─────────────────────────────────────────
+    if (connectorType === "webhook" || connectorType === "custom_api") {
+      const webhookUrl = connector.auth_value || cfg.url;
+      if (!webhookUrl) continue;
+
+      try {
+        const res = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: fields, timestamp: new Date().toISOString() }),
+          signal: AbortSignal.timeout(5_000),
+        });
+
+        if (res.ok) {
+          savedLines.push(`✅ Webhook delivered`);
+        } else {
+          savedLines.push(`⚠️ Webhook returned HTTP ${res.status}`);
+        }
+      } catch (e) {
+        console.error(`[connector] Webhook error: ${(e as Error).message}`);
+      }
+    }
+  }
+
+  // Strip all [SAVE:...] tags from reply
+  const cleanReply = reply.replace(SAVE_TAG_RE, "").replace(/\n{3,}/g, "\n\n").trim();
+  return { cleanReply, savedLines };
 }
 
 // ---------------------------------------------------------------------------
@@ -560,11 +966,14 @@ async function processMessage(
   supabase: ReturnType<typeof createClient>,
   bot: Record<string, unknown>,
   agent: Record<string, unknown> | null,
+  connectors: ConnectorRow[],
   botId: string,
   chatId: number,
   userText: string,
   updateId: number | undefined,
   lovableKey: string,
+  supabaseUrl: string,
+  serviceKey: string,
 ): Promise<void> {
   // /start — send welcome message, no AI needed
   if (userText === "/start") {
@@ -636,17 +1045,24 @@ async function processMessage(
     ? "This is the START of the conversation — you may introduce yourself briefly."
     : "Do NOT introduce yourself — this conversation is already in progress.";
 
-  // 3-layer system prompt assembly:
+  // Connector context (read data + write instructions) — fetched concurrently
+  const connectorContext = connectors.length > 0
+    ? await buildConnectorContext(connectors, supabaseUrl, serviceKey)
+    : "";
+
+  // 4-layer system prompt assembly:
   // Layer 1: BOT_SHELL_TEMPLATE — behavioral rules
   // Layer 2: Wizard config — identity, name, description, commands
   // Layer 3: User system prompt — custom role & knowledge
+  // Layer 4: Connector context — integration data & write instructions
   const wizardConfig = buildWizardConfig(bot, agent);
   const finalSystemPrompt =
     BOT_SHELL_TEMPLATE +
     "\n\n" + introRule +
     "\n\n" + wizardConfig +
     "\n\n## YOUR ROLE AND KNOWLEDGE:\n" +
-    systemPrompt;
+    systemPrompt +
+    (connectorContext ? "\n\n" + connectorContext : "");
 
   const messages: { role: string; content: string }[] = [
     { role: "system", content: finalSystemPrompt },
@@ -721,6 +1137,16 @@ async function processMessage(
     reply = customFallback || "⚠️ AI is temporarily unavailable. Please try again later.";
   }
 
+  // Execute any [SAVE:...] connector write actions embedded in the AI reply
+  if (connectors.length > 0 && reply.includes("[SAVE:")) {
+    const { cleanReply, savedLines } = await executeConnectorWrites(reply, connectors, supabaseUrl, serviceKey);
+    reply = cleanReply;
+    // Append save confirmations inline if any (e.g. "✅ Saved to Google Sheets")
+    if (savedLines.length > 0) {
+      reply = reply + "\n\n" + savedLines.join("\n");
+    }
+  }
+
   // TW3: Truncate to Telegram's 4096-char limit (use 4000 for safety)
   if (reply.length > TG_MAX_CHARS) {
     reply = reply.slice(0, TG_MAX_CHARS) + "...";
@@ -777,11 +1203,13 @@ Deno.serve(async (req: Request) => {
   // ------------------------------------------------------------------
   let bot: Record<string, unknown> | null = null;
   let agent: Record<string, unknown> | null = null;
+  let connectors: ConnectorRow[] = [];
 
   const cached = getCachedBot(botId);
   if (cached) {
     bot = cached.data;
     agent = cached.agent;
+    connectors = cached.connectors;
   }
 
   if (!bot) {
@@ -824,9 +1252,12 @@ Deno.serve(async (req: Request) => {
       } else {
         agent = null;
       }
+
+      // Load connectors for this agent
+      connectors = await loadConnectors(supabase, agentId);
     }
 
-    setCachedBot(botId, mutable, agent);
+    setCachedBot(botId, mutable, agent, connectors);
     bot = mutable;
   }
 
@@ -892,7 +1323,7 @@ Deno.serve(async (req: Request) => {
   // TW1: Respond immediately to Telegram (< 1 s), process in background.
   // EdgeRuntime.waitUntil() keeps the function alive until processing completes.
   // ------------------------------------------------------------------
-  const bgWork = processMessage(supabase, bot, agent, botId, chatId, userText, updateId, lovableKey);
+  const bgWork = processMessage(supabase, bot, agent, connectors, botId, chatId, userText, updateId, lovableKey, supabaseUrl, serviceKey);
 
   // @ts-ignore — EdgeRuntime is a Supabase/Deno edge-runtime global
   if (typeof EdgeRuntime !== "undefined") {

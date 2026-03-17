@@ -7,7 +7,7 @@ import { WizardData, ConnectorConfig, AVAILABLE_CONNECTORS } from "./types";
 import {
   Plug, CheckCircle2, X, Wifi, WifiOff, ChevronDown, ChevronUp,
   ExternalLink, Zap, Loader2, AlertCircle, FileSpreadsheet, KeyRound, LogIn,
-  RefreshCw,
+  RefreshCw, Database, Users,
 } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 
@@ -18,7 +18,9 @@ interface Props {
 
 const CONNECTOR_NAME_KEYS: Record<string, string> = {
   google_sheets: "conn.google_sheets",
+  notion: "conn.notion",
   airtable: "conn.airtable",
+  hubspot: "conn.hubspot",
   google_calendar: "conn.google_calendar",
   telegram_admin: "conn.telegram_admin",
   email: "conn.email",
@@ -31,6 +33,7 @@ const CONNECTOR_NAME_KEYS: Record<string, string> = {
 const CAT_KEYS: Record<string, string> = {
   Spreadsheet: "conn.cat_spreadsheet",
   Database: "conn.cat_database",
+  CRM: "conn.cat_crm",
   Calendar: "conn.cat_calendar",
   Messaging: "conn.cat_messaging",
   Notifications: "conn.cat_notifications",
@@ -42,6 +45,7 @@ const CAT_KEYS: Record<string, string> = {
 const CAT_COLORS: Record<string, string> = {
   Spreadsheet:   "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
   Database:      "text-violet-400 bg-violet-400/10 border-violet-400/20",
+  CRM:           "text-rose-400 bg-rose-400/10 border-rose-400/20",
   Calendar:      "text-blue-400 bg-blue-400/10 border-blue-400/20",
   Messaging:     "text-sky-400 bg-sky-400/10 border-sky-400/20",
   Notifications: "text-amber-400 bg-amber-400/10 border-amber-400/20",
@@ -289,6 +293,234 @@ function GoogleSheetsForm({
   );
 }
 
+// ── Notion config form ────────────────────────────────────────────────────────
+
+interface NotionFormProps {
+  authInputs: Record<string, string>;
+  configInputs: Record<string, string>;
+  onAuthChange: (val: string) => void;
+  onConfigChange: (key: string, val: string) => void;
+  onConnect: () => void;
+  onSkip: () => void;
+  testing: boolean;
+  testResult: "ok" | "error" | null;
+}
+
+async function testNotionApi(token: string, databaseId: string): Promise<boolean> {
+  if (!token.trim() || !databaseId.trim()) return false;
+  try {
+    const res = await fetch(`https://api.notion.com/v1/databases/${encodeURIComponent(databaseId)}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Notion-Version": "2022-06-28",
+      },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function NotionForm({
+  authInputs, configInputs, onAuthChange, onConfigChange,
+  onConnect, onSkip, testing, testResult,
+}: NotionFormProps) {
+  const token = authInputs["notion"] || "";
+  const databaseId = configInputs["database_id"] || "";
+  const canConnect = token.trim() !== "" && databaseId.trim() !== "";
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 pb-1 border-b border-border/40">
+        <Database className="h-4 w-4 text-violet-400" />
+        <span className="text-xs font-semibold text-foreground">Notion Setup</span>
+        <a
+          href="https://developers.notion.com/docs/create-a-notion-integration"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto text-[10px] text-primary flex items-center gap-0.5 hover:underline"
+        >
+          How to get token <ExternalLink className="h-2.5 w-2.5" />
+        </a>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          Integration Token <span className="text-destructive">*</span>
+        </label>
+        <Input
+          autoFocus
+          value={token}
+          onChange={(e) => onAuthChange(e.target.value)}
+          placeholder="secret_..."
+          className="bg-background/60 font-mono text-xs h-8"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Notion → Settings → Integrations → Create integration. Share your DB with the integration.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          Database ID <span className="text-destructive">*</span>
+        </label>
+        <Input
+          value={databaseId}
+          onChange={(e) => onConfigChange("database_id", e.target.value)}
+          placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          className="bg-background/60 font-mono text-xs h-8"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          From your Notion DB URL: notion.so/[workspace]/<strong>DATABASE_ID</strong>?v=...
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">Database Name (optional)</label>
+        <Input
+          value={configInputs["database_name"] || ""}
+          onChange={(e) => onConfigChange("database_name", e.target.value)}
+          placeholder="My Leads"
+          className="bg-background/60 text-xs h-8"
+        />
+      </div>
+
+      {testResult === "ok" && (
+        <div className="flex items-center gap-1.5 text-[11px] text-success">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Connection test passed — database is accessible.
+        </div>
+      )}
+      {testResult === "error" && (
+        <div className="flex items-center gap-1.5 text-[11px] text-destructive">
+          <AlertCircle className="h-3.5 w-3.5" />
+          Could not connect. Check your token and Database ID.
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          size="sm"
+          onClick={onConnect}
+          disabled={!canConnect || testing}
+          className="h-7 px-3 text-xs gap-1"
+        >
+          {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+          {testing ? "Testing…" : "Connect"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onSkip} className="h-7 px-3 text-xs text-muted-foreground">
+          Skip for now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── HubSpot CRM config form ───────────────────────────────────────────────────
+
+interface HubSpotFormProps {
+  authInputs: Record<string, string>;
+  configInputs: Record<string, string>;
+  onAuthChange: (val: string) => void;
+  onConfigChange: (key: string, val: string) => void;
+  onConnect: () => void;
+  onSkip: () => void;
+  testing: boolean;
+  testResult: "ok" | "error" | null;
+}
+
+async function testHubSpotApi(apiKey: string): Promise<boolean> {
+  if (!apiKey.trim()) return false;
+  try {
+    const res = await fetch("https://api.hubapi.com/crm/v3/objects/contacts?limit=1", {
+      headers: { "Authorization": `Bearer ${apiKey}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function HubSpotForm({
+  authInputs, configInputs, onAuthChange, onConfigChange,
+  onConnect, onSkip, testing, testResult,
+}: HubSpotFormProps) {
+  const apiKey = authInputs["hubspot"] || "";
+  const canConnect = apiKey.trim() !== "";
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 pb-1 border-b border-border/40">
+        <Users className="h-4 w-4 text-rose-400" />
+        <span className="text-xs font-semibold text-foreground">HubSpot CRM Setup</span>
+        <a
+          href="https://developers.hubspot.com/docs/api/private-apps"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto text-[10px] text-primary flex items-center gap-0.5 hover:underline"
+        >
+          Docs <ExternalLink className="h-2.5 w-2.5" />
+        </a>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          Private App Token <span className="text-destructive">*</span>
+        </label>
+        <Input
+          autoFocus
+          value={apiKey}
+          onChange={(e) => onAuthChange(e.target.value)}
+          placeholder="pat-na1-..."
+          className="bg-background/60 font-mono text-xs h-8"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          HubSpot → Settings → Integrations → Private Apps → Create app.
+          Grant CRM: Contacts (read + write) scope.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-muted-foreground">Default pipeline (optional)</label>
+        <Input
+          value={configInputs["pipeline"] || ""}
+          onChange={(e) => onConfigChange("pipeline", e.target.value)}
+          placeholder="default"
+          className="bg-background/60 text-xs h-8"
+        />
+      </div>
+
+      {testResult === "ok" && (
+        <div className="flex items-center gap-1.5 text-[11px] text-success">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          HubSpot connected — CRM access verified.
+        </div>
+      )}
+      {testResult === "error" && (
+        <div className="flex items-center gap-1.5 text-[11px] text-destructive">
+          <AlertCircle className="h-3.5 w-3.5" />
+          Could not reach HubSpot API. Check your token and scopes.
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          size="sm"
+          onClick={onConnect}
+          disabled={!canConnect || testing}
+          className="h-7 px-3 text-xs gap-1"
+        >
+          {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+          {testing ? "Testing…" : "Connect"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onSkip} className="h-7 px-3 text-xs text-muted-foreground">
+          Skip for now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── Generic connector auth form ───────────────────────────────────────────────
 
 interface GenericFormProps {
@@ -509,7 +741,7 @@ export function StepConnections({ data, onChange }: Props) {
     });
   };
 
-  // ── Real connection test ────────────────────────────────────────────────────
+  // ── Real connection tests ───────────────────────────────────────────────────
 
   const testGoogleSheetsConnection = async (): Promise<boolean> => {
     const spreadsheetId = configInputs["spreadsheet_id"]?.trim() ?? "";
@@ -524,9 +756,13 @@ export function StepConnections({ data, onChange }: Props) {
 
   const connectService = async (connectorDef: typeof AVAILABLE_CONNECTORS[number]) => {
     const authVal = authInputs[connectorDef.id] || "";
-    const config  = connectorDef.id === "google_sheets"
-      ? { ...configInputs, auth_mode: authMode }
-      : {};
+    let config: Record<string, string> = {};
+
+    if (connectorDef.id === "google_sheets") {
+      config = { ...configInputs, auth_mode: authMode };
+    } else if (connectorDef.id === "notion" || connectorDef.id === "hubspot") {
+      config = { ...configInputs };
+    }
 
     // For Google Sheets: run real API test before marking connected
     if (connectorDef.id === "google_sheets") {
@@ -538,6 +774,24 @@ export function StepConnections({ data, onChange }: Props) {
         setTestResult(ok ? "ok" : "error");
         if (!ok) return;
       }
+    }
+
+    // For Notion: test integration token + database access
+    if (connectorDef.id === "notion" && authVal && configInputs["database_id"]) {
+      setTesting(true);
+      const ok = await testNotionApi(authVal, configInputs["database_id"]);
+      setTesting(false);
+      setTestResult(ok ? "ok" : "error");
+      if (!ok) return;
+    }
+
+    // For HubSpot: test API key
+    if (connectorDef.id === "hubspot" && authVal) {
+      setTesting(true);
+      const ok = await testHubSpotApi(authVal);
+      setTesting(false);
+      setTestResult(ok ? "ok" : "error");
+      if (!ok) return;
     }
 
     const connector: ConnectorConfig = {
@@ -672,6 +926,28 @@ export function StepConnections({ data, onChange }: Props) {
                         oauthEmail={oauthEmail}
                         oauthLoading={oauthLoading}
                         onOAuthConnect={handleGoogleOAuth}
+                      />
+                    ) : conn.id === "notion" ? (
+                      <NotionForm
+                        authInputs={authInputs}
+                        configInputs={configInputs}
+                        onAuthChange={(v) => setAuthInputs((p) => ({ ...p, notion: v }))}
+                        onConfigChange={(k, v) => setConfigInputs((p) => ({ ...p, [k]: v }))}
+                        onConnect={() => connectService(conn)}
+                        onSkip={() => skipConnect(conn)}
+                        testing={testing}
+                        testResult={testResult}
+                      />
+                    ) : conn.id === "hubspot" ? (
+                      <HubSpotForm
+                        authInputs={authInputs}
+                        configInputs={configInputs}
+                        onAuthChange={(v) => setAuthInputs((p) => ({ ...p, hubspot: v }))}
+                        onConfigChange={(k, v) => setConfigInputs((p) => ({ ...p, [k]: v }))}
+                        onConnect={() => connectService(conn)}
+                        onSkip={() => skipConnect(conn)}
+                        testing={testing}
+                        testResult={testResult}
                       />
                     ) : (
                       <GenericConnectorForm
