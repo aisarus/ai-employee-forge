@@ -381,3 +381,148 @@
 .animate-fade-up {
   animation: fade-up 0.35s ease-out both;
 }
+
+/* ═══════════════════════════════════════════════
+   MICRO-INTERACTIONS & AI GENERATION FEEDBACK
+   ═══════════════════════════════════════════════ */
+
+/* Button press — scale down on active click */
+.btn-press {
+  @apply active:scale-[0.96] active:brightness-90 transition-all duration-75;
+}
+
+/* AI Thinking dots — 3 dots bouncing sequentially */
+@keyframes thinking-bounce {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }
+  30%            { transform: translateY(-6px); opacity: 1;    }
+}
+.ai-thinking-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: thinking-bounce 1.4s ease-in-out infinite;
+}
+.ai-thinking-dot:nth-child(1) { animation-delay: 0s;    }
+.ai-thinking-dot:nth-child(2) { animation-delay: 0.18s; }
+.ai-thinking-dot:nth-child(3) { animation-delay: 0.36s; }
+.ai-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Icon pop on action */
+@keyframes icon-pop {
+  0%   { transform: scale(1);    }
+  40%  { transform: scale(1.4);  }
+  70%  { transform: scale(0.88); }
+  100% { transform: scale(1);    }
+}
+.animate-icon-pop {
+  animation: icon-pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Wiggle for errors / invalid state */
+@keyframes wiggle {
+  0%,  100% { transform: translateX(0);    }
+  15%        { transform: translateX(-5px) rotate(-1.5deg); }
+  30%        { transform: translateX(5px)  rotate(1.5deg);  }
+  45%        { transform: translateX(-3px); }
+  60%        { transform: translateX(3px);  }
+  75%        { transform: translateX(-1px); }
+}
+.animate-wiggle {
+  animation: wiggle 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Slide-down + fade for dropdowns / tooltips / badge reveal */
+@keyframes slide-down-fade {
+  from { opacity: 0; transform: translateY(-7px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+.animate-slide-down-fade {
+  animation: slide-down-fade 0.2s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+
+/* Spin once — refresh / copy icons */
+@keyframes spin-once {
+  from { transform: rotate(0deg);   }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin-once {
+  animation: spin-once 0.55s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Hover float — cards gentle -3px lift */
+.hover-float {
+  @apply transition-transform duration-200;
+}
+.hover-float:hover {
+  transform: translateY(-3px);
+}
+
+/* Input focus glow ring */
+.input-glow-focus {
+  @apply transition-shadow duration-200;
+}
+.input-glow-focus:focus {
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.25), 0 0 14px hsl(var(--ring) / 0.12);
+  outline: none;
+}
+
+/* Skeleton wave loading */
+@keyframes skeleton-wave {
+  0%   { background-position: -400px 0; }
+  100% { background-position: calc(400px + 100%) 0; }
+}
+.skeleton-wave {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted-foreground) / 0.12) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 600px 100%;
+  animation: skeleton-wave 1.5s ease-in-out infinite;
+}
+
+/* AI streaming cursor at end of generating text */
+.ai-stream-cursor::after {
+  content: '▋';
+  display: inline;
+  animation: cursor-blink 0.7s step-end infinite;
+  color: hsl(var(--primary));
+  margin-left: 2px;
+}
+
+/* Drag-over drop zone glow pulse */
+@keyframes drop-glow {
+  0%, 100% { box-shadow: 0 0 0 0   hsl(var(--primary) / 0);    }
+  50%       { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.4),
+                           0 0 18px hsl(var(--primary) / 0.18); }
+}
+.animate-drop-glow {
+  animation: drop-glow 0.9s ease-in-out infinite;
+}
+
+/* Pop-in for badges / tags */
+@keyframes pop-in {
+  0%   { transform: scale(0);    opacity: 0; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.animate-pop-in {
+  animation: pop-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Generating shimmer — text placeholder during AI response */
+@keyframes gen-shimmer {
+  0%   { opacity: 0.4; }
+  50%  { opacity: 0.9; }
+  100% { opacity: 0.4; }
+}
+.animate-gen-shimmer {
+  animation: gen-shimmer 1.6s ease-in-out infinite;
+}

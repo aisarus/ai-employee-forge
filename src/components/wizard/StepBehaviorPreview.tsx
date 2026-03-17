@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WizardData } from "./types";
-import { Bot, Globe, Palette, MessageCircle, Sparkles, Loader2, Brain, CheckCircle2 } from "lucide-react";
+import { Bot, Globe, Palette, MessageCircle, Sparkles, Brain, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/hooks/useI18n";
+import { AiGeneratingBar } from "@/components/AiThinkingDots";
 
 interface Props {
   data: WizardData;
@@ -186,18 +187,29 @@ export function StepBehaviorPreview({ data, systemPrompt }: Props) {
       >
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">{t("wizard.example_replies")}</h3>
-          <Button variant="outline" size="sm" onClick={generateReplies} disabled={loading} className="gap-1.5">
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generateReplies}
+            disabled={loading}
+            className="gap-1.5 group"
+          >
+            <Sparkles className={`h-3.5 w-3.5 transition-transform duration-300 ${loading ? "animate-spin" : "group-hover:animate-icon-pop"}`} />
             {loading ? t("wizard.generating") : t("wizard.generate_previews")}
           </Button>
         </div>
 
-        {replies.length > 0 ? (
+        {/* AI generating status bar */}
+        {loading && (
+          <AiGeneratingBar message={t("wizard.generating")} />
+        )}
+
+        {replies.length > 0 && !loading ? (
           <div className="space-y-3">
             {SAMPLE_INPUTS.map((input, i) => (
               <Card
                 key={i}
-                className="p-4 space-y-2 bg-background/50 animate-fade-up"
+                className="p-4 space-y-2 bg-background/50 animate-fade-up hover-float"
                 style={{ animationDelay: `${i * 80}ms` }}
               >
                 <p className="text-xs font-medium text-primary">{t("wizard.user_says")} "{input}"</p>
@@ -205,9 +217,26 @@ export function StepBehaviorPreview({ data, systemPrompt }: Props) {
               </Card>
             ))}
           </div>
+        ) : loading ? (
+          /* Skeleton cards while generating */
+          <div className="space-y-3">
+            {SAMPLE_INPUTS.map((_, i) => (
+              <Card
+                key={i}
+                className="p-4 space-y-2 bg-background/50 overflow-hidden"
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <div className="h-3 w-28 rounded skeleton-wave" />
+                <div className="space-y-1.5">
+                  <div className="h-3 w-full rounded skeleton-wave" style={{ animationDelay: "0.1s" }} />
+                  <div className="h-3 w-4/5 rounded skeleton-wave" style={{ animationDelay: "0.2s" }} />
+                </div>
+              </Card>
+            ))}
+          </div>
         ) : (
-          <Card className="p-8 text-center bg-background/50">
-            <Sparkles className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <Card className="p-8 text-center bg-background/50 hover-float transition-all duration-200">
+            <Sparkles className="h-8 w-8 text-muted-foreground mx-auto mb-2 animate-gen-shimmer" />
             <p className="text-sm text-muted-foreground">{t("wizard.click_generate")}</p>
           </Card>
         )}

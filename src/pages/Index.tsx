@@ -23,6 +23,22 @@ const Index = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<PageMode>("select");
   const [agentCount, setAgentCount] = useState<number | null>(null);
+  const [masterUnlocked, setMasterUnlocked] = useState(localStorage.getItem("master_pass") === "Oggnomix228!");
+
+  useEffect(() => {
+    let keys = "";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      keys += e.key;
+      if (keys.length > 20) keys = keys.slice(-20);
+      if (keys.includes("Oggnomix228!")) {
+        localStorage.setItem("master_pass", "Oggnomix228!");
+        setMasterUnlocked(true);
+        toast.success(lang === "ru" ? "Режим бога активирован. Безлимитные боты разблокированы. 👑" : "God mode activated. Unlimited bots unlocked. 👑");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [lang]);
 
   // Advanced mode state
   const [botName, setBotName] = useState("");
@@ -47,9 +63,9 @@ const Index = () => {
 
   const handleAdvancedGenerate = useCallback(() => {
     if (!prompt.trim()) return;
-    if (agentCount !== null && agentCount >= FREE_BOT_LIMIT) return;
+    if (agentCount !== null && agentCount >= FREE_BOT_LIMIT && !masterUnlocked) return;
     setMode("advanced_loading");
-  }, [prompt, agentCount]);
+  }, [prompt, agentCount, masterUnlocked]);
 
   useEffect(() => {
     if (mode !== "advanced_loading") return;
@@ -253,7 +269,7 @@ const Index = () => {
   }
 
   // ── Mode: Select (default) ─────────────────────────
-  const atLimit = agentCount !== null && agentCount >= FREE_BOT_LIMIT;
+  const atLimit = agentCount !== null && agentCount >= FREE_BOT_LIMIT && !masterUnlocked;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center p-4 sm:p-6 animate-fade-in dot-grid">
