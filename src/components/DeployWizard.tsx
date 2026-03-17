@@ -347,7 +347,10 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       case "bot_type":         return !!data.bot_type;
       case "identity":         return !!data.bot_name.trim() && !!data.short_description.trim();
       case "welcome":          return !!data.welcome_message.trim();
-      case "api_keys":         return !!data.openai_api_key.trim() && data.openai_api_key.startsWith("sk-");
+      case "api_keys": {
+        const key = data.openai_api_key.trim();
+        return !!key && (key.startsWith("sk-") || key.startsWith("AIza"));
+      }
       case "telegram_config":  return !!data.telegram_bot_token.trim();
       case "deploy":           return confirmed;
       default:                 return true;

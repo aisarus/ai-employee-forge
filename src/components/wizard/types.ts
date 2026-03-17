@@ -145,15 +145,15 @@ export const WIZARD_STEPS = [
 
 export const BOT_TYPE_STEP_PROFILES: Record<string, readonly string[]> = {
   // Simple bots — minimal steps
-  support:  ["bot_type", "identity", "welcome", "api_keys", "telegram_config", "telegram_preview", "deploy"],
-  faq:      ["bot_type", "identity", "welcome", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  support:  ["bot_type", "api_keys", "identity", "welcome", "telegram_config", "telegram_preview", "deploy"],
+  faq:      ["bot_type", "api_keys", "identity", "welcome", "telegram_config", "telegram_preview", "deploy"],
   // Medium bots
-  lead:     ["bot_type", "identity", "welcome", "actions", "api_keys", "telegram_config", "telegram_preview", "deploy"],
-  booking:  ["bot_type", "identity", "welcome", "actions", "connections", "api_keys", "telegram_config", "telegram_preview", "deploy"],
-  order:    ["bot_type", "identity", "welcome", "actions", "connections", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  lead:     ["bot_type", "api_keys", "identity", "welcome", "actions", "telegram_config", "telegram_preview", "deploy"],
+  booking:  ["bot_type", "api_keys", "identity", "welcome", "actions", "connections", "telegram_config", "telegram_preview", "deploy"],
+  order:    ["bot_type", "api_keys", "identity", "welcome", "actions", "connections", "telegram_config", "telegram_preview", "deploy"],
   // Full bots
-  sales:    ["bot_type", "identity", "welcome", "actions", "workflow", "connections", "api_keys", "telegram_config", "telegram_preview", "deploy"],
-  custom:   ["bot_type", "identity", "welcome", "actions", "workflow", "connections", "data_mapping", "triggers", "preview", "api_keys", "telegram_config", "telegram_preview", "deploy"],
+  sales:    ["bot_type", "api_keys", "identity", "welcome", "actions", "workflow", "connections", "telegram_config", "telegram_preview", "deploy"],
+  custom:   ["bot_type", "api_keys", "identity", "welcome", "actions", "workflow", "connections", "data_mapping", "triggers", "preview", "telegram_config", "telegram_preview", "deploy"],
   // Before type selected
   "":       ["bot_type"],
 };
