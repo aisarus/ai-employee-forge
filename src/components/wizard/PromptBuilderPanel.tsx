@@ -140,7 +140,7 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
           <button
             type="button"
             onClick={() => setShowPreview((v) => !v)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white/70 hover:text-white hover:bg-white/5 transition-all active:scale-[0.95] active:brightness-90"
           >
             {showPreview ? "Hide Preview" : "Preview Prompt"}
           </button>
@@ -148,7 +148,7 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
             type="button"
             onClick={handleReset}
             disabled={!isDirty && order.length === DEFAULT_PROMPT_BLOCK_ORDER.length}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white/50 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-white/50 hover:text-white hover:bg-white/5 transition-all active:scale-[0.95] active:brightness-90 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Reset
           </button>
@@ -157,9 +157,9 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
             onClick={handleSave}
             disabled={!isDirty}
             className={[
-              "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all",
+              "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-[0.95]",
               isDirty
-                ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md"
+                ? "bg-indigo-600 hover:bg-indigo-500 hover:shadow-[0_0_14px_hsl(239_84%_67%/0.45)] active:brightness-90 text-white shadow-md"
                 : "bg-white/5 text-white/30 cursor-not-allowed",
             ].join(" ")}
           >
@@ -187,10 +187,10 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
               onDragEnd={handleDragEnd}
               className={[
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-grab active:cursor-grabbing",
-                "border transition-all select-none",
+                "border transition-all duration-150 select-none",
                 isOver
-                  ? "border-indigo-500/60 bg-indigo-500/10 scale-[1.01]"
-                  : "border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15",
+                  ? "border-indigo-500/60 bg-indigo-500/10 scale-[1.02] animate-drop-glow"
+                  : "border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15 hover:-translate-y-px",
               ].join(" ")}
             >
               {/* Drag handle */}
@@ -226,7 +226,7 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
                   onClick={() => moveBlock(idx, -1)}
                   disabled={idx === 0}
                   aria-label={`Move ${def.label} up`}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/8 transition-all active:scale-[0.85] active:brightness-90 disabled:opacity-20 disabled:cursor-not-allowed"
                 >
                   ▲
                 </button>
@@ -235,7 +235,7 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
                   onClick={() => moveBlock(idx, 1)}
                   disabled={idx === order.length - 1}
                   aria-label={`Move ${def.label} down`}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/8 transition-all active:scale-[0.85] active:brightness-90 disabled:opacity-20 disabled:cursor-not-allowed"
                 >
                   ▼
                 </button>
@@ -247,7 +247,7 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
                   type="button"
                   onClick={() => toggleBlock(blockId)}
                   aria-label={`Remove ${def.label} from prompt`}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-[0.8] flex-shrink-0"
                 >
                   ✕
                 </button>
@@ -271,7 +271,7 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
                   key={blockId}
                   type="button"
                   onClick={() => toggleBlock(blockId)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 bg-white/3 text-white/40 hover:text-white/70 hover:bg-white/8 hover:border-white/20 transition-all text-xs"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 bg-white/3 text-white/40 hover:text-white/70 hover:bg-white/8 hover:border-white/20 transition-all active:scale-[0.93] animate-pop-in text-xs"
                 >
                   <span>{def.icon}</span>
                   <span>{def.label}</span>
