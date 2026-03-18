@@ -257,7 +257,7 @@ Authorization: Bearer <supabase-user-jwt>
 
 ### POST /webhook-connector
 
-Delivers an event payload to a user-configured HTTP endpoint with automatic retries.
+Delivers an event payload to a user-configured HTTP endpoint with automatic retries. See [docs/WEBHOOK_API.md](docs/WEBHOOK_API.md) for the full specification, retry behaviour, HMAC signing details, and SSRF protection.
 
 #### Authentication
 
@@ -449,8 +449,14 @@ Set via `supabase secrets set KEY=value` or the Supabase dashboard.
 | `SUPABASE_URL`              | Auto     | Injected automatically by Supabase             |
 | `SUPABASE_SERVICE_ROLE_KEY` | Auto     | Injected automatically by Supabase             |
 | `LOVABLE_API_KEY`           | Yes      | API key for the Lovable AI fallback gateway    |
+| `ALLOWED_ORIGIN`            | No       | Allowed CORS origin for the webhook-connector (defaults to `localhost`) |
 
-Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` before starting the dev server.
+Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+# then edit .env with your Supabase project URL and anon key
+```
 
 ---
 
