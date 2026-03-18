@@ -125,6 +125,7 @@ function getCachedBot(botId: string): { data: Record<string, unknown>; agent: Re
   if (!entry) return null;
   if (Date.now() - entry.cachedAt > BOT_CACHE_TTL_MS) {
     botCache.delete(botId);
+    promptCache.delete(botId); // invalidate assembled prompt alongside bot data
     return null;
   }
   return { data: entry.data, agent: entry.agent, connectors: entry.connectors };
@@ -137,6 +138,35 @@ function setCachedBot(
   connectors: ConnectorRow[],
 ): void {
   botCache.set(botId, { data, agent, connectors, cachedAt: Date.now() });
+}
+
+// ---------------------------------------------------------------------------
+// System prompt cache
+// Stores the pre-assembled static portion of the system prompt per bot so
+// that buildWizardConfig() and string concatenation are skipped on warm
+// requests.  The cache is invalidated whenever botCache expires (same TTL),
+// guaranteeing that a prompt change always propagates within 5 minutes.
+// Dynamic parts (introRule, connectorContext) are appended at request time.
+// ---------------------------------------------------------------------------
+interface CachedPrompt {
+  identityBlock: string; // wizardConfig + "## YOUR ROLE AND KNOWLEDGE:\n" + systemPrompt
+  cachedAt: number;
+}
+
+const promptCache = new Map<string, CachedPrompt>();
+
+function getCachedPrompt(botId: string): string | null {
+  const entry = promptCache.get(botId);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > BOT_CACHE_TTL_MS) {
+    promptCache.delete(botId);
+    return null;
+  }
+  return entry.identityBlock;
+}
+
+function setCachedPrompt(botId: string, identityBlock: string): void {
+  promptCache.set(botId, { identityBlock, cachedAt: Date.now() });
 }
 
 // ---------------------------------------------------------------------------
@@ -1111,17 +1141,23 @@ async function processMessage(
     : "";
 
   // 4-layer system prompt assembly:
-  // Layer 1: BOT_SHELL_TEMPLATE — behavioral rules
-  // Layer 2: Wizard config — identity, name, description, commands
-  // Layer 3: User system prompt — custom role & knowledge
-  // Layer 4: Connector context — integration data & write instructions
-  const wizardConfig = buildWizardConfig(bot, agent);
+  // Layer 1: BOT_SHELL_TEMPLATE — behavioral rules (module-level constant)
+  // Layer 2: Wizard config — identity, name, description, commands  ┐ cached per bot
+  // Layer 3: User system prompt — custom role & knowledge            ┘ (promptCache)
+  // Layer 4 (dynamic): introRule + connectorContext — per-request, never cached
+  let identityBlock = getCachedPrompt(botId);
+  if (!identityBlock) {
+    const wizardConfig = buildWizardConfig(bot, agent);
+    identityBlock =
+      wizardConfig +
+      "\n\n## YOUR ROLE AND KNOWLEDGE:\n" +
+      systemPrompt;
+    setCachedPrompt(botId, identityBlock);
+  }
   const finalSystemPrompt =
     BOT_SHELL_TEMPLATE +
     "\n\n" + introRule +
-    "\n\n" + wizardConfig +
-    "\n\n## YOUR ROLE AND KNOWLEDGE:\n" +
-    systemPrompt +
+    "\n\n" + identityBlock +
     (connectorContext ? "\n\n" + connectorContext : "");
 
   const messages: { role: string; content: string }[] = [
