@@ -1,6 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { tryDecrypt } from "../_shared/crypto.ts";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+/** Validate OpenAI key format after decryption. */
+function isValidOpenAiKey(key: string): boolean {
+  return /^sk-[A-Za-z0-9_-]{45,}$/.test(key);
+}
 
 // DT2/S4: Restrict CORS to configured frontend origin.
 function getCorsHeaders(req: Request): Record<string, string> {
@@ -34,13 +40,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { messages, temperature = 0.4, model = "google/gemini-2.5-flash" } = await req.json();
+    const { messages, temperature = 0.4, model = "google/gemini-2.5-flash", openaiKey: rawOpenaiKey } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Decrypt key in case it was stored encrypted in the DB and passed through.
+    const openaiKey = rawOpenaiKey ? (await tryDecrypt(String(rawOpenaiKey))).trim() : "";
+    const useByok = openaiKey && isValidOpenAiKey(openaiKey);
+
+    if (useByok) {
+      const byokRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages, temperature }),
+      });
+      if (byokRes.ok) {
+        const byokData = await byokRes.json();
+        return new Response(JSON.stringify({ content: byokData.choices[0].message.content }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.warn("BYOK failed, falling back to Lovable AI:", byokRes.status);
     }
 
     const res = await fetch(LOVABLE_AI_URL, {

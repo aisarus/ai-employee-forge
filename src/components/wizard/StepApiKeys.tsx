@@ -12,12 +12,44 @@ interface Props {
 
 type Provider = "openai" | "anthropic" | "gemini";
 
-function detectProvider(apiKey: string): Provider | null {
-  if (!apiKey) return null;
-  if (apiKey.startsWith("sk-ant-")) return "anthropic";
-  if (apiKey.startsWith("AIza")) return "gemini";
-  if (apiKey.startsWith("sk-")) return "openai";
-  return null;
+// Key format rules (prefix + min length + allowed chars).
+// Lengths based on provider documentation (conservative minimums).
+const KEY_RULES: Record<Provider, { prefix: string; minLen: number; pattern: RegExp }> = {
+  openai:    { prefix: "sk-",     minLen: 48, pattern: /^sk-[A-Za-z0-9_-]+$/ },
+  anthropic: { prefix: "sk-ant-", minLen: 60, pattern: /^sk-ant-[A-Za-z0-9_-]+$/ },
+  gemini:    { prefix: "AIza",    minLen: 39, pattern: /^AIza[A-Za-z0-9_-]+$/ },
+};
+
+interface KeyValidation {
+  provider: Provider | null;
+  /** null = no error (key empty or fully valid) */
+  error: string | null;
+  valid: boolean;
+}
+
+function validateApiKey(apiKey: string): KeyValidation {
+  if (!apiKey) return { provider: null, error: null, valid: false };
+
+  // Determine provider by prefix (most-specific first to avoid sk- matching sk-ant-)
+  let provider: Provider | null = null;
+  if (apiKey.startsWith("sk-ant-")) provider = "anthropic";
+  else if (apiKey.startsWith("AIza"))   provider = "gemini";
+  else if (apiKey.startsWith("sk-"))    provider = "openai";
+
+  if (!provider) {
+    return { provider: null, error: apiKey.length > 4 ? "wizard.api_key_invalid" : null, valid: false };
+  }
+
+  const rule = KEY_RULES[provider];
+
+  if (!rule.pattern.test(apiKey)) {
+    return { provider, error: "wizard.api_key_chars_invalid", valid: false };
+  }
+  if (apiKey.length < rule.minLen) {
+    return { provider, error: "wizard.api_key_too_short", valid: false };
+  }
+
+  return { provider, error: null, valid: true };
 }
 
 const PROVIDERS: { id: Provider; label: string; prefix: string; url: string; color: string }[] = [
@@ -28,9 +60,8 @@ const PROVIDERS: { id: Provider; label: string; prefix: string; url: string; col
 
 export function StepApiKeys({ data, onChange }: Props) {
   const { t } = useI18n();
-  const provider = detectProvider(data.openai_api_key);
-  const isInvalidKey = data.openai_api_key.length > 4 && provider === null;
-  const isValid = provider !== null;
+  const { provider, error: keyError, valid: isValid } = validateApiKey(data.openai_api_key);
+  const isInvalidKey = !!keyError;
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -119,10 +150,10 @@ export function StepApiKeys({ data, onChange }: Props) {
             {PROVIDERS.find(p => p.id === provider)?.label} — ключ распознан
           </p>
         )}
-        {isInvalidKey && (
+        {isInvalidKey && keyError && (
           <p className="text-xs text-destructive flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5" />
-            {t("wizard.api_key_invalid")}
+            {t(keyError)}
           </p>
         )}
       </div>

@@ -1,8 +1,23 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { tryDecrypt } from "../_shared/crypto.ts";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const LOVABLE_MODEL = "google/gemini-2.0-flash-exp";
 const BYOK_FALLBACK_STATUSES = new Set([402, 403, 429]);
+
+// Key format validators (server-side, applied after decryption).
+const KEY_VALIDATORS: Array<{ pattern: RegExp; provider: string }> = [
+  { pattern: /^sk-ant-[A-Za-z0-9_-]{56,}$/, provider: "anthropic" },
+  { pattern: /^AIza[A-Za-z0-9_-]{35,}$/,    provider: "gemini"    },
+  { pattern: /^sk-[A-Za-z0-9_-]{45,}$/,     provider: "openai"    },
+];
+
+function detectProvider(key: string): string | null {
+  for (const v of KEY_VALIDATORS) {
+    if (v.pattern.test(key)) return v.provider;
+  }
+  return null;
+}
 
 // DT2/S4: Restrict CORS to configured frontend origin.
 // Set ALLOWED_ORIGIN env var to your Lovable/Vercel domain.
@@ -51,7 +66,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, systemPrompt, openaiKey } = await req.json();
+    const { messages, systemPrompt, openaiKey: rawOpenaiKey } = await req.json();
 
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
@@ -64,6 +79,20 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Decrypt key (handles both plaintext and AES-256-GCM encrypted values from DB).
+    const openaiKey = rawOpenaiKey ? (await tryDecrypt(String(rawOpenaiKey))).trim() : "";
+
+    // Strict server-side format validation after decryption.
+    if (openaiKey) {
+      const provider = detectProvider(openaiKey);
+      if (!provider) {
+        return new Response(JSON.stringify({ error: "Invalid API key format" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const apiMessages = [

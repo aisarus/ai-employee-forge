@@ -390,6 +390,8 @@ const translations = {
   "wizard.api_key_label":              { en: "AI API Key",                  ru: "AI API ключ" },
   "wizard.api_key_providers_title":    { en: "Supported providers:",        ru: "Поддерживаемые провайдеры:" },
   "wizard.api_key_invalid":            { en: "Unrecognized key format. Use sk-... (OpenAI), sk-ant-... (Anthropic), or AIza... (Gemini)", ru: "Неизвестный формат ключа. Используйте sk-... (OpenAI), sk-ant-... (Anthropic) или AIza... (Gemini)" },
+  "wizard.api_key_too_short":          { en: "Key is too short — please check you pasted it completely", ru: "Ключ слишком короткий — проверьте, что вы вставили его полностью" },
+  "wizard.api_key_chars_invalid":      { en: "Key contains invalid characters", ru: "Ключ содержит недопустимые символы" },
   "wizard.api_keys_security":          { en: "Your key is stored securely and only used to power your bot's responses. We never share it.", ru: "Ваш ключ хранится безопасно и используется только для ответов вашего бота. Мы его не передаём." },
   // Legacy keys kept for backward compat with any existing references
   "wizard.openai_key_label":           { en: "OpenAI API Key",              ru: "OpenAI API ключ" },
