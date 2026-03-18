@@ -66,10 +66,15 @@ Deno.serve(async () => {
     .eq("is_active", true);
 
   if (agentsError) {
-    return new Response(JSON.stringify({ error: agentsError.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: agentsError.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
   if (!agents || agents.length === 0) {
-    return new Response(JSON.stringify({ ok: true, message: "No active agents", processed: 0 }));
+    return new Response(JSON.stringify({ ok: true, message: "No active agents", processed: 0 }), {
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   let totalProcessed = 0;
@@ -211,5 +216,7 @@ Deno.serve(async () => {
     }
   }
 
-  return new Response(JSON.stringify({ ok: true, processed: totalProcessed }));
+  return new Response(JSON.stringify({ ok: true, processed: totalProcessed }), {
+    headers: { "Content-Type": "application/json" },
+  });
 });

@@ -39,7 +39,7 @@ const TELEGRAM_API = "https://api.telegram.org";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const ANTHROPIC_MODEL = "claude-haiku-4-5";
+const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
 const GEMINI_STREAM_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse&key=";
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -813,12 +813,17 @@ async function sendTelegramMessage(
   chatId: number,
   text: string,
 ): Promise<{ result: { message_id: number } }> {
-  const res = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  });
-  return res.json();
+  try {
+    const res = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+    return await res.json().catch(() => ({ result: { message_id: 0 } }));
+  } catch (err) {
+    console.error("sendTelegramMessage network error:", (err as Error).message);
+    return { result: { message_id: 0 } };
+  }
 }
 
 async function editTelegramMessage(
@@ -1245,7 +1250,10 @@ async function processMessage(
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { "Content-Type": "text/plain" },
+    });
   }
 
   // Extract botId from path: /functions/v1/telegram-webhook/<botId>
@@ -1254,7 +1262,10 @@ Deno.serve(async (req: Request) => {
   const botId = pathParts[pathParts.length - 1];
 
   if (!botId || botId === "telegram-webhook") {
-    return new Response(JSON.stringify({ error: "botId missing in URL path" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "botId missing in URL path" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -1287,7 +1298,10 @@ Deno.serve(async (req: Request) => {
     if (botError || !freshBot) {
       console.error("Bot not found or inactive:", botId, botError?.message);
       // Always 200 to Telegram so it doesn't retry endlessly
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // S1/S2: Decrypt credentials stored encrypted in DB (legacy plaintext rows also handled)
@@ -1331,7 +1345,10 @@ Deno.serve(async (req: Request) => {
   const incomingSecret = req.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
   if (bot.webhook_secret && incomingSecret !== bot.webhook_secret) {
     console.error("Webhook secret mismatch for bot:", botId);
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // ------------------------------------------------------------------
@@ -1341,7 +1358,10 @@ Deno.serve(async (req: Request) => {
   try {
     update = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // ------------------------------------------------------------------
@@ -1358,7 +1378,10 @@ Deno.serve(async (req: Request) => {
     const cbChatId = (cq.message as Record<string, unknown>)?.chat as { id?: number } | undefined;
     const cbText: string | undefined = cq.data as string | undefined;
     if (!cbChatId?.id || !cbText) {
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
     update = {
       update_id: update.update_id,
@@ -1380,7 +1403,10 @@ Deno.serve(async (req: Request) => {
 
   // Ignore non-text messages silently
   if (!chatId || !userText) {
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // ------------------------------------------------------------------
@@ -1404,5 +1430,8 @@ Deno.serve(async (req: Request) => {
     EdgeRuntime.waitUntil(bgWork);
   }
 
-  return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 });

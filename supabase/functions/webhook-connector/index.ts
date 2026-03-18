@@ -118,9 +118,6 @@ Deno.serve(async (req: Request) => {
     .from("bot_connectors")
     .update({
       status: success ? "connected" : "error",
-      config: supabase
-        ? undefined
-        : undefined, // keep existing config untouched
     })
     .eq("agent_id", agentId)
     .then(({ error }) => {

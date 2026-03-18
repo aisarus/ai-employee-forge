@@ -22,6 +22,7 @@ function getCorsHeaders(req: Request): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": isAllowed ? origin : (allowedOrigin || "null"),
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
 }
 
@@ -45,7 +46,7 @@ async function callTelegram(
     console.error(`Telegram ${method} network error:`, msg);
     return { ok: false, data: { description: `Network error: ${msg}` } };
   }
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     console.error(`Telegram ${method} failed:`, JSON.stringify(data));
   }
