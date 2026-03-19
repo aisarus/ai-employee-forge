@@ -13,10 +13,12 @@ interface Props {
 
 export function PromptBuilderPanel({ data, onChange }: Props) {
   const savedOrder = data.prompt_block_order ?? DEFAULT_PROMPT_BLOCK_ORDER;
-  const [order, setOrder]       = useState<string[]>([...savedOrder]);
-  const [isDirty, setIsDirty]   = useState(false);
+  const [order, setOrder]           = useState<string[]>([...savedOrder]);
+  const [isDirty, setIsDirty]       = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  // dragOverIdx: index before which the drop will be inserted (0..order.length inclusive)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
   const dragSrcIdx = useRef<number | null>(null);
 
@@ -24,9 +26,10 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
   const handleDragStart = useCallback(
     (idx: number) => (e: React.DragEvent<HTMLDivElement>) => {
       dragSrcIdx.current = idx;
+      setDraggingIdx(idx);
       e.dataTransfer.effectAllowed = "move";
-      // Minimal ghost image
-      e.dataTransfer.setDragImage(e.currentTarget, 16, 16);
+      // Use the element itself as ghost so the user sees what they're dragging
+      e.dataTransfer.setDragImage(e.currentTarget, e.currentTarget.offsetWidth / 2, 16);
     },
     []
   );
@@ -35,36 +38,49 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
     (idx: number) => (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      setDragOverIdx(idx);
+      // Decide whether to insert before or after based on cursor position
+      const rect   = e.currentTarget.getBoundingClientRect();
+      const midY   = rect.top + rect.height / 2;
+      const target = e.clientY < midY ? idx : idx + 1;
+      setDragOverIdx(target);
     },
     []
   );
 
-  const handleDragLeave = useCallback(() => {
-    setDragOverIdx(null);
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    // Only clear if we're leaving the list entirely (not just crossing between items)
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverIdx(null);
+    }
   }, []);
 
   const handleDrop = useCallback(
-    (targetIdx: number) => (e: React.DragEvent<HTMLDivElement>) => {
+    (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      const targetIdx = dragOverIdx;
       setDragOverIdx(null);
+      setDraggingIdx(null);
       const srcIdx = dragSrcIdx.current;
-      if (srcIdx === null || srcIdx === targetIdx) return;
+      dragSrcIdx.current = null;
+      if (srcIdx === null || targetIdx === null) return;
 
       setOrder((prev) => {
-        const next = [...prev];
+        if (srcIdx === targetIdx || srcIdx + 1 === targetIdx) return prev; // no-op
+        const next    = [...prev];
         const [moved] = next.splice(srcIdx, 1);
-        next.splice(targetIdx, 0, moved);
+        // After removing srcIdx, the targetIdx may need adjustment
+        const adjustedTarget = targetIdx > srcIdx ? targetIdx - 1 : targetIdx;
+        next.splice(adjustedTarget, 0, moved);
         return next;
       });
       setIsDirty(true);
-      dragSrcIdx.current = null;
     },
-    []
+    [dragOverIdx]
   );
 
   const handleDragEnd = useCallback(() => {
     setDragOverIdx(null);
+    setDraggingIdx(null);
     dragSrcIdx.current = null;
   }, []);
 
@@ -83,13 +99,12 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
   // ── Toggle block enabled/disabled ───────────────────────────────────────
   const toggleBlock = useCallback((blockId: string) => {
     const def = PROMPT_BLOCK_DEFS.find((b) => b.id === blockId);
-    if (def?.required) return; // required blocks cannot be removed
+    if (def?.required) return;
 
     setOrder((prev) => {
       if (prev.includes(blockId)) {
         return prev.filter((id) => id !== blockId);
       }
-      // Re-insert at its default position
       const defaultPos = DEFAULT_PROMPT_BLOCK_ORDER.indexOf(blockId);
       const next = [...prev];
       let insertAt = next.length;
@@ -105,7 +120,7 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
     setIsDirty(true);
   }, []);
 
-  // ── Disabled blocks (present in DEFS but not in current order) ──────────
+  // ── Disabled blocks ──────────────────────────────────────────────────────
   const disabledBlocks = PROMPT_BLOCK_DEFS
     .filter((b) => !b.required && !order.includes(b.id))
     .map((b) => b.id);
@@ -125,6 +140,15 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
   const previewText = showPreview
     ? buildFullSystemPrompt({ ...data, prompt_block_order: order })
     : "";
+
+  // ── Drop indicator line component ────────────────────────────────────────
+  const DropLine = ({ atIdx }: { atIdx: number }) =>
+    dragOverIdx === atIdx ? (
+      <div
+        className="h-0.5 rounded-full mx-2 bg-indigo-500 shadow-[0_0_10px_2px_hsl(239_84%_67%/0.6)]"
+        aria-hidden
+      />
+    ) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -169,92 +193,103 @@ export function PromptBuilderPanel({ data, onChange }: Props) {
       </div>
 
       {/* Active blocks — draggable list */}
-      <div className="flex flex-col gap-1.5" role="list" aria-label="Prompt sections">
+      <div
+        role="list"
+        aria-label="Prompt sections"
+        className="flex flex-col"
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
+      >
         {order.map((blockId, idx) => {
           const def = PROMPT_BLOCK_DEFS.find((b) => b.id === blockId);
           if (!def) return null;
-          const isOver = dragOverIdx === idx;
+          const isDraggingThis = draggingIdx === idx;
 
           return (
-            <div
-              key={blockId}
-              role="listitem"
-              draggable
-              onDragStart={handleDragStart(idx)}
-              onDragOver={handleDragOver(idx)}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop(idx)}
-              onDragEnd={handleDragEnd}
-              className={[
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-grab active:cursor-grabbing",
-                "border transition-all duration-150 select-none",
-                isOver
-                  ? "border-indigo-500/60 bg-indigo-500/10 scale-[1.02] animate-drop-glow"
-                  : "border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15 hover:-translate-y-px",
-              ].join(" ")}
-            >
-              {/* Drag handle */}
-              <span className="text-white/25 hover:text-white/50 transition-colors flex-shrink-0" aria-hidden>
-                ⋮⋮
-              </span>
+            <React.Fragment key={blockId}>
+              {/* Drop indicator before this item */}
+              <DropLine atIdx={idx} />
 
-              {/* Position badge */}
-              <span className="w-5 h-5 rounded-full bg-white/8 text-white/40 text-[10px] font-mono flex items-center justify-center flex-shrink-0">
-                {idx + 1}
-              </span>
+              <div
+                role="listitem"
+                draggable
+                onDragStart={handleDragStart(idx)}
+                onDragOver={handleDragOver(idx)}
+                className={[
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-grab active:cursor-grabbing my-[3px]",
+                  "border transition-all duration-150 select-none",
+                  isDraggingThis
+                    ? "opacity-30 scale-[0.98] border-white/5 bg-white/2"
+                    : "border-white/8 bg-white/4 hover:bg-white/7 hover:border-white/15 hover:-translate-y-px",
+                ].join(" ")}
+              >
+                {/* Drag handle */}
+                <span className="text-white/25 hover:text-white/60 transition-colors flex-shrink-0 cursor-grab" aria-hidden>
+                  ⠿
+                </span>
 
-              {/* Icon */}
-              <span className="text-base flex-shrink-0">{def.icon}</span>
+                {/* Position badge */}
+                <span className="w-5 h-5 rounded-full bg-white/8 text-white/40 text-[10px] font-mono flex items-center justify-center flex-shrink-0">
+                  {idx + 1}
+                </span>
 
-              {/* Label + description */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-white/90">{def.label}</span>
-                  {def.required && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium">
-                      required
-                    </span>
-                  )}
+                {/* Icon */}
+                <span className="text-base flex-shrink-0">{def.icon}</span>
+
+                {/* Label + description */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-white/90">{def.label}</span>
+                    {def.required && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium">
+                        required
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-white/40 truncate">{def.description}</p>
                 </div>
-                <p className="text-xs text-white/40 truncate">{def.description}</p>
-              </div>
 
-              {/* Move up/down buttons */}
-              <div className="flex gap-1 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => moveBlock(idx, -1)}
-                  disabled={idx === 0}
-                  aria-label={`Move ${def.label} up`}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/8 transition-all active:scale-[0.85] active:brightness-90 disabled:opacity-20 disabled:cursor-not-allowed"
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveBlock(idx, 1)}
-                  disabled={idx === order.length - 1}
-                  aria-label={`Move ${def.label} down`}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/8 transition-all active:scale-[0.85] active:brightness-90 disabled:opacity-20 disabled:cursor-not-allowed"
-                >
-                  ▼
-                </button>
-              </div>
+                {/* Move up/down buttons */}
+                <div className="flex gap-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => moveBlock(idx, -1)}
+                    disabled={idx === 0}
+                    aria-label={`Move ${def.label} up`}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/8 transition-all active:scale-[0.85] active:brightness-90 disabled:opacity-20 disabled:cursor-not-allowed"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveBlock(idx, 1)}
+                    disabled={idx === order.length - 1}
+                    aria-label={`Move ${def.label} down`}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/8 transition-all active:scale-[0.85] active:brightness-90 disabled:opacity-20 disabled:cursor-not-allowed"
+                  >
+                    ▼
+                  </button>
+                </div>
 
-              {/* Toggle off (non-required only) */}
-              {!def.required && (
-                <button
-                  type="button"
-                  onClick={() => toggleBlock(blockId)}
-                  aria-label={`Remove ${def.label} from prompt`}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-[0.8] flex-shrink-0"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+                {/* Toggle off (non-required only) */}
+                {!def.required && (
+                  <button
+                    type="button"
+                    onClick={() => toggleBlock(blockId)}
+                    aria-label={`Remove ${def.label} from prompt`}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-[0.8] flex-shrink-0"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </React.Fragment>
           );
         })}
+
+        {/* Drop indicator at the very end of the list */}
+        <DropLine atIdx={order.length} />
       </div>
 
       {/* Disabled / available blocks */}
