@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import confetti from "canvas-confetti";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { WizardData, DEFAULT_WIZARD_DATA, getWizardSteps, BOT_TYPE_PRESETS, BOT_TYPES } from "./wizard/types";
@@ -93,20 +94,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const isLastStep = step === activeSteps.length - 1;
   const progressPct = Math.round(((step + 1) / activeSteps.length) * 100);
 
-  // Pre-generate confetti
-  const confettiPieces = useMemo(() =>
-    Array.from({ length: 55 }, (_, i) => ({
-      id: i,
-      left: `${(i / 55) * 100 + (Math.sin(i * 2.7) * 4)}%`,
-      color: CONF_COLORS[i % CONF_COLORS.length],
-      duration: `${2.0 + (i % 9) * 0.2}s`,
-      delay: `${(i % 16) * 0.055}s`,
-      cx: `${Math.sin(i * 1.3) * 140}px`,
-      radius: i % 3 === 0 ? "50%" : i % 3 === 1 ? "2px" : "1px 5px",
-      size: `${7 + (i % 5)}px`,
-    })),
-  []);
-
   // Pre-generate background particles
   const bgParticles = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => ({
@@ -123,6 +110,58 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       } as React.CSSProperties,
     })),
   []);
+
+  // ── Confetti on successful deploy ─────────────────────────────────────────
+  useEffect(() => {
+    if (!deployed) return;
+
+    const colors = CONF_COLORS;
+    const end = Date.now() + 3000;
+
+    // Left cannon
+    const left = confetti.create(undefined, { resize: true, useWorker: true });
+    // Right cannon
+    const right = confetti.create(undefined, { resize: true, useWorker: true });
+
+    const frame = () => {
+      left({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.65 },
+        colors,
+        gravity: 1.1,
+        scalar: 1.1,
+      });
+      right({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.65 },
+        colors,
+        gravity: 1.1,
+        scalar: 1.1,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    };
+
+    // Initial big burst from center-top
+    confetti({
+      particleCount: 120,
+      spread: 100,
+      origin: { x: 0.5, y: 0.3 },
+      colors,
+      gravity: 1.2,
+      scalar: 1.2,
+    });
+
+    requestAnimationFrame(frame);
+
+    return () => {
+      left.reset();
+      right.reset();
+    };
+  }, [deployed]);
 
   // ── Restore from localStorage (+ cloud fallback) on open ───────────────────
   useEffect(() => {
@@ -448,24 +487,6 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg border-border/40 bg-card overflow-hidden p-0">
-          {/* Confetti */}
-          {confettiPieces.map(p => (
-            <div
-              key={p.id}
-              className="confetti-piece"
-              style={{
-                left: p.left,
-                background: p.color,
-                width: p.size,
-                height: p.size,
-                "--conf-d": p.duration,
-                "--conf-delay": p.delay,
-                "--conf-cx": p.cx,
-                "--conf-r": p.radius,
-              } as React.CSSProperties}
-            />
-          ))}
-
           {/* Aurora background */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="aurora-orb aurora-orb-1" style={{ opacity: 0.35 }} />
