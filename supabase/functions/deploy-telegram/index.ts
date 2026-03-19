@@ -59,6 +59,33 @@ function generateWebhookSecret(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** Upload bot profile photo from a public URL via multipart/form-data (non-critical). */
+async function setBotPhotoFromUrl(token: string, photoUrl: string): Promise<void> {
+  try {
+    const imgRes = await fetch(photoUrl, { signal: AbortSignal.timeout(8_000) });
+    if (!imgRes.ok) {
+      console.warn(`setMyPhoto: could not fetch avatar (${imgRes.status}):`, photoUrl);
+      return;
+    }
+    const imgBlob = await imgRes.blob();
+    const form = new FormData();
+    form.append("photo", imgBlob, "avatar.jpg");
+    const res = await fetch(`${TELEGRAM_API}/bot${token}/setMyPhoto`, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(TELEGRAM_CALL_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.warn("setMyPhoto failed (non-fatal):", JSON.stringify(data));
+    } else {
+      console.log("setMyPhoto: bot avatar set successfully.");
+    }
+  } catch (err) {
+    console.warn("setMyPhoto error (non-fatal):", err instanceof Error ? err.message : String(err));
+  }
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -171,7 +198,7 @@ Deno.serve(async (req) => {
 
     const { data: agentFull } = await supabase
       .from("agents")
-      .select("system_prompt, welcome_message, fallback_message")
+      .select("system_prompt, welcome_message, fallback_message, bot_avatar_url")
       .eq("id", agentId)
       .single();
 
@@ -180,6 +207,12 @@ Deno.serve(async (req) => {
     const systemPrompt = agentFull?.system_prompt?.trim() || DEFAULT_SYSTEM_PROMPT;
     if (!agentFull?.system_prompt?.trim()) {
       console.warn(`DT7: Agent ${agentId} has no system_prompt — using default.`);
+    }
+
+    // ── 2b. Set bot profile photo (non-critical, skip on any error) ────────
+    const avatarUrl = agentFull?.bot_avatar_url?.trim();
+    if (avatarUrl) {
+      await setBotPhotoFromUrl(telegramToken, avatarUrl);
     }
 
     // S1/S2/DT1/DT6: Encrypt credentials before storing to DB

@@ -21,7 +21,9 @@ function ReviewCard({ children, className = "", style }: { children: React.React
 export function StepReviewDeploy({ data, confirmed, onConfirmChange }: Props) {
   const { t } = useI18n();
 
-  const openaiKeyOk = !!data.openai_api_key.trim() && data.openai_api_key.startsWith("sk-");
+  const openaiKeyOk = !!data.openai_api_key.trim() && (
+    data.openai_api_key.startsWith("sk-") || data.openai_api_key.startsWith("AIza")
+  );
   const tokenOk     = !!data.telegram_bot_token.trim();
 
   const checks = [
