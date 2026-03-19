@@ -6,6 +6,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useWizardDraft } from "@/hooks/useWizardDraft";
 import { AvatarUpload } from "./wizard/AvatarUpload";
 import { TelegramChatMockup, TelegramStartMockup } from "./wizard/TelegramMockup";
+import { WizardChatPreview } from "./wizard/WizardChatPreview";
 import { WizardData, DEFAULT_WIZARD_DATA } from "./wizard/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -696,9 +697,12 @@ CONSTRAINTS:
           </span>
         </div>
 
-        {/* ── Step content ── */}
+        {/* ── Step content + Preview panel ── */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+
+        {/* Left: step content */}
         <div className="flex-1 overflow-auto">
-          <div key={step} className="animate-step-enter max-w-3xl mx-auto px-5 py-4">
+          <div key={step} className="animate-step-enter max-w-2xl mx-auto px-5 py-4">
 
             {/* ════ Step: api_key ════════════════════════════════════════════ */}
             {step === "api_key" && (
@@ -1134,6 +1138,17 @@ CONSTRAINTS:
 
           </div>
         </div>
+
+        {/* Right: chat preview panel */}
+        <div className="hidden lg:flex w-[320px] shrink-0 flex-col items-center justify-center p-5 border-l border-border/20 bg-muted/5">
+          <WizardChatPreview
+            botName={botName || wizardData.bot_name}
+            botDescription={botDescription}
+            lang={lang as "ru" | "en"}
+          />
+        </div>
+
+        </div>{/* end flex row */}
 
         {/* ── Footer nav ── */}
         <div className="shrink-0 px-5 py-4 border-t border-border/30 bg-background/50 backdrop-blur-xl">
