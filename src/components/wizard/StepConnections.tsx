@@ -7,9 +7,11 @@ import { WizardData, ConnectorConfig, AVAILABLE_CONNECTORS } from "./types";
 import {
   Plug, CheckCircle2, X, Wifi, WifiOff, ChevronDown, ChevronUp,
   ExternalLink, Zap, Loader2, AlertCircle, FileSpreadsheet, KeyRound, LogIn,
-  RefreshCw, Database, Users,
+  RefreshCw, Database, Users, Sparkles,
 } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
+import { GSHEETS_LS_KEY } from "@/components/connectors/GoogleSheetsDialog";
+import type { SheetsConnection } from "@/components/connectors/GoogleSheetsDialog";
 
 interface Props {
   data: WizardData;
@@ -104,6 +106,9 @@ interface GoogleSheetsFormProps {
   oauthEmail: string | null;
   oauthLoading: boolean;
   onOAuthConnect: () => void;
+  // Pre-filled from Integrations page
+  savedConn?: SheetsConnection | null;
+  onUseSaved?: () => void;
 }
 
 function GoogleSheetsForm({
@@ -111,6 +116,7 @@ function GoogleSheetsForm({
   authInputs, configInputs, onAuthChange, onConfigChange,
   onConnect, onSkip, testing, testResult,
   oauthEmail, oauthLoading, onOAuthConnect,
+  savedConn, onUseSaved,
 }: GoogleSheetsFormProps) {
   const apiKey        = authInputs["google_sheets"] || "";
   const spreadsheetId = configInputs["spreadsheet_id"] || "";
@@ -118,8 +124,30 @@ function GoogleSheetsForm({
     ? apiKey.trim() !== "" && spreadsheetId.trim() !== ""
     : oauthEmail !== null && spreadsheetId.trim() !== "";
 
+  // Show saved-connection banner only when the form is still empty
+  const formIsEmpty = apiKey === "" && spreadsheetId === "" && oauthEmail === null;
+
   return (
     <div className="space-y-3">
+      {/* Pre-filled banner from Integrations page */}
+      {savedConn && formIsEmpty && onUseSaved && (
+        <button
+          onClick={onUseSaved}
+          className="w-full flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors text-left"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-medium text-primary">Use saved Integrations connection</p>
+            <p className="text-[10px] text-muted-foreground truncate">
+              {savedConn.mode === "oauth"
+                ? `OAuth · ${savedConn.oauthEmail || "Google account"}`
+                : `API Key · ${savedConn.spreadsheetId.slice(0, 16)}…`}
+            </p>
+          </div>
+          <span className="text-[10px] text-primary font-medium shrink-0">Apply →</span>
+        </button>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-2 pb-1 border-b border-border/40">
         <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
@@ -630,6 +658,9 @@ export function StepConnections({ data, onChange }: Props) {
   const [oauthEmail,    setOauthEmail]    = useState<string | null>(null);
   const [oauthLoading,  setOauthLoading]  = useState(false);
 
+  // Saved connection from Integrations page (localStorage)
+  const [savedSheetsConn, setSavedSheetsConn] = useState<SheetsConnection | null>(null);
+
   // Ref to the message event listener so we can clean it up
   const oauthListenerRef = useRef<((e: MessageEvent) => void) | null>(null);
 
@@ -641,6 +672,35 @@ export function StepConnections({ data, onChange }: Props) {
       }
     };
   }, []);
+
+  // Load saved Google Sheets connection from Integrations page
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(GSHEETS_LS_KEY);
+      if (!raw) return;
+      const conn = JSON.parse(raw) as SheetsConnection;
+      setSavedSheetsConn(conn);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Apply saved connection to form (called by the "Use saved" banner button)
+  const applySavedSheetsConn = (conn: SheetsConnection) => {
+    setAuthMode(conn.mode);
+    setAuthInputs((prev) => ({ ...prev, google_sheets: conn.authValue }));
+    setConfigInputs((prev) => ({
+      ...prev,
+      spreadsheet_id: conn.spreadsheetId,
+      sheet_name:     conn.sheetName,
+      ...(conn.mode === "oauth" && conn.clientId    ? { client_id:   conn.clientId }    : {}),
+      ...(conn.mode === "oauth" && conn.oauthEmail  ? { oauth_email: conn.oauthEmail }  : {}),
+    }));
+    if (conn.mode === "oauth") {
+      setOauthToken(conn.authValue);
+      setOauthEmail(conn.oauthEmail ?? null);
+    }
+  };
 
   const connectedIds = new Set(data.connectors.map((c) => c.type));
 
@@ -926,6 +986,8 @@ export function StepConnections({ data, onChange }: Props) {
                         oauthEmail={oauthEmail}
                         oauthLoading={oauthLoading}
                         onOAuthConnect={handleGoogleOAuth}
+                        savedConn={savedSheetsConn}
+                        onUseSaved={() => savedSheetsConn && applySavedSheetsConn(savedSheetsConn)}
                       />
                     ) : conn.id === "notion" ? (
                       <NotionForm

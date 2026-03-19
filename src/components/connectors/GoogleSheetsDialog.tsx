@@ -20,8 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   CheckCircle2, Loader2, AlertCircle, ExternalLink, KeyRound,
-  LogIn, RefreshCw, FileSpreadsheet, Table2, X, Wifi,
+  LogIn, RefreshCw, FileSpreadsheet, Table2, X, Wifi, ChevronDown,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -56,6 +59,28 @@ async function testSheetsConnection(
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+async function fetchSheetTabs(
+  spreadsheetId: string,
+  auth: { apiKey?: string; accessToken?: string },
+): Promise<string[] | null> {
+  try {
+    const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}?fields=sheets.properties.title`;
+    const url = auth.accessToken
+      ? base
+      : `${base}&key=${encodeURIComponent(auth.apiKey ?? "")}`;
+    const headers: HeadersInit = auth.accessToken
+      ? { Authorization: `Bearer ${auth.accessToken}` }
+      : {};
+    const res = await fetch(url, { headers });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.sheets as { properties: { title: string } }[])
+      ?.map((s) => s.properties.title) ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -138,6 +163,7 @@ export function GoogleSheetsDialog({ open, onOpenChange, onSave, initialConnecti
   const [testResult, setTestResult]         = useState<"ok" | "error" | null>(null);
   const [preview, setPreview]               = useState<string[][] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [sheetTabs, setSheetTabs]           = useState<string[] | null>(null);
 
   // OAuth popup listener ref for cleanup
   const oauthListenerRef = useRef<((e: MessageEvent) => void) | null>(null);
@@ -149,6 +175,17 @@ export function GoogleSheetsDialog({ open, onOpenChange, onSave, initialConnecti
       }
     };
   }, []);
+
+  // Re-fetch preview when user picks a different sheet tab
+  useEffect(() => {
+    if (testResult !== "ok" || !sheetTabs) return;
+    setPreviewLoading(true);
+    fetchSheetPreview(spreadsheetId, sheetName, getAuth()).then((rows) => {
+      setPreview(rows);
+      setPreviewLoading(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetName]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const getAuth = (): { apiKey?: string; accessToken?: string } =>
@@ -166,18 +203,29 @@ export function GoogleSheetsDialog({ open, onOpenChange, onSave, initialConnecti
     setMode(m);
     setTestResult(null);
     setPreview(null);
+    setSheetTabs(null);
   };
 
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
     setPreview(null);
+    setSheetTabs(null);
 
     const ok = await testSheetsConnection(spreadsheetId, getAuth());
     setTestResult(ok ? "ok" : "error");
     setTesting(false);
 
     if (ok) {
+      // Fetch available sheet tabs and pre-select first if current sheetName not in list
+      const tabs = await fetchSheetTabs(spreadsheetId, getAuth());
+      if (tabs && tabs.length > 0) {
+        setSheetTabs(tabs);
+        if (!tabs.includes(sheetName)) {
+          setSheetName(tabs[0]);
+        }
+      }
+
       setPreviewLoading(true);
       const rows = await fetchSheetPreview(spreadsheetId, sheetName, getAuth());
       setPreview(rows);
@@ -396,7 +444,7 @@ export function GoogleSheetsDialog({ open, onOpenChange, onSave, initialConnecti
               </label>
               <Input
                 value={spreadsheetId}
-                onChange={(e) => { setSpreadsheetId(e.target.value); setTestResult(null); setPreview(null); }}
+                onChange={(e) => { setSpreadsheetId(e.target.value); setTestResult(null); setPreview(null); setSheetTabs(null); }}
                 placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
                 className="font-mono text-xs h-9"
               />
@@ -406,13 +454,46 @@ export function GoogleSheetsDialog({ open, onOpenChange, onSave, initialConnecti
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Sheet / Tab Name</label>
-              <Input
-                value={sheetName}
-                onChange={(e) => { setSheetName(e.target.value); setPreview(null); }}
-                placeholder="Sheet1"
-                className="text-xs h-9"
-              />
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                Sheet / Tab Name
+                {sheetTabs && sheetTabs.length > 0 && (
+                  <span className="text-[10px] text-emerald-400 font-normal">
+                    ({sheetTabs.length} tab{sheetTabs.length !== 1 ? "s" : ""} found)
+                  </span>
+                )}
+              </label>
+              {sheetTabs && sheetTabs.length > 0 ? (
+                <Select
+                  value={sheetName || sheetTabs[0]}
+                  onValueChange={(v) => { setSheetName(v); setPreview(null); }}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select a sheet tab" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sheetTabs.map((tab) => (
+                      <SelectItem key={tab} value={tab} className="text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                          {tab}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={sheetName}
+                  onChange={(e) => { setSheetName(e.target.value); setPreview(null); }}
+                  placeholder="Sheet1"
+                  className="text-xs h-9"
+                />
+              )}
+              {!sheetTabs && (
+                <p className="text-[11px] text-muted-foreground">
+                  Run "Test Connection" to load available tabs automatically.
+                </p>
+              )}
             </div>
           </div>
 

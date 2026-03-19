@@ -10,6 +10,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { GoogleSheetsDialog, GSHEETS_LS_KEY } from "@/components/connectors/GoogleSheetsDialog";
 import type { SheetsConnection } from "@/components/connectors/GoogleSheetsDialog";
+import { toast } from "@/hooks/use-toast";
 
 // ── Messaging channels ────────────────────────────────────────────────────────
 
@@ -51,6 +52,16 @@ const Integrations = () => {
 
   const handleSheetsSave = (conn: SheetsConnection | null) => {
     setSheetsConn(conn);
+    if (conn) {
+      toast({
+        title: "Google Sheets connected",
+        description: conn.mode === "oauth"
+          ? `Signed in as ${conn.oauthEmail || "Google account"}`
+          : `Spreadsheet ${conn.spreadsheetId.slice(0, 12)}… connected`,
+      });
+    } else {
+      toast({ title: "Google Sheets disconnected" });
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
