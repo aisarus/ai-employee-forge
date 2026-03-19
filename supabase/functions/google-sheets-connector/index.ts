@@ -4,14 +4,21 @@
  * Reads and writes Google Sheets data on behalf of a bot.
  *
  * POST body:
- *   action:        "read" | "append" | "update"
+ *   action:        "read" | "append" | "update" | "send_lead"
  *   spreadsheetId: string   (required)
  *   sheetName?:    string   (default "Sheet1")
  *   range?:        string   (A1 notation, e.g. "Sheet1!A1:Z100")
  *   values?:       string[][] (required for append / update)
+ *   fields?:       Record<string, string>  (required for send_lead — key=value pairs)
  *   apiKey?:       string   (Google API key — public spreadsheets)
  *   accessToken?:  string   (OAuth2 access token)
  *   agentId?:      string   (load credentials from bot_connectors)
+ *
+ * send_lead action:
+ *   Reads the header row (row 1) of the sheet, then appends a new row whose
+ *   columns are filled in the same order as the headers.  Unknown fields are
+ *   appended at the end; header columns with no matching field are left blank.
+ *   This makes the write robust against column reordering in the spreadsheet.
  *
  * If agentId is provided and no explicit credentials are given, the function
  * decrypts the stored auth_value from the bot_connectors table.
@@ -97,6 +104,7 @@ Deno.serve(async (req: Request) => {
     sheetName?: string;
     range?: string;
     values?: string[][];
+    fields?: Record<string, string>;
     apiKey?: string;
     accessToken?: string;
     agentId?: string;
@@ -109,7 +117,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const { action, agentId } = body;
-  let { spreadsheetId, sheetName, range, values, apiKey, accessToken } = body;
+  let { spreadsheetId, sheetName, range, values, fields, apiKey, accessToken } = body;
 
   if (!action) return json({ error: "Missing: action" }, cors, 400);
 
@@ -197,5 +205,69 @@ Deno.serve(async (req: Request) => {
     return json({ success: true }, cors);
   }
 
-  return json({ error: `Unknown action: ${action}. Use read, append, or update.` }, cors, 400);
+  // ── SEND_LEAD ─────────────────────────────────────────────────────────────
+  // Reads the header row first so the lead values land in the correct columns.
+  if (action === "send_lead") {
+    if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
+      return json({ error: "fields (object) required for send_lead" }, cors, 400);
+    }
+
+    const sheet = sheetName || "Sheet1";
+    const headerRange = `${sheet}!1:1`;
+
+    // 1. Read header row
+    const headerResult = await sheetsRequest(
+      `/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(headerRange)}`,
+      "GET",
+      auth,
+    );
+
+    let headers: string[] = [];
+    if (headerResult.ok) {
+      const rows = (headerResult.data as any)?.values ?? [];
+      headers = (rows[0] ?? []).map((h: unknown) => String(h ?? "").trim().toLowerCase());
+    }
+
+    let row: string[];
+
+    if (headers.length > 0) {
+      // Map fields to column positions by header name (case-insensitive)
+      row = headers.map((header) => {
+        // Try exact match, then case-insensitive match against fields keys
+        const key = Object.keys(fields).find(
+          (k) => k.trim().toLowerCase() === header,
+        );
+        return key ? (fields[key] ?? "") : "";
+      });
+
+      // Append any extra fields that had no matching header at the end
+      for (const [k, v] of Object.entries(fields)) {
+        if (!headers.includes(k.trim().toLowerCase())) {
+          row.push(v ?? "");
+        }
+      }
+    } else {
+      // No headers found — fall back to ordered values
+      row = Object.values(fields);
+    }
+
+    const appendRange = `${sheet}!A1`;
+    const appendResult = await sheetsRequest(
+      `/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(appendRange)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+      "POST",
+      auth,
+      { values: [row] },
+    );
+
+    if (!appendResult.ok) return json({ error: appendResult.error }, cors, 502);
+
+    return json({
+      success: true,
+      mappedHeaders: headers,
+      appendedRow: row,
+      updatedRange: (appendResult.data as any)?.updates?.updatedRange,
+    }, cors);
+  }
+
+  return json({ error: `Unknown action: ${action}. Use read, append, update, or send_lead.` }, cors, 400);
 });

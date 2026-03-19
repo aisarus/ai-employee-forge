@@ -380,6 +380,21 @@ async function buildConnectorContext(
       }
     }
 
+    if (c.connector_type === "hubspot") {
+      sections.push(`\n🧲 HubSpot CRM (${caps})`);
+
+      if (c.capabilities.includes("write")) {
+        sections.push(
+          "\nWRITE INSTRUCTIONS — HubSpot CRM:\n" +
+          "When you have collected ALL required contact data and the user confirms, append this tag EXACTLY at the end of your response:\n" +
+          "[SAVE:hubspot:field1=value1|field2=value2|field3=value3]\n" +
+          "Standard HubSpot fields: firstname, lastname, email, phone, company, jobtitle\n" +
+          "Example: [SAVE:hubspot:firstname=John|lastname=Smith|email=john@example.com|phone=+1234567890]\n" +
+          "ONLY include the [SAVE:...] tag when the user has explicitly confirmed and ALL fields are collected.",
+        );
+      }
+    }
+
     if (c.connector_type === "airtable") {
       sections.push(`\n🗄️ Airtable (${caps})`);
       if (cfg.base_id) sections.push(`Base: ${cfg.base_id}`);
@@ -410,13 +425,16 @@ const SAVE_TAG_RE = /\[SAVE:(\w+):([^\]]+)\]/g;
 
 /**
  * Parse [SAVE:...] tags from the AI reply, execute the connector writes,
- * and return the clean reply (tags stripped) plus a status line.
+ * log each lead to connector_leads, and return the clean reply plus status lines.
  */
 async function executeConnectorWrites(
   reply: string,
   connectors: ConnectorRow[],
   supabaseUrl: string,
   serviceKey: string,
+  botId: string,
+  agentId: string | null,
+  chatId: number,
 ): Promise<{ cleanReply: string; savedLines: string[] }> {
   const savedLines: string[] = [];
   const matches = [...reply.matchAll(SAVE_TAG_RE)];
@@ -450,9 +468,11 @@ async function executeConnectorWrites(
       if (!spreadsheetId) continue;
 
       const sheetName = cfg.sheet_name || "Sheet1";
-      const row = Object.values(fields);
+      let leadStatus: "sent" | "failed" = "failed";
+      let leadError: string | undefined;
 
       try {
+        // Use send_lead so column order follows the sheet's header row
         const res = await fetch(`${supabaseUrl}/functions/v1/google-sheets-connector`, {
           method: "POST",
           headers: {
@@ -460,10 +480,10 @@ async function executeConnectorWrites(
             "Authorization": `Bearer ${serviceKey}`,
           },
           body: JSON.stringify({
-            action: "append",
+            action: "send_lead",
             spreadsheetId,
             sheetName,
-            values: [row],
+            fields,
             ...(cfg.auth_mode === "oauth"
               ? { accessToken: connector.auth_value }
               : { apiKey: connector.auth_value }),
@@ -473,14 +493,34 @@ async function executeConnectorWrites(
 
         const result = await res.json().catch(() => ({}));
         if (result.success) {
-          savedLines.push(`✅ Saved to Google Sheets (${sheetName})`);
-          console.log(`[connector] Appended row to Google Sheets for agent, row: ${JSON.stringify(fields)}`);
+          savedLines.push(`✅ Lead saved to Google Sheets (${sheetName})`);
+          console.log(`[connector] Lead appended to Google Sheets, row: ${JSON.stringify(fields)}`);
+          leadStatus = "sent";
         } else {
           console.error(`[connector] Google Sheets write failed: ${result.error}`);
           savedLines.push(`⚠️ Failed to save to Google Sheets`);
+          leadError = result.error;
         }
       } catch (e) {
         console.error(`[connector] Google Sheets fetch error: ${(e as Error).message}`);
+        leadError = (e as Error).message;
+      }
+
+      // Log lead to connector_leads
+      try {
+        const supabase = createClient(supabaseUrl, serviceKey);
+        await supabase.from("connector_leads").insert({
+          bot_id: botId || null,
+          agent_id: agentId || null,
+          connector_id: connector.id,
+          connector_type: "google_sheets",
+          telegram_chat_id: chatId,
+          fields,
+          status: leadStatus,
+          error_message: leadError ?? null,
+        });
+      } catch (e) {
+        console.error(`[connector] Failed to log Google Sheets lead: ${(e as Error).message}`);
       }
     }
 
@@ -490,7 +530,6 @@ async function executeConnectorWrites(
       if (!databaseId) continue;
 
       // Build Notion properties from flat key=value pairs
-      // We build simple title/rich_text properties
       const notionProperties: Record<string, unknown> = {};
       const entries = Object.entries(fields);
 
@@ -508,6 +547,9 @@ async function executeConnectorWrites(
           };
         }
       }
+
+      let leadStatus: "sent" | "failed" = "failed";
+      let leadError: string | undefined;
 
       try {
         const res = await fetch(`${supabaseUrl}/functions/v1/notion-connector`, {
@@ -527,14 +569,90 @@ async function executeConnectorWrites(
 
         const result = await res.json().catch(() => ({}));
         if (result.success) {
-          savedLines.push(`✅ Saved to Notion`);
+          savedLines.push(`✅ Lead saved to Notion`);
           console.log(`[connector] Created Notion page, id: ${result.pageId}`);
+          leadStatus = "sent";
         } else {
           console.error(`[connector] Notion write failed: ${result.error}`);
           savedLines.push(`⚠️ Failed to save to Notion`);
+          leadError = result.error;
         }
       } catch (e) {
         console.error(`[connector] Notion fetch error: ${(e as Error).message}`);
+        leadError = (e as Error).message;
+      }
+
+      // Log lead to connector_leads
+      try {
+        const supabase = createClient(supabaseUrl, serviceKey);
+        await supabase.from("connector_leads").insert({
+          bot_id: botId || null,
+          agent_id: agentId || null,
+          connector_id: connector.id,
+          connector_type: "notion",
+          telegram_chat_id: chatId,
+          fields,
+          status: leadStatus,
+          error_message: leadError ?? null,
+        });
+      } catch (e) {
+        console.error(`[connector] Failed to log Notion lead: ${(e as Error).message}`);
+      }
+    }
+
+    // ── HubSpot CRM write ──────────────────────────────────────────────────
+    if (connectorType === "hubspot") {
+      let leadStatus: "sent" | "failed" = "failed";
+      let leadError: string | undefined;
+
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/hubspot-connector`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            action: "create_contact",
+            accessToken: connector.auth_value,
+            properties: fields,
+          }),
+          signal: AbortSignal.timeout(5_000),
+        });
+
+        const result = await res.json().catch(() => ({}));
+        if (result.success) {
+          savedLines.push(`✅ Lead saved to HubSpot CRM`);
+          console.log(`[connector] Created HubSpot contact, id: ${result.contactId}`);
+          leadStatus = "sent";
+        } else if (result.alreadyExists) {
+          savedLines.push(`✅ Contact already in HubSpot CRM`);
+          leadStatus = "sent";
+        } else {
+          console.error(`[connector] HubSpot write failed: ${result.error}`);
+          savedLines.push(`⚠️ Failed to save lead to HubSpot`);
+          leadError = result.error;
+        }
+      } catch (e) {
+        console.error(`[connector] HubSpot fetch error: ${(e as Error).message}`);
+        leadError = (e as Error).message;
+      }
+
+      // Log lead to connector_leads
+      try {
+        const supabase = createClient(supabaseUrl, serviceKey);
+        await supabase.from("connector_leads").insert({
+          bot_id: botId || null,
+          agent_id: agentId || null,
+          connector_id: connector.id,
+          connector_type: "hubspot",
+          telegram_chat_id: chatId,
+          fields,
+          status: leadStatus,
+          error_message: leadError ?? null,
+        });
+      } catch (e) {
+        console.error(`[connector] Failed to log HubSpot lead: ${(e as Error).message}`);
       }
     }
 
@@ -1296,8 +1414,11 @@ async function processMessage(
   }
 
   // Execute any [SAVE:...] connector write actions embedded in the AI reply
+  const agentId = (bot.agent_id as string | null) ?? null;
   if (connectors.length > 0 && reply.includes("[SAVE:")) {
-    const { cleanReply, savedLines } = await executeConnectorWrites(reply, connectors, supabaseUrl, serviceKey);
+    const { cleanReply, savedLines } = await executeConnectorWrites(
+      reply, connectors, supabaseUrl, serviceKey, botId, agentId, chatId,
+    );
     reply = cleanReply;
     // Append save confirmations inline if any (e.g. "✅ Saved to Google Sheets")
     if (savedLines.length > 0) {
