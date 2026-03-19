@@ -157,17 +157,19 @@
 .animate-bot-build { animation: bot-build 4s ease-out forwards; }
 .animate-hammer { animation: hammer-bounce 0.4s ease-in-out infinite; }
 
-/* Wizard step transitions — spring scale + slide */
+/* Wizard step transitions — 3D perspective spring */
 @keyframes wizard-enter-forward {
-  from { opacity: 0; transform: translateX(44px) scale(0.96); }
-  to   { opacity: 1; transform: translateX(0)    scale(1);    }
+  0%   { opacity: 0; transform: perspective(900px) translateX(80px) rotateY(10deg) scale(0.92); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: perspective(900px) translateX(0) rotateY(0deg) scale(1); }
 }
 @keyframes wizard-enter-back {
-  from { opacity: 0; transform: translateX(-44px) scale(0.96); }
-  to   { opacity: 1; transform: translateX(0)     scale(1);    }
+  0%   { opacity: 0; transform: perspective(900px) translateX(-80px) rotateY(-10deg) scale(0.92); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: perspective(900px) translateX(0) rotateY(0deg) scale(1); }
 }
-.animate-wizard-forward { animation: wizard-enter-forward 0.38s cubic-bezier(0.34, 1.12, 0.64, 1) both; }
-.animate-wizard-back    { animation: wizard-enter-back    0.38s cubic-bezier(0.34, 1.12, 0.64, 1) both; }
+.animate-wizard-forward { animation: wizard-enter-forward 0.48s cubic-bezier(0.34, 1.1, 0.64, 1) both; }
+.animate-wizard-back    { animation: wizard-enter-back    0.48s cubic-bezier(0.34, 1.1, 0.64, 1) both; }
 
 /* Wizard animated progress bar */
 .wizard-prog-track {
@@ -525,4 +527,74 @@
 }
 .animate-gen-shimmer {
   animation: gen-shimmer 1.6s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════
+   WIZARD V2 — 3D Cards, Sidebar, Particles
+   ═══════════════════════════════════════════════ */
+
+/* Spinning gradient border for selected cards */
+@keyframes border-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Floating micro-particles in wizard background */
+@keyframes wizard-particle-float {
+  0%, 100% { transform: translateY(0) translateX(0) scale(1);    opacity: var(--p-opacity, 0.18); }
+  33%       { transform: translateY(-22px) translateX(9px) scale(1.25); opacity: 0.04; }
+  66%       { transform: translateY(-12px) translateX(-6px) scale(0.85); opacity: calc(var(--p-opacity, 0.18) * 0.7); }
+}
+.wizard-particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(1px);
+  animation: wizard-particle-float var(--p-dur, 4s) ease-in-out var(--p-delay, 0s) infinite;
+}
+
+/* Step in from below — for sidebar items */
+@keyframes sidebar-item-enter {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-sidebar-enter {
+  animation: sidebar-item-enter 0.22s ease-out both;
+}
+
+/* Fade-in (in case not defined elsewhere) */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+
+/* Card select burst — ripple out from center */
+@keyframes card-burst {
+  0%   { transform: scale(0); opacity: 0.6; }
+  100% { transform: scale(3); opacity: 0; }
+}
+.animate-card-burst {
+  animation: card-burst 0.5s ease-out forwards;
+}
+
+/* Glow line divider */
+.glow-line {
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.5), transparent);
+  height: 1px;
+  width: 100%;
+}
+
+/* Sidebar active step glow */
+.sidebar-step-active-glow {
+  box-shadow: inset 2px 0 0 hsl(var(--primary) / 0.8), 0 0 12px hsl(var(--primary) / 0.08);
+}
+
+/* Glass panel for sidebar */
+.glass-sidebar {
+  background: linear-gradient(160deg, hsl(var(--card) / 0.65), hsl(var(--card) / 0.35));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
