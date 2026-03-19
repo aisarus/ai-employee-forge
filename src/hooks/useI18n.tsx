@@ -176,6 +176,11 @@ const translations = {
   "wizard.deployed": { en: "Bot Deployed! 🎉", ru: "Бот развёрнут! 🎉" },
   "wizard.bot_live": { en: "Your bot is live at", ru: "Ваш бот доступен:" },
   "wizard.done": { en: "Done", ru: "Готово" },
+  "wizard.reset_draft":      { en: "Reset Draft",                       ru: "Сбросить черновик" },
+  "wizard.reset_confirm":    { en: "Reset this draft? All progress will be lost.", ru: "Сбросить черновик? Весь прогресс будет потерян." },
+  "wizard.draft_synced":     { en: "Saved to cloud",                    ru: "Сохранено в облаке" },
+  "wizard.draft_restored":   { en: "Draft restored from another device", ru: "Черновик восстановлен с другого устройства" },
+  "wizard.draft_syncing":    { en: "Syncing...",                         ru: "Синхронизация..." },
 
   // Wizard Identity Step
   "wizard.define_identity": { en: "Define Your Bot's Identity", ru: "Определите идентичность бота" },

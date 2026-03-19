@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { WizardData, DEFAULT_WIZARD_DATA, getWizardSteps, BOT_TYPE_PRESETS, BOT_TYPES } from "./wizard/types";
@@ -17,10 +17,11 @@ import { StepTelegramPreview } from "./wizard/StepTelegramPreview";
 import { StepReviewDeploy } from "./wizard/StepReviewDeploy";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Rocket, Loader2, Sparkles, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Rocket, Loader2, Sparkles, Zap, RotateCcw, Cloud } from "lucide-react";
 import { buildFullSystemPrompt } from "./wizard/promptBuilder";
 import { useI18n } from "@/hooks/useI18n";
 import { useConnectors } from "@/hooks/useConnectors";
+import { useWizardDraft } from "@/hooks/useWizardDraft";
 import { encryptKey } from "@/lib/crypto";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +79,14 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
   const [botUsername, setBotUsername] = useState("");
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [stepKey, setStepKey] = useState(0);
+  // "idle" | "saving" | "saved"
+  const [syncState, setSyncState] = useState<"idle" | "saving" | "saved">("idle");
+
+  const { saveToCloud, loadFromCloud, clearCloud } = useWizardDraft<{
+    data: WizardData;
+    step: number;
+    maxVisitedStep: number;
+  }>(agentId);
 
   const activeSteps = getWizardSteps(data.bot_type);
   const currentStepId = activeSteps[step] ?? "bot_type";
@@ -115,19 +124,28 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     })),
   []);
 
-  // ── Restore from localStorage on open ──────────────────────────────────────
+  // ── Restore from localStorage (+ cloud fallback) on open ───────────────────
   useEffect(() => {
-    if (open) {
-      setDeployed(false);
-      setConfirmed(false);
-      const storedKey = localStorage.getItem("userOpenAiKey") || "";
-      let draft: Partial<WizardData> = {};
-      if (agentId) {
-        try {
-          const raw = localStorage.getItem(`wizard_draft_${agentId}`);
-          if (raw) draft = JSON.parse(raw) as Partial<WizardData>;
-        } catch {}
-      }
+    if (!open) return;
+    setDeployed(false);
+    setConfirmed(false);
+    setSyncState("idle");
+
+    const storedKey = localStorage.getItem("userOpenAiKey") || "";
+    let localDraft: Partial<WizardData> | null = null;
+    let savedStep = 0;
+    let savedMax = 0;
+
+    if (agentId) {
+      try {
+        const raw = localStorage.getItem(`wizard_draft_${agentId}`);
+        if (raw) localDraft = JSON.parse(raw) as Partial<WizardData>;
+      } catch {}
+      savedStep = Number(localStorage.getItem(`wizard_step_${agentId}`) || 0);
+      savedMax  = Number(localStorage.getItem(`wizard_max_step_${agentId}`) || savedStep);
+    }
+
+    const applyDraft = (draft: Partial<WizardData>, stepN: number, maxN: number) => {
       const merged: WizardData = {
         ...DEFAULT_WIZARD_DATA,
         ...draft,
@@ -138,23 +156,48 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
         telegram_about_text: initialData?.about_text || draft.telegram_about_text || "",
       };
       setData(merged);
+      setStep(Math.max(0, stepN));
+      setMaxVisitedStep(Math.max(0, maxN));
+    };
+
+    if (localDraft) {
+      // We already have a local draft — use it immediately
+      applyDraft(localDraft, savedStep, savedMax);
+    } else {
+      // No local draft — apply defaults first, then try cloud
+      applyDraft({}, 0, 0);
       if (agentId) {
-        const savedStep = Number(localStorage.getItem(`wizard_step_${agentId}`) || 0);
-        const savedMax = Number(localStorage.getItem(`wizard_max_step_${agentId}`) || savedStep);
-        setStep(Math.max(0, savedStep));
-        setMaxVisitedStep(Math.max(0, savedMax));
-      } else {
-        setStep(0);
-        setMaxVisitedStep(0);
+        loadFromCloud().then((cloud) => {
+          if (cloud?.data) {
+            applyDraft(cloud.data.data, cloud.data.step ?? 0, cloud.data.maxVisitedStep ?? 0);
+            // Mirror cloud draft to localStorage for subsequent Alt+Tabs
+            try {
+              localStorage.setItem(`wizard_draft_${agentId}`, JSON.stringify(cloud.data.data));
+              localStorage.setItem(`wizard_step_${agentId}`, String(cloud.data.step ?? 0));
+              localStorage.setItem(`wizard_max_step_${agentId}`, String(cloud.data.maxVisitedStep ?? 0));
+            } catch {}
+            toast.info(t("wizard.draft_restored"));
+          }
+        });
       }
     }
-  }, [open, initialData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-  const persistData = (d: WizardData) => {
-    if (agentId) {
-      try { localStorage.setItem(`wizard_draft_${agentId}`, JSON.stringify(d)); } catch {}
-    }
-  };
+  const persistData = useCallback((d: WizardData, stepN?: number, maxN?: number) => {
+    if (!agentId) return;
+    try {
+      localStorage.setItem(`wizard_draft_${agentId}`, JSON.stringify(d));
+      if (stepN !== undefined) localStorage.setItem(`wizard_step_${agentId}`, String(stepN));
+      if (maxN  !== undefined) localStorage.setItem(`wizard_max_step_${agentId}`, String(maxN));
+    } catch {}
+    // Cloud sync (debounced 4 s)
+    setSyncState("saving");
+    saveToCloud(
+      { data: d, step: stepN ?? 0, maxVisitedStep: maxN ?? 0 },
+      () => setSyncState("saved"),
+    );
+  }, [agentId, saveToCloud]);
 
   const onChange = (patch: Partial<WizardData>) => {
     setData((prev) => {
@@ -197,6 +240,29 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     }
   };
 
+  const handleReset = useCallback(() => {
+    if (!window.confirm(t("wizard.reset_confirm"))) return;
+    if (agentId) {
+      localStorage.removeItem(`wizard_draft_${agentId}`);
+      localStorage.removeItem(`wizard_step_${agentId}`);
+      localStorage.removeItem(`wizard_max_step_${agentId}`);
+      clearCloud();
+    }
+    const fresh: WizardData = {
+      ...DEFAULT_WIZARD_DATA,
+      ...initialData,
+      openai_api_key: localStorage.getItem("userOpenAiKey") || "",
+    };
+    setData(fresh);
+    setStep(0);
+    setMaxVisitedStep(0);
+    setConfirmed(false);
+    setDeployed(false);
+    setBotUsername("");
+    setSyncState("idle");
+    toast.info(t("wizard.reset_draft"));
+  }, [agentId, clearCloud, initialData, t]);
+
   const goToStep = (n: number, dir: "forward" | "back") => {
     setDirection(dir);
     setStepKey(k => k + 1);
@@ -238,6 +304,8 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
     goToStep(next, "forward");
     if (agentId) {
       localStorage.setItem(`wizard_step_${agentId}`, String(next));
+      // Persist step advancement to cloud too
+      setData((d) => { persistData(d, next, Math.max(maxVisitedStep, next)); return d; });
     }
   };
 
@@ -349,6 +417,7 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
       localStorage.removeItem(`wizard_draft_${agentId}`);
       localStorage.removeItem(`wizard_step_${agentId}`);
       localStorage.removeItem(`wizard_max_step_${agentId}`);
+      clearCloud();
       setBotUsername(deployRes?.botInfo?.username || "");
       setDeployed(true);
       toast.success(deployRes?.message || t("wizard.deployed"));
@@ -577,6 +646,25 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
                 <p className="text-[9px] text-muted-foreground/35 mt-1.5 text-right tabular-nums">
                   {step + 1} / {activeSteps.length}
                 </p>
+
+                {/* Cloud sync indicator */}
+                {syncState !== "idle" && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <Cloud className={cn("h-2.5 w-2.5", syncState === "saved" ? "text-emerald-500/70" : "text-muted-foreground/40 animate-pulse")} />
+                    <span className="text-[9px] text-muted-foreground/50">
+                      {syncState === "saved" ? t("wizard.draft_synced") : t("wizard.draft_syncing")}
+                    </span>
+                  </div>
+                )}
+
+                {/* Reset draft button */}
+                <button
+                  onClick={handleReset}
+                  className="mt-2 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] text-muted-foreground/50 hover:text-destructive hover:bg-destructive/8 transition-colors"
+                >
+                  <RotateCcw className="h-2.5 w-2.5 shrink-0" />
+                  {t("wizard.reset_draft")}
+                </button>
               </div>
             </div>
           </aside>
@@ -699,15 +787,35 @@ export function DeployWizard({ open, onOpenChange, agentId, systemPrompt = "", i
               {/* Subtle top glow */}
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
-              <Button
-                variant="ghost"
-                onClick={goBack}
-                disabled={step === 0}
-                className="gap-1.5 text-sm disabled:opacity-25 hover:bg-muted/60 rounded-xl h-10"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                {t("wizard.back")}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={goBack}
+                  disabled={step === 0}
+                  className="gap-1.5 text-sm disabled:opacity-25 hover:bg-muted/60 rounded-xl h-10"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  {t("wizard.back")}
+                </Button>
+
+                {/* Mobile: Reset button (desktop has it in the sidebar) */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReset}
+                  className="sm:hidden gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 h-9 px-2"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {/* Mobile cloud sync indicator */}
+              {syncState !== "idle" && (
+                <div className="sm:hidden flex items-center gap-1 text-[10px] text-muted-foreground/50">
+                  <Cloud className={cn("h-3 w-3", syncState === "saved" ? "text-emerald-500/70" : "animate-pulse")} />
+                  {syncState === "saved" ? t("wizard.draft_synced") : t("wizard.draft_syncing")}
+                </div>
+              )}
 
               {isLastStep ? (
                 <button

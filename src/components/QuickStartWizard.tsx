@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/hooks/useI18n";
+import { useWizardDraft } from "@/hooks/useWizardDraft";
 import { AvatarUpload } from "./wizard/AvatarUpload";
 import { TelegramChatMockup, TelegramStartMockup } from "./wizard/TelegramMockup";
 import { WizardData, DEFAULT_WIZARD_DATA } from "./wizard/types";
@@ -82,15 +83,26 @@ export function QuickStartWizard() {
 
   // Guard: don't persist until we've finished restoring from localStorage
   const [isRestored, setIsRestored] = useState(false);
+  // Cloud sync indicator
+  const [syncState, setSyncState] = useState<"idle" | "saving" | "saved">("idle");
 
-  // ── Reset wizard (clear all localStorage and state) ──────────────────────
+  // useWizardDraft: use agentId when available, else user metadata
+  const { saveToCloud, loadFromCloud, clearCloud } = useWizardDraft<{
+    botDescription: string; botName: string; tone: string; responseStyle: string;
+    generatedBrain: string; brainGenerated: boolean; agentId: string | null;
+    step: QuickStep; maxVisitedStepIdx: number;
+    wizardData: Partial<WizardData>;
+  }>(agentId, "quickwizard_cloud_draft");
+
+  // ── Reset wizard (clear all localStorage, cloud, and state) ──────────────
   const handleResetWizard = useCallback(() => {
     localStorage.removeItem("quickwizard_draft");
     localStorage.removeItem("botName");
     localStorage.removeItem("generatedPrompt");
     localStorage.removeItem("tfmData");
     localStorage.removeItem("currentAgentId");
-    
+    clearCloud(); // clear cloud draft too
+
     setBotDescription("");
     setBotName("");
     setTone("Friendly");
@@ -106,48 +118,75 @@ export function QuickStartWizard() {
     setDeployed(false);
     setBotUsername("");
     setTokenState("idle");
-    
-    toast.success(lang === "ru" ? "Состояние очищено" : "State cleared");
-  }, [lang]);
+    setSyncState("idle");
 
-  // ── Restore state from localStorage on mount ──────────────────────────────
+    toast.success(lang === "ru" ? "Состояние очищено" : "State cleared");
+  }, [lang, clearCloud]);
+
+  // ── Restore state from localStorage (+ cloud fallback) on mount ────────────
   useEffect(() => {
+    const applyDraft = (saved: Record<string, unknown>) => {
+      if (saved.botDescription) setBotDescription(saved.botDescription as string);
+      if (saved.botName)        setBotName(saved.botName as string);
+      if (saved.tone)           setTone(saved.tone as string);
+      if (saved.responseStyle)  setResponseStyle(saved.responseStyle as string);
+      if (saved.generatedBrain) { setGeneratedBrain(saved.generatedBrain as string); setBrainGenerated(true); }
+      if (saved.agentId)        setAgentId(saved.agentId as string);
+      if (saved.wizardData)     setWizardData({ ...DEFAULT_WIZARD_DATA, ...(saved.wizardData as object), bot_avatar_file: null });
+      if (saved.step && STEPS.includes(saved.step as QuickStep)) setStep(saved.step as QuickStep);
+      if (typeof saved.maxVisitedStepIdx === "number") setMaxVisitedStepIdx(saved.maxVisitedStepIdx);
+      else if (saved.step && STEPS.includes(saved.step as QuickStep)) setMaxVisitedStepIdx(STEPS.indexOf(saved.step as QuickStep));
+    };
+
+    let hasLocal = false;
     try {
       const raw = localStorage.getItem("quickwizard_draft");
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      // Only restore if wizard is not already completed
-      if (saved.deployed) {
-        localStorage.removeItem("quickwizard_draft");
-        return;
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved.deployed) {
+          localStorage.removeItem("quickwizard_draft");
+        } else {
+          applyDraft(saved);
+          hasLocal = true;
+        }
       }
-      if (saved.botDescription) setBotDescription(saved.botDescription);
-      if (saved.botName)        setBotName(saved.botName);
-      if (saved.tone)           setTone(saved.tone);
-      if (saved.responseStyle)  setResponseStyle(saved.responseStyle);
-      if (saved.generatedBrain) { setGeneratedBrain(saved.generatedBrain); setBrainGenerated(true); }
-      if (saved.agentId)        setAgentId(saved.agentId);
-      if (saved.wizardData)     setWizardData({ ...DEFAULT_WIZARD_DATA, ...saved.wizardData, bot_avatar_file: null });
-      if (saved.step && STEPS.includes(saved.step)) setStep(saved.step);
-      if (typeof saved.maxVisitedStepIdx === "number") setMaxVisitedStepIdx(saved.maxVisitedStepIdx);
-      else if (saved.step && STEPS.includes(saved.step)) setMaxVisitedStepIdx(STEPS.indexOf(saved.step));
     } catch {}
-    setIsRestored(true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Persist state to localStorage on every relevant change ───────────────
+    if (hasLocal) {
+      setIsRestored(true);
+    } else {
+      // Try cloud restore
+      loadFromCloud().then((cloud) => {
+        if (cloud?.data) {
+          applyDraft(cloud.data as Record<string, unknown>);
+          // Mirror to localStorage
+          try {
+            localStorage.setItem("quickwizard_draft", JSON.stringify(cloud.data));
+          } catch {}
+          toast.info(lang === "ru" ? "Черновик восстановлен с другого устройства" : "Draft restored from another device");
+        }
+        setIsRestored(true);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Persist state to localStorage + cloud on every relevant change ─────────
   // Guard with isRestored so we never overwrite the saved draft with defaults on mount.
   useEffect(() => {
     if (!isRestored) return;
+    const draft = {
+      botDescription, botName, tone, responseStyle,
+      generatedBrain, brainGenerated, agentId, step, maxVisitedStepIdx,
+      wizardData: { ...wizardData, bot_avatar_file: null },
+    };
     try {
-      const draft = {
-        botDescription, botName, tone, responseStyle,
-        generatedBrain, brainGenerated, agentId, step, maxVisitedStepIdx,
-        wizardData: { ...wizardData, bot_avatar_file: null },
-      };
       localStorage.setItem("quickwizard_draft", JSON.stringify(draft));
     } catch {}
-  }, [isRestored, botDescription, botName, tone, responseStyle, generatedBrain, brainGenerated, agentId, step, maxVisitedStepIdx, wizardData]);
+    // Cloud sync (debounced 4 s)
+    setSyncState("saving");
+    saveToCloud(draft, () => setSyncState("saved"));
+  }, [isRestored, botDescription, botName, tone, responseStyle, generatedBrain, brainGenerated, agentId, step, maxVisitedStepIdx, wizardData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Warn before closing/refreshing mid-wizard ────────────────────────────
   useEffect(() => {
@@ -452,6 +491,7 @@ CONSTRAINTS:
       setBotUsername(deployRes?.botInfo?.username || "");
       setDeployed(true);
       localStorage.removeItem("quickwizard_draft");
+      clearCloud();
       toast.success(deployRes?.message || (lang === "ru" ? "Бот развёрнут!" : "Bot deployed!"));
     } catch (err: any) {
       toast.error(err.message || (lang === "ru" ? "Ошибка деплоя" : "Deploy failed"));
@@ -1098,6 +1138,7 @@ CONSTRAINTS:
         {/* ── Footer nav ── */}
         <div className="shrink-0 px-5 py-4 border-t border-border/30 bg-background/50 backdrop-blur-xl">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
+            {/* Cloud sync indicator (shown above the buttons on smaller screens via absolute) */}
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -1118,6 +1159,16 @@ CONSTRAINTS:
                 </Button>
               )}
             </div>
+
+            {/* Cloud sync badge */}
+            {syncState !== "idle" && (
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground/50">
+                <svg className={`h-3 w-3 ${syncState === "saved" ? "text-emerald-500/70" : "animate-pulse text-muted-foreground/40"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                {syncState === "saved"
+                  ? (lang === "ru" ? "Сохранено в облаке" : "Saved to cloud")
+                  : (lang === "ru" ? "Синхронизация..." : "Syncing...")}
+              </div>
+            )}
 
             {step === "describe" ? (
               <button
