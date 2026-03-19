@@ -29,6 +29,14 @@
  *   - Streaming (OpenAI/Gemini BYOK): editMessageText every 800 ms shows live output
  *   - Non-streaming (Anthropic, Lovable): keepTyping() resends action every 4 s while
  *     LLM is thinking, ensuring the indicator never expires mid-generation
+ * TW7 fix: Robust history + stable BYOK streaming:
+ *   - normalizeHistory() merges consecutive same-role turns so OpenAI never sees
+ *     [user, user] sequences (caused by failed assistant-reply DB inserts → 400 errors)
+ *   - OpenAI streaming: catch read-loop errors and return accumulated partial text
+ *     instead of null (preserves output on mid-stream network drops)
+ *   - OpenAI streaming 401: return error message directly, skip redundant non-streaming
+ *     retry with the same invalid key
+ *   - Gemini streaming: same read-loop catch + 400/403 key-error fast-path
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -617,6 +625,30 @@ function timeoutSignal(ms: number): AbortSignal {
   return AbortSignal.timeout(ms);
 }
 
+/**
+ * Normalize message history to ensure proper user/assistant alternation.
+ *
+ * If a previous AI call failed without saving the assistant reply, history can
+ * contain consecutive same-role messages (e.g. [user, user]).  OpenAI rejects
+ * such payloads with a 400 error.  We merge consecutive same-role messages by
+ * concatenating their content, which is semantically lossless and always
+ * produces a valid alternating sequence.
+ */
+function normalizeHistory(
+  history: { role: string; content: string }[],
+): { role: string; content: string }[] {
+  const result: { role: string; content: string }[] = [];
+  for (const msg of history) {
+    const last = result[result.length - 1];
+    if (last && last.role === msg.role) {
+      last.content = last.content + "\n\n" + msg.content;
+    } else {
+      result.push({ role: msg.role, content: msg.content });
+    }
+  }
+  return result;
+}
+
 type Provider = "openai" | "anthropic" | "gemini";
 
 function detectProvider(apiKey: string): Provider | null {
@@ -913,7 +945,11 @@ async function callOpenAiStreaming(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error("OpenAI streaming error:", res.status, body);
+    console.error("OpenAI streaming error:", res.status, body.slice(0, 200));
+    // Surface invalid-key error immediately — do NOT fall back to Lovable with a bad key
+    if (res.status === 401) {
+      return "⚠️ OpenAI API key is invalid or expired. Please update your key in bot settings.";
+    }
     return null;
   }
 
@@ -950,6 +986,10 @@ async function callOpenAiStreaming(
         lastEditAt = now;
       }
     }
+  } catch (err) {
+    // Network drop / AbortError mid-stream — return whatever was accumulated
+    console.error("OpenAI streaming read error:", (err as Error).message);
+    return accumulated || null;
   } finally {
     reader.releaseLock();
   }
@@ -995,7 +1035,11 @@ async function callGeminiStreaming(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error("Gemini streaming error:", res.status, body);
+    console.error("Gemini streaming error:", res.status, body.slice(0, 200));
+    // Surface invalid-key error immediately — do NOT fall back to Lovable with a bad key
+    if (res.status === 400 || res.status === 403) {
+      return "⚠️ Gemini API key is invalid or not authorized. Please update your key in bot settings.";
+    }
     return null;
   }
 
@@ -1031,6 +1075,10 @@ async function callGeminiStreaming(
         lastEditAt = now;
       }
     }
+  } catch (err) {
+    // Network drop / AbortError mid-stream — return whatever was accumulated
+    console.error("Gemini streaming read error:", (err as Error).message);
+    return accumulated || null;
   } finally {
     reader.releaseLock();
   }
@@ -1124,6 +1172,11 @@ async function processMessage(
     history.push({ role: "user", content: userText });
   }
 
+  // TW7: Normalize history to ensure proper user/assistant alternation.
+  // A failed assistant reply insertion leaves consecutive user messages that
+  // OpenAI rejects with a 400 "invalid_request_error".  Merge them before use.
+  const normalizedHistory = normalizeHistory(history);
+
   // Build messages array for the LLM
   // Prefer bot-level system_prompt; fall back to agent-level if bot has none
   const systemPrompt: string =
@@ -1162,7 +1215,7 @@ async function processMessage(
 
   const messages: { role: string; content: string }[] = [
     { role: "system", content: finalSystemPrompt },
-    ...history,
+    ...normalizedHistory,
   ];
 
   // Generate AI reply (BYOK → Lovable fallback)
