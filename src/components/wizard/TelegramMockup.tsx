@@ -24,12 +24,17 @@ export function TelegramProfileMockup({ data }: MockupProps) {
           <span className="text-sm font-medium flex-1">{t("wizard.info")}</span>
           <MoreVertical className="h-5 w-5" />
         </div>
-        <div className="h-20 w-20 rounded-full mx-auto border-2 border-[hsl(0,0%,100%)]/30 overflow-hidden bg-[hsl(200,80%,55%)] flex items-center justify-center text-2xl font-bold">
-          {data.bot_avatar_url ? (
-            <img src={data.bot_avatar_url} className="h-full w-full object-cover" alt="" />
-          ) : (
-            getInitials(name)
-          )}
+        <div className="relative inline-flex mx-auto">
+          <span className="avatar-pulse-ring" style={{ animationDelay: "0s" }} />
+          <span className="avatar-pulse-ring" style={{ animationDelay: "0.7s" }} />
+          <span className="avatar-pulse-ring" style={{ animationDelay: "1.4s" }} />
+          <div className="h-20 w-20 rounded-full border-2 border-[hsl(0,0%,100%)]/30 overflow-hidden bg-[hsl(200,80%,55%)] flex items-center justify-center text-2xl font-bold relative z-10">
+            {data.bot_avatar_url ? (
+              <img src={data.bot_avatar_url} className="h-full w-full object-cover" alt="" />
+            ) : (
+              getInitials(name)
+            )}
+          </div>
         </div>
         <p className="font-semibold mt-2 text-base">{name}</p>
         <p className="text-xs opacity-80">bot</p>
@@ -67,12 +72,17 @@ export function TelegramChatMockup({ data }: MockupProps) {
     <div className="rounded-xl overflow-hidden border border-border shadow-lg max-w-[320px] mx-auto bg-background flex flex-col" style={{ height: 420 }}>
       <div className="bg-[hsl(200,80%,45%)] text-[hsl(0,0%,100%)] px-3 py-2.5 flex items-center gap-3">
         <ArrowLeft className="h-5 w-5 shrink-0" />
-        <div className="h-9 w-9 rounded-full overflow-hidden bg-[hsl(200,80%,55%)] flex items-center justify-center text-sm font-bold shrink-0">
-          {data.bot_avatar_url ? (
-            <img src={data.bot_avatar_url} className="h-full w-full object-cover" alt="" />
-          ) : (
-            getInitials(name)
-          )}
+        <div className="relative inline-flex shrink-0">
+          <span className="avatar-pulse-ring" style={{ animationDelay: "0s" }} />
+          <span className="avatar-pulse-ring" style={{ animationDelay: "0.7s" }} />
+          <span className="avatar-pulse-ring" style={{ animationDelay: "1.4s" }} />
+          <div className="h-9 w-9 rounded-full overflow-hidden bg-[hsl(200,80%,55%)] flex items-center justify-center text-sm font-bold relative z-10">
+            {data.bot_avatar_url ? (
+              <img src={data.bot_avatar_url} className="h-full w-full object-cover" alt="" />
+            ) : (
+              getInitials(name)
+            )}
+          </div>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold truncate">{name}</p>
@@ -126,12 +136,17 @@ export function TelegramStartMockup({ data }: MockupProps) {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center" style={{ background: "hsl(var(--muted))" }}>
-        <div className="h-20 w-20 rounded-full overflow-hidden bg-[hsl(200,80%,55%)] flex items-center justify-center text-2xl font-bold text-[hsl(0,0%,100%)] mb-3">
-          {data.bot_avatar_url ? (
-            <img src={data.bot_avatar_url} className="h-full w-full object-cover" alt="" />
-          ) : (
-            getInitials(name)
-          )}
+        <div className="relative inline-flex mb-3">
+          <span className="avatar-pulse-ring" style={{ animationDelay: "0s" }} />
+          <span className="avatar-pulse-ring" style={{ animationDelay: "0.7s" }} />
+          <span className="avatar-pulse-ring" style={{ animationDelay: "1.4s" }} />
+          <div className="h-20 w-20 rounded-full overflow-hidden bg-[hsl(200,80%,55%)] flex items-center justify-center text-2xl font-bold text-[hsl(0,0%,100%)] relative z-10">
+            {data.bot_avatar_url ? (
+              <img src={data.bot_avatar_url} className="h-full w-full object-cover" alt="" />
+            ) : (
+              getInitials(name)
+            )}
+          </div>
         </div>
         <p className="font-semibold text-foreground text-base">{name}</p>
         {desc && <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">{desc}</p>}

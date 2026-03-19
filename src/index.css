@@ -117,6 +117,26 @@
   .duration-250 {
     transition-duration: 250ms;
   }
+  /* Telegram-style avatar pulse ring */
+  .avatar-pulse-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: hsl(200, 80%, 60%);
+    animation: avatar-pulse 2.1s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes avatar-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
 }
 
 /* Gnome assembly animations */
