@@ -261,6 +261,7 @@ const MyAgents = () => {
                     <Pencil className="mr-2 h-4 w-4" />{t("agents.edit")}
                   </DropdownMenuItem>
                   <DropdownMenuItem><Zap className="mr-2 h-4 w-4" />{t("agents.test")}</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate(`/agent/${agent.id}/logs`)}><MessageSquare className="mr-2 h-4 w-4" />{t("agents.view_logs")}</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => toggleAgent(agent.id, agent.is_active)}>
                     <Power className="mr-2 h-4 w-4" />{agent.is_active ? t("agents.pause") : t("agents.activate")}
                   </DropdownMenuItem>

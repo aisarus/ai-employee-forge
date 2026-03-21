@@ -86,6 +86,7 @@ const translations = {
   "agents.create": { en: "Create Agent", ru: "Создать агента" },
   "agents.edit": { en: "Edit", ru: "Редактировать" },
   "agents.test": { en: "Test", ru: "Тестировать" },
+  "agents.view_logs": { en: "View Logs", ru: "Просмотреть логи" },
   "agents.pause": { en: "Pause", ru: "Приостановить" },
   "agents.activate": { en: "Activate", ru: "Активировать" },
   "agents.delete": { en: "Delete", ru: "Удалить" },
@@ -569,6 +570,19 @@ const translations = {
   "style.Bullet points": { en: "Bullet points", ru: "Тезисно" },
   "style.Conversational": { en: "Conversational", ru: "Разговорный" },
 
+<<<<<<< HEAD
+=======
+  // Agent statuses
+
+  "status.paused": { en: "Paused", ru: "Пауза" },
+  "status.draft": { en: "Draft", ru: "Черновик" },
+
+  // Agent errors
+  "agents.load_failed": { en: "Failed to load agents", ru: "Не удалось загрузить агентов" },
+  "agents.update_failed": { en: "Failed to update agent", ru: "Не удалось обновить агента" },
+  "agents.delete_failed": { en: "Failed to delete agent", ru: "Не удалось удалить агента" },
+  "agents.platform_none": { en: "none", ru: "нет" },
+>>>>>>> 04e1356 (TASK-12: Add View Logs link to My Agents page)
 
   // Avatar Upload
   "avatar.change": { en: "Change avatar", ru: "Сменить аватар" },

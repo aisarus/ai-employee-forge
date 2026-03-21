@@ -28,11 +28,18 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const TELEGRAM_CALL_TIMEOUT_MS = 10_000;
 
+function jsonResponse(body: Record<string, unknown>, status = 200, headers: Record<string, string> = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...headers, "Content-Type": "application/json" },
+  });
+}
+
 async function callTelegram(
   token: string,
   method: string,
-  body: Record<string, unknown>,
-): Promise<{ ok: boolean; data: unknown }> {
+  body: Record<string, unknown> = {},
+): Promise<{ ok: boolean; data: any }> {
   let res: Response;
   try {
     res = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
@@ -49,8 +56,9 @@ async function callTelegram(
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     console.error(`Telegram ${method} failed:`, JSON.stringify(data));
+    return { ok: false, data };
   }
-  return { ok: res.ok, data };
+  return { ok: data.ok, data };
 }
 
 function generateWebhookSecret(): string {
@@ -103,10 +111,7 @@ Deno.serve(async (req) => {
     const jwt = authHeader.replace(/^Bearer\s+/i, "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Unauthorized" }, 401, corsHeaders);
     }
 
     const {
@@ -124,16 +129,10 @@ Deno.serve(async (req) => {
 
     // ── Validate inputs ────────────────────────────────────────────────────
     if (!agentId) {
-      return new Response(JSON.stringify({ error: "agentId is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "agentId is required" }, 400, corsHeaders);
     }
     if (!telegramToken) {
-      return new Response(JSON.stringify({ error: "telegramToken is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "telegramToken is required" }, 400, corsHeaders);
     }
 
     // ── Verify agent belongs to this user ──────────────────────────────────
@@ -145,10 +144,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (agentError || !agent) {
-      return new Response(JSON.stringify({ error: "Agent not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Agent not found" }, 404, corsHeaders);
     }
 
     // ── 1. Validate token via getMe ────────────────────────────────────────
@@ -161,10 +157,7 @@ Deno.serve(async (req) => {
         : tgCode === 409 ? "deploy_error.tg_conflict"
         : tgCode === 429 ? "deploy_error.tg_rate_limit"
         : "deploy_error.tg_unknown";
-      return new Response(JSON.stringify({ error: errKey, details: errData?.description }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: errKey, details: errData?.description }, 400, corsHeaders);
     }
     const botInfo = (meResult.data as { result: unknown }).result;
 
@@ -246,9 +239,9 @@ Deno.serve(async (req) => {
 
     if (botUpsertError || !botRow) {
       console.error("Bot upsert error:", botUpsertError?.message);
-      return new Response(
-        JSON.stringify({ error: "Failed to create bot record: " + (botUpsertError?.message ?? "unknown") }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      return jsonResponse(
+        { error: "Failed to create bot record: " + (botUpsertError?.message ?? "unknown") },
+        500, corsHeaders,
       );
     }
 
@@ -304,12 +297,12 @@ Deno.serve(async (req) => {
       if (!webhookResult.ok) {
         console.error("setWebhook failed permanently:", JSON.stringify(webhookResult.data));
         await rollbackBotActive();
-        return new Response(
-          JSON.stringify({
+        return jsonResponse(
+          {
             error: "deploy_error.webhook_failed",
             details: (webhookResult.data as { description?: string })?.description ?? "Telegram setWebhook rejected",
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          },
+          400, corsHeaders,
         );
       }
     }
@@ -326,12 +319,12 @@ Deno.serve(async (req) => {
         "got:", (webhookInfo as { url?: string }).url,
       );
       await rollbackBotActive();
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           error: "deploy_error.webhook_failed",
           details: `Webhook URL mismatch: Telegram reports "${(webhookInfo as { url?: string }).url}" but expected "${webhookUrl}"`,
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        },
+        500, corsHeaders,
       );
     }
 
@@ -349,6 +342,7 @@ Deno.serve(async (req) => {
       telegram_short_description: shortDescription || null,
       telegram_about_text:        aboutText || null,
       telegram_commands:          Array.isArray(commands) ? commands : [],
+      telegram_update_offset:     0, // Added based on remote's coreUpdate
     };
     if (encryptedOpenaiKey) {
       agentUpdateData.openai_api_key = encryptedOpenaiKey;
@@ -360,28 +354,26 @@ Deno.serve(async (req) => {
       .eq("id", agentId);
 
     if (updateError) {
-      return new Response(
-        JSON.stringify({ error: "Failed to update agent: " + updateError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      return jsonResponse(
+        { error: "Failed to update agent: " + updateError.message },
+        500, corsHeaders,
       );
     }
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success:     true,
         botInfo,
         botId,
         webhookUrl,
         webhookInfo,
         message:     `Bot @${(botInfo as { username?: string }).username} is now live! Webhook set to ${webhookUrl}`,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      },
+      200, corsHeaders,
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
-    });
+    console.error("deploy-telegram error:", msg);
+    return jsonResponse({ error: msg }, 500, corsHeaders);
   }
 });

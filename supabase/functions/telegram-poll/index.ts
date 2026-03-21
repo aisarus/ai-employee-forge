@@ -61,7 +61,7 @@ Deno.serve(async () => {
 
   const { data: agents, error: agentsError } = await supabase
     .from("agents")
-    .select("*")
+    .select("id, system_prompt, telegram_token, openai_api_key, telegram_update_offset, welcome_message, starter_buttons")
     .eq("platform", "telegram")
     .eq("is_active", true);
 
@@ -138,6 +138,33 @@ Deno.serve(async () => {
           );
 
           if (!userText) continue;
+
+          if (userText === "/start") {
+            let startReply = agent.welcome_message || "Welcome! How can I assist you?";
+            const replyMarkup: any = {};
+
+            if (agent.starter_buttons && Array.isArray(agent.starter_buttons) && agent.starter_buttons.length > 0) {
+              replyMarkup.inline_keyboard = agent.starter_buttons.map((button: any) => [{
+                text: button.text,
+                callback_data: button.data || button.text,
+              }]);
+            }
+
+            await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: startReply,
+                parse_mode: "HTML",
+                reply_markup: Object.keys(replyMarkup).length > 0 ? replyMarkup : undefined,
+              }),
+            }).catch(() => null);
+
+            // Skip further processing for /start command
+            totalProcessed++;
+            continue;
+          }
 
           // Build conversation history from stored messages (both user and bot)
           const { data: history } = await supabase
