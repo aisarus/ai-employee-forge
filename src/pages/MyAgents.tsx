@@ -149,7 +149,7 @@ const MyAgents = () => {
     );
   }
 
-  const masterUnlocked = localStorage.getItem("master_pass") === "Oggnomix228!";
+  const masterUnlocked = localStorage.getItem("master_pass") === "oggnom228";
   const atLimit = agents.length >= FREE_BOT_LIMIT && !masterUnlocked;
 
   return (

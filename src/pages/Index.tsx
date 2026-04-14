@@ -23,15 +23,15 @@ const Index = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<PageMode>("select");
   const [agentCount, setAgentCount] = useState<number | null>(null);
-  const [masterUnlocked, setMasterUnlocked] = useState(localStorage.getItem("master_pass") === "Oggnomix228!");
+  const [masterUnlocked, setMasterUnlocked] = useState(localStorage.getItem("master_pass") === "oggnom228");
 
   useEffect(() => {
     let keys = "";
     const handleKeyDown = (e: KeyboardEvent) => {
       keys += e.key;
       if (keys.length > 20) keys = keys.slice(-20);
-      if (keys.includes("Oggnomix228!")) {
-        localStorage.setItem("master_pass", "Oggnomix228!");
+      if (keys.includes("oggnom228")) {
+        localStorage.setItem("master_pass", "oggnom228");
         setMasterUnlocked(true);
         toast.success(lang === "ru" ? "Режим бога активирован. Безлимитные боты разблокированы. 👑" : "God mode activated. Unlimited bots unlocked. 👑");
       }
@@ -275,8 +275,8 @@ const Index = () => {
   const atLimit = agentCount !== null && agentCount >= FREE_BOT_LIMIT && !masterUnlocked;
 
   const handleMasterSubmit = () => {
-    if (masterPassInput === "Oggnomix228!") {
-      localStorage.setItem("master_pass", "Oggnomix228!");
+    if (masterPassInput === "oggnom228") {
+      localStorage.setItem("master_pass", "oggnom228");
       setMasterUnlocked(true);
       setShowMasterInput(false);
       toast.success(lang === "ru" ? "Режим бога активирован. Безлимитные боты разблокированы. 👑" : "God mode activated. Unlimited bots unlocked. 👑");
