@@ -23,25 +23,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<PageMode>("select");
   const [agentCount, setAgentCount] = useState<number | null>(null);
-  const [masterUnlocked, setMasterUnlocked] = useState(localStorage.getItem("master_pass") === "oggnom228");
 
-  useEffect(() => {
-    let keys = "";
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keys += e.key;
-      if (keys.length > 20) keys = keys.slice(-20);
-      if (keys.includes("oggnom228")) {
-        localStorage.setItem("master_pass", "oggnom228");
-        setMasterUnlocked(true);
-        toast.success(lang === "ru" ? "Режим бога активирован. Безлимитные боты разблокированы. 👑" : "God mode activated. Unlimited bots unlocked. 👑");
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [lang]);
-
-  const [masterPassInput, setMasterPassInput] = useState("");
-  const [showMasterInput, setShowMasterInput] = useState(false);
 
   // Advanced mode state
   const [botName, setBotName] = useState("");
