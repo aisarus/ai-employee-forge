@@ -153,7 +153,7 @@ export function StepApiKeys({ data, onChange }: Props) {
         {isInvalidKey && keyError && (
           <p className="text-xs text-destructive flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5" />
-            {t(keyError)}
+            {t(keyError as Parameters<typeof t>[0])}
           </p>
         )}
       </div>
