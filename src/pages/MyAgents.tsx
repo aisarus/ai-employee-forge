@@ -149,8 +149,8 @@ const MyAgents = () => {
     );
   }
 
-  const masterUnlocked = localStorage.getItem("master_pass") === "oggnom228";
-  const atLimit = agents.length >= FREE_BOT_LIMIT && !masterUnlocked;
+  const atLimit = agents.length >= FREE_BOT_LIMIT;
+
 
   return (
     <div className="flex-1 p-6 space-y-6">
