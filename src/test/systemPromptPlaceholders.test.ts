@@ -17,7 +17,7 @@ import {
   buildFullSystemPrompt,
   buildActionsPromptBlock,
 } from "../components/wizard/promptBuilder";
-import type { WizardData } from "../components/wizard/types";
+import type { WizardData, DataField, ConnectorConfig } from "../components/wizard/types";
 import { DEFAULT_WIZARD_DATA } from "../components/wizard/types";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -634,7 +634,7 @@ describe("buildFullSystemPrompt — Section 5: Anti-patterns", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("buildFullSystemPrompt — Section 7: data collection type hints", () => {
-  function withField(type: string, opts?: string[]): WizardData {
+  function withField(type: DataField["type"] | "email", opts?: string[]): WizardData {
     return makeData({
       data_fields: [
         {
@@ -642,7 +642,7 @@ describe("buildFullSystemPrompt — Section 7: data collection type hints", () =
           field_name: "field",
           label: "Test Field",
           required: true,
-          type,
+          type: type as DataField["type"],
           ask_order: 1,
           options: opts,
         },
@@ -702,7 +702,7 @@ describe("buildFullSystemPrompt — Section 7: data collection type hints", () =
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("buildFullSystemPrompt — Section 9: connector error policy & safety rules", () => {
-  function withConnector(caps: string[]): WizardData {
+  function withConnector(caps: ConnectorConfig["capabilities"]): WizardData {
     return makeData({
       connectors: [
         {
@@ -880,7 +880,7 @@ describe("buildActionsPromptBlock — placeholder & marker integrity", () => {
     const result = buildActionsPromptBlock(
       makeData({
         data_fields: [
-          { id: "f1", field_name: "email", label: "Email", required: true, type: "email", ask_order: 1 },
+          { id: "f1", field_name: "email", label: "Email", required: true, type: "text", ask_order: 1 },
         ],
       })
     );

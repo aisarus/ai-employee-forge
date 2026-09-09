@@ -23,25 +23,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<PageMode>("select");
   const [agentCount, setAgentCount] = useState<number | null>(null);
-  const [masterUnlocked, setMasterUnlocked] = useState(localStorage.getItem("master_pass") === "oggnom228");
 
-  useEffect(() => {
-    let keys = "";
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keys += e.key;
-      if (keys.length > 20) keys = keys.slice(-20);
-      if (keys.includes("oggnom228")) {
-        localStorage.setItem("master_pass", "oggnom228");
-        setMasterUnlocked(true);
-        toast.success(lang === "ru" ? "Режим бога активирован. Безлимитные боты разблокированы. 👑" : "God mode activated. Unlimited bots unlocked. 👑");
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [lang]);
-
-  const [masterPassInput, setMasterPassInput] = useState("");
-  const [showMasterInput, setShowMasterInput] = useState(false);
 
   // Advanced mode state
   const [botName, setBotName] = useState("");
@@ -66,9 +48,10 @@ const Index = () => {
 
   const handleAdvancedGenerate = useCallback(() => {
     if (!prompt.trim()) return;
-    if (agentCount !== null && agentCount >= FREE_BOT_LIMIT && !masterUnlocked) return;
+    if (agentCount !== null && agentCount >= FREE_BOT_LIMIT) return;
     setMode("advanced_loading");
-  }, [prompt, agentCount, masterUnlocked]);
+  }, [prompt, agentCount]);
+
 
   useEffect(() => {
     if (mode !== "advanced_loading") return;
@@ -272,60 +255,11 @@ const Index = () => {
   }
 
   // ── Mode: Select (default) ─────────────────────────
-  const atLimit = agentCount !== null && agentCount >= FREE_BOT_LIMIT && !masterUnlocked;
-
-  const handleMasterSubmit = () => {
-    if (masterPassInput === "oggnom228") {
-      localStorage.setItem("master_pass", "oggnom228");
-      setMasterUnlocked(true);
-      setShowMasterInput(false);
-      toast.success(lang === "ru" ? "Режим бога активирован. Безлимитные боты разблокированы. 👑" : "God mode activated. Unlimited bots unlocked. 👑");
-    } else {
-      toast.error(lang === "ru" ? "Неверный пароль" : "Invalid password");
-    }
-    setMasterPassInput("");
-  };
+  const atLimit = agentCount !== null && agentCount >= FREE_BOT_LIMIT;
 
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center p-4 sm:p-6 animate-fade-in dot-grid">
-      {/* Master Password Toggle */}
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-        {showMasterInput ? (
-          <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-1 animate-in fade-in slide-in-from-right-2">
-            <Input 
-              type="password" 
-              placeholder="Master password..." 
-              value={masterPassInput}
-              onChange={(e) => setMasterPassInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleMasterSubmit()}
-              className="h-8 w-40 text-xs"
-              autoFocus
-            />
-            <button 
-              onClick={handleMasterSubmit}
-              className="h-8 px-3 bg-primary text-primary-foreground text-xs font-semibold rounded-md hover:bg-primary/90"
-            >
-              Unlock
-            </button>
-            <button 
-              onClick={() => setShowMasterInput(false)}
-              className="h-8 px-2 text-muted-foreground hover:text-foreground text-xs"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          !masterUnlocked && (
-            <button 
-              onClick={() => setShowMasterInput(true)}
-              className="p-2 text-muted-foreground/30 hover:text-muted-foreground transition-colors"
-              title="Unlock limits"
-            >
-              <Key className="h-4 w-4" />
-            </button>
-          )
-        )}
-      </div>
+
 
       <div className="w-full max-w-2xl space-y-10">
         <div className="text-center space-y-4">
