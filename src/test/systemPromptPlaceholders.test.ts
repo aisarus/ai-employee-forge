@@ -17,7 +17,7 @@ import {
   buildFullSystemPrompt,
   buildActionsPromptBlock,
 } from "../components/wizard/promptBuilder";
-import type { WizardData } from "../components/wizard/types";
+import type { WizardData, DataField, Connector } from "../components/wizard/types";
 import { DEFAULT_WIZARD_DATA } from "../components/wizard/types";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
