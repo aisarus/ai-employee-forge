@@ -48,9 +48,10 @@ const Index = () => {
 
   const handleAdvancedGenerate = useCallback(() => {
     if (!prompt.trim()) return;
-    if (agentCount !== null && agentCount >= FREE_BOT_LIMIT && !masterUnlocked) return;
+    if (agentCount !== null && agentCount >= FREE_BOT_LIMIT) return;
     setMode("advanced_loading");
-  }, [prompt, agentCount, masterUnlocked]);
+  }, [prompt, agentCount]);
+
 
   useEffect(() => {
     if (mode !== "advanced_loading") return;
